@@ -1,0 +1,9 @@
+error[E0624]: method `foo` is private
+  --> tests/uncompilable/private.rs:19:21
+   |
+7  | /         #[fieldx(private, lazy, accessor)]
+8  | |         foo: u8,
+   | |_______________- private method defined here
+...
+19 |       let foo = inner.foo();
+   |                       ^^^ private method
