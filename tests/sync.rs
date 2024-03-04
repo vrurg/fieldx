@@ -1,11 +1,11 @@
 use core::time;
 use crossbeam::{sync, thread};
 use num_cpus;
+use parking_lot::Mutex;
 use std::sync::{
     atomic::{AtomicBool, AtomicI32, Ordering},
     Arc,
 };
-use parking_lot::Mutex;
 mod syncish;
 
 #[test]
@@ -22,11 +22,12 @@ fn non_threaded() {
     assert!(sync.has_bar(), "bar has been built");
     assert_eq!(sync.clear_bar(), Some(42), "cleared bar");
     assert!(!sync.has_bar(), "bar has been cleared");
-    assert_eq!(*sync.read_foo(), Some("Foo with bar=Some(42)".to_string()), "foo is unchanged after clearng bar");
-    assert!(
-        !sync.has_bar(),
-        "reading uncleared foo does not trigger bar building"
+    assert_eq!(
+        *sync.read_foo(),
+        Some("Foo with bar=Some(42)".to_string()),
+        "foo is unchanged after clearng bar"
     );
+    assert!(!sync.has_bar(), "reading uncleared foo does not trigger bar building");
     assert_eq!(sync.set_bar(12), None, "set bar");
     assert!(sync.has_bar(), "bar now has a value");
     assert_eq!(
@@ -53,13 +54,19 @@ fn non_threaded() {
         "manually set bar using write lock"
     );
 
+    assert_eq!(*sync.read_fubar(), Some(String::from("аби було")), "built fubar");
+    assert_eq!(sync.clear_fubar(), Some(String::from("аби було")), "cleared fubar");
 }
 
 #[test]
 fn non_lazy() {
     let sync = syncish::Foo::new();
 
-    assert_eq!(*sync.read_baz(), Some(String::from("bazzification")), "initially set to a default");
+    assert_eq!(
+        *sync.read_baz(),
+        Some(String::from("bazzification")),
+        "initially set to a default"
+    );
     assert_eq!(sync.clear_baz(), Some(String::from("bazzification")), "cleared");
     assert!(!sync.has_baz(), "empty after clear");
     {
@@ -67,7 +74,11 @@ fn non_lazy() {
         *wrg = Some("bazzish".to_string());
     }
     assert_eq!(*sync.read_baz(), Some(String::from("bazzish")), "set to a new value");
-    assert_eq!(sync.set_baz("bazzuka".to_string()), Some("bazzish".to_string()), "setter returns old value");
+    assert_eq!(
+        sync.set_baz("bazzuka".to_string()),
+        Some("bazzish".to_string()),
+        "setter returns old value"
+    );
     assert_eq!(*sync.read_baz(), Some(String::from("bazzuka")), "set with a setter");
 }
 
@@ -104,7 +115,7 @@ fn threaded() {
                         let lock_foo = scopy.write_foo();
                         let mut wnext = tnext_bar.lock();
                         *wnext += 1;
-                        scopy.set_next_bar( *wnext );
+                        scopy.set_next_bar(*wnext);
                         scopy.clear_bar();
                         assert!(!scopy.has_bar(), "bar is cleared and stays so until foo is unlocked");
                         tcleared.fetch_add(1, Ordering::SeqCst);
@@ -124,7 +135,10 @@ fn threaded() {
             thandle.join().expect("thread join failed");
         }
         // There is a chance for two or more consecutive clears to take place before a build is invoked.
-        assert!(cleared.load(Ordering::SeqCst) >= sync.bar_builds(), "there were no more builds than clears");
+        assert!(
+            cleared.load(Ordering::SeqCst) >= sync.bar_builds(),
+            "there were no more builds than clears"
+        );
     })
     .unwrap();
 }

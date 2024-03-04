@@ -13,6 +13,9 @@ struct NonSync {
     // Let's try a charged but not lazy field
     #[fieldx(clearer, predicate, setter, default = "bazzification")]
     baz: String,
+
+    #[fieldx(lazy, clearer)]
+    fubar: String,
 }
 
 impl NonSync {
@@ -22,6 +25,10 @@ impl NonSync {
 
     fn build_bar(&self) -> i32 {
         42
+    }
+
+    fn build_fubar(&self) -> String {
+        "щось пікантне".to_string()
     }
 }
 
@@ -58,6 +65,12 @@ fn basic_lazies() {
         non_sync.foo(),
         "this is foo with bar=12",
         "manually set bar is used to rebuild foo"
+    );
+    assert_eq!(non_sync.fubar(), "щось пікантне", "fubar is built lazily");
+    assert_eq!(
+        non_sync.clear_fubar(),
+        Some(String::from("щось пікантне")),
+        "cleared fubar"
     );
 }
 

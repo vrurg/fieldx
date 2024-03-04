@@ -15,6 +15,9 @@ pub struct Foo {
     #[fieldx(clearer, predicate, setter, default = "bazzification")]
     baz: String,
 
+    #[fieldx(lazy, clearer)]
+    fubar: String,
+
     bar_builds: Mutex<i32>,
     next_bar:   Mutex<Option<i32>>,
 }
@@ -32,6 +35,10 @@ impl Foo {
         else {
             42
         }
+    }
+
+    fn build_fubar(&self) -> String {
+        "аби було".to_string()
     }
 
     pub fn set_next_bar(&self, next_val: i32) {
