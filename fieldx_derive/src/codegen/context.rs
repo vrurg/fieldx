@@ -1,0 +1,187 @@
+use crate::{fields::FXField, helper::FXHelper, input_receiver::FXInputReceiver, util::args};
+use delegate::delegate;
+use proc_macro2::{Span, TokenStream};
+use quote::{quote, format_ident, ToTokens};
+use std::cell::{OnceCell, RefCell};
+use syn;
+
+use super::FXHelperKind;
+
+pub struct FXCodeGenCtx {
+    errors: RefCell<OnceCell<darling::error::Accumulator>>,
+
+    pub input: FXInputReceiver,
+
+    // Options
+    pub is_sync:   bool,
+    pub needs_new: bool,
+    tokens:        RefCell<OnceCell<TokenStream>>,
+}
+
+pub struct FXFieldCtx<'f> {
+    field:      &'f FXField,
+    pub_tok:    OnceCell<TokenStream>,
+    ty_tok:     OnceCell<TokenStream>,
+    ty_wrapped: OnceCell<TokenStream>,
+    ident:      OnceCell<Option<&'f syn::Ident>>,
+    ident_tok:  OnceCell<TokenStream>,
+}
+
+impl FXCodeGenCtx {
+    pub fn new(input: FXInputReceiver, args: &args::FXSArgs) -> Self {
+        Self {
+            input,
+            is_sync: args.is_sync(),
+            needs_new: args.needs_new(),
+            errors: RefCell::new(OnceCell::new()),
+            tokens: RefCell::new(OnceCell::new()),
+        }
+    }
+
+    pub fn push_error(&self, err: darling::Error) {
+        let mut errors = self.errors.borrow_mut();
+        errors.get_or_init(|| darling::Error::accumulator());
+        errors.get_mut().unwrap().push(err);
+    }
+
+    pub fn input_ident(&self) -> &syn::Ident {
+        &self.input.ident
+    }
+
+    pub fn tokens_extend(&self, toks: TokenStream) {
+        let mut tokens = self.tokens.borrow_mut();
+        tokens.get_or_init(|| TokenStream::new());
+        tokens.get_mut().unwrap().extend(toks);
+    }
+
+    pub fn finalize(&self) -> TokenStream {
+        let mut errors = self.errors.borrow_mut();
+        match errors.take() {
+            Some(errs) => match errs.finish() {
+                Ok(_) => (),
+                Err(err) => {
+                    self.tokens_extend(TokenStream::from(darling::Error::from(err).write_errors()));
+                }
+            },
+            None => (),
+        };
+
+        self.tokens.borrow_mut().take().unwrap_or_else(|| TokenStream::new())
+    }
+}
+
+impl<'f> FXFieldCtx<'f> {
+    delegate! {
+        to self.field {
+            pub fn needs_accessor(&self, is_sync: bool) -> bool;
+            pub fn needs_reader(&self) -> bool;
+            pub fn needs_writer(&self) -> bool;
+            pub fn needs_setter(&self) -> bool;
+            pub fn needs_clearer(&self) -> bool;
+            pub fn needs_predicate(&self) -> bool;
+            pub fn is_lazy(&self) -> bool;
+            pub fn is_optional(&self) -> bool;
+            #[allow(dead_code)]
+            pub fn is_pub(&self) -> bool;
+            pub fn span(&self) -> &Span;
+            pub fn vis(&self) -> &syn::Visibility;
+            pub fn ty(&self) -> &syn::Type;
+            pub fn attrs(&self) -> &Vec<syn::Attribute>;
+            pub fn lazy(&self) -> &Option<FXHelper>;
+            pub fn accessor(&self) -> &Option<FXHelper>;
+            pub fn reader(&self) -> &Option<FXHelper>;
+            pub fn writer(&self) -> &Option<FXHelper>;
+            pub fn setter(&self) -> &Option<FXHelper>;
+            pub fn clearer(&self) -> &Option<FXHelper>;
+            pub fn predicate(&self) -> &Option<FXHelper>;
+            #[allow(dead_code)]
+            pub fn private(&self) -> &Option<bool>;
+            pub fn default(&self) -> &Option<syn::Meta>;
+        }
+    }
+
+    pub fn new(field: &'f FXField) -> Self {
+        Self {
+            field,
+            pub_tok: OnceCell::new(),
+            ty_wrapped: OnceCell::new(),
+            ident: OnceCell::new(),
+            ident_tok: OnceCell::new(),
+            ty_tok: OnceCell::new(),
+        }
+    }
+
+    #[inline]
+    pub fn field(&self) -> &'f FXField {
+        self.field
+    }
+
+    #[inline]
+    pub fn pub_tok(&self) -> &TokenStream {
+        self.pub_tok.get_or_init(|| {
+            // eprintln!("+++ INIT pub_tok of {}: {} // from {:?}", self.ident_tok(), self.is_pub(), self.private());
+            if self.field.is_pub() {
+                quote![pub]
+            }
+            else {
+                TokenStream::new()
+            }
+        })
+    }
+
+    pub fn ty_tok(&self) -> &TokenStream {
+        self.ty_tok.get_or_init(|| self.field.ty().to_token_stream())
+    }
+
+    #[inline]
+    pub fn ty_wrapped<F>(&self, initializer: F) -> &TokenStream
+    where
+        F: FnOnce() -> TokenStream,
+    {
+        self.ty_wrapped.get_or_init(initializer)
+    }
+
+    #[inline]
+    pub fn has_ident(&self) -> bool {
+        self.ident().is_some()
+    }
+
+    #[inline]
+    pub fn ident(&self) -> Option<&'f syn::Ident> {
+        self.ident.get_or_init(|| self.field.ident().as_ref()).clone()
+    }
+
+    #[inline]
+    pub fn ident_tok(&self) -> &TokenStream {
+        self.ident_tok.get_or_init(|| match self.ident() {
+            Some(ident) => ident.to_token_stream(),
+            None => TokenStream::new(),
+        })
+    }
+
+    pub fn for_ident_str(&self) -> String {
+        match self.ident() {
+            Some(ident) => format!(" for field '{}'", ident.to_string()),
+            None => String::new(),
+        }
+    }
+
+    pub fn helper_base_name(&self) -> Option<String> {
+        if let Some(accessor_helper) = self.accessor() {
+            if let FXHelperKind::Name(ref accessor_name) = accessor_helper.value() {
+                return Some(accessor_name.clone());
+            }
+        }
+        let ident = self.field.ident();
+        if let Some(ident) = ident {
+            Some(ident.to_string())
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn helper_base_name_tok(&self) -> Option<TokenStream> {
+        Some(format_ident!("{}", self.helper_base_name()?))
+    }
+}
