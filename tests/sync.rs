@@ -8,6 +8,7 @@ use std::sync::{
 };
 mod syncish;
 
+
 #[test]
 fn non_threaded() {
     let sync = syncish::Foo::new();

@@ -1,11 +1,9 @@
 use crate::{fields::FXField, helper::FXHelper, input_receiver::FXInputReceiver, util::args};
 use delegate::delegate;
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, format_ident, ToTokens};
+use quote::{quote, ToTokens};
 use std::cell::{OnceCell, RefCell};
 use syn;
-
-use super::FXHelperKind;
 
 pub struct FXCodeGenCtx {
     errors: RefCell<OnceCell<darling::error::Accumulator>>,
@@ -74,6 +72,7 @@ impl<'f> FXFieldCtx<'f> {
     delegate! {
         to self.field {
             pub fn needs_accessor(&self, is_sync: bool) -> bool;
+            pub fn needs_accessor_mut(&self) -> bool;
             pub fn needs_reader(&self) -> bool;
             pub fn needs_writer(&self) -> bool;
             pub fn needs_setter(&self) -> bool;
@@ -88,7 +87,9 @@ impl<'f> FXFieldCtx<'f> {
             pub fn ty(&self) -> &syn::Type;
             pub fn attrs(&self) -> &Vec<syn::Attribute>;
             pub fn lazy(&self) -> &Option<FXHelper>;
+            pub fn base_name(&self) -> &Option<String>;
             pub fn accessor(&self) -> &Option<FXHelper>;
+            pub fn accessor_mut(&self) -> &Option<FXHelper>;
             pub fn reader(&self) -> &Option<FXHelper>;
             pub fn writer(&self) -> &Option<FXHelper>;
             pub fn setter(&self) -> &Option<FXHelper>;
@@ -142,11 +143,6 @@ impl<'f> FXFieldCtx<'f> {
     }
 
     #[inline]
-    pub fn has_ident(&self) -> bool {
-        self.ident().is_some()
-    }
-
-    #[inline]
     pub fn ident(&self) -> Option<&'f syn::Ident> {
         self.ident.get_or_init(|| self.field.ident().as_ref()).clone()
     }
@@ -167,13 +163,11 @@ impl<'f> FXFieldCtx<'f> {
     }
 
     pub fn helper_base_name(&self) -> Option<String> {
-        if let Some(accessor_helper) = self.accessor() {
-            if let FXHelperKind::Name(ref accessor_name) = accessor_helper.value() {
-                return Some(accessor_name.clone());
-            }
+        if let Some(base_name) = self.base_name() {
+            Some(base_name.clone())
         }
-        let ident = self.field.ident();
-        if let Some(ident) = ident {
+        else if let Some(ident) = self.field.ident() {
+            // let ident = self.field.ident();
             Some(ident.to_string())
         }
         else {
@@ -181,7 +175,7 @@ impl<'f> FXFieldCtx<'f> {
         }
     }
 
-    pub fn helper_base_name_tok(&self) -> Option<TokenStream> {
-        Some(format_ident!("{}", self.helper_base_name()?))
+    pub fn has_default(&self) -> bool {
+        self.field.default().is_some()
     }
 }

@@ -4,7 +4,7 @@ mod inner {
 
     #[fxstruct(sync)]
     pub struct Inner {
-        #[fieldx(private, lazy, accessor)]
+        #[fieldx(private, lazy)]
         foo: u8,
     }
 
@@ -16,5 +16,5 @@ mod inner {
 fn main() {
     let inner = inner::Inner::new();
     // This must not compile, as expected.
-    let foo = inner.foo();
+    let foo = inner.read_foo();
 }

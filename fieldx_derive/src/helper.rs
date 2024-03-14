@@ -82,7 +82,15 @@ impl TryFrom<&Expr> for FXHelperKind {
             }
             Expr::Lit(ref expr) => match expr.lit {
                 Lit::Bool(ref b) => Ok(FXHelperKind::Flag(b.value)),
-                Lit::Str(ref s) => Ok(FXHelperKind::Name(s.value())),
+                Lit::Str(ref s) => {
+                    let helper_name = s.value();
+                    if helper_name.len() > 0 {
+                        Ok(FXHelperKind::Name(helper_name))
+                    }
+                    else {
+                        Err(darling::Error::custom(format!("Helper method name cannot be empty")))
+                    }
+                },
                 _ => Err(darling::Error::custom(format!(
                     "Unexpected literal `{}`",
                     expr.to_token_stream()

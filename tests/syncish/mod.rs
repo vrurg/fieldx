@@ -6,7 +6,7 @@ use parking_lot::Mutex;
 pub struct Foo {
     #[fieldx(lazy, clearer, predicate)]
     foo:    String,
-    #[fieldx(lazy, accessor, reader, predicate, clearer, setter)]
+    #[fieldx(lazy, reader, predicate, clearer, setter)]
     bar:    i32,
     #[fieldx(default = 3.1415926)]
     pub pi: f32,
@@ -24,7 +24,7 @@ pub struct Foo {
 
 impl Foo {
     fn build_foo(&self) -> String {
-        format!("Foo with bar={:?}", self.bar()).to_string()
+        format!("Foo with bar={:?}", *self.read_bar()).to_string()
     }
 
     fn build_bar(&self) -> i32 {

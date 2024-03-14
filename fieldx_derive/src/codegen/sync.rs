@@ -52,7 +52,9 @@ impl FXCGen for FXCodeGen {
     }
 
     fn add_method_decl(&self, method: TokenStream) {
-        self.method_toks.borrow_mut().push(method);
+        if !method.is_empty() {
+            self.method_toks.borrow_mut().push(method);
+        }
     }
 
     fn methods_combined(&self) -> TokenStream {
@@ -92,43 +94,35 @@ impl FXCGen for FXCodeGen {
         })
     }
 
+    // fn type_tokens_mut<'s>(&'s self,field_ctx: &'s FXFieldCtx) ->  &'s TokenStream {
+    //     self.type_tokens(field_ctx)
+    // }
+
     fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_accessor(true) {
-            let ident = fctx.ident_tok();
-            let pub_tok = fctx.pub_tok();
-            let ty = fctx.ty();
-            let accessor_name = if fctx.accessor().is_some() {
-                self.helper_name_tok(fctx, fctx.accessor(), None, "accessor")?
-            }
-            else {
-                quote![#ident]
-            };
-
-            if fctx.is_lazy() || fctx.is_optional() {
-                Ok(quote_spanned! [*fctx.span()=>
-                    #[inline]
-                    #pub_tok fn #accessor_name(&self) -> Option<#ty> {
-                        *self.#ident.read()
-                    }
-                ])
-            }
-            else {
-                Ok(quote_spanned! [*fctx.span()=>
-                    #[inline]
-                    #pub_tok fn #accessor_name(&self) -> &#ty {
-                        &self.#ident
-                    }
-                ])
-            }
+            Err(darling::Error::custom("Accessors are not supported for sync structs")
+                .with_span(&(fctx.accessor() as &dyn spanned::Spanned).span()))
         }
         else {
-            Ok(TokenStream::new())
+            Ok(quote![])
+        }
+    }
+
+    fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+        if fctx.needs_accessor_mut() {
+            Err(
+                darling::Error::custom("Mutable accessors are not supported for sync structs")
+                    .with_span(&(fctx.accessor_mut() as &dyn spanned::Spanned).span()),
+            )
+        }
+        else {
+            Ok(quote![])
         }
     }
 
     fn field_reader(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_reader() && (fctx.is_lazy() || fctx.is_optional()) {
-            let reader_name = self.helper_name_tok(fctx, fctx.reader(), Some("read"), "reader")?;
+            let reader_name = self.reader_name(fctx)?;
             let ident = fctx.ident_tok();
             let pub_tok = fctx.pub_tok();
             let ty = fctx.ty();
@@ -147,7 +141,7 @@ impl FXCGen for FXCodeGen {
 
     fn field_writer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_writer() && (fctx.is_lazy() || fctx.is_optional()) {
-            let writer_name = self.helper_name_tok(fctx, fctx.writer(), Some("write"), "writer")?;
+            let writer_name = self.writer_name(fctx)?;
             let ident = fctx.ident_tok();
             let pub_tok = fctx.pub_tok();
             let ty = fctx.ty();
@@ -177,7 +171,7 @@ impl FXCGen for FXCodeGen {
 
     fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_setter() {
-            let set_name = self.helper_name_tok(fctx, fctx.setter(), Some("set"), "setter")?;
+            let set_name = self.setter_name(fctx)?;
             let ident = fctx.ident_tok();
             let pub_tok = fctx.pub_tok();
             let ty = fctx.ty();
@@ -215,7 +209,7 @@ impl FXCGen for FXCodeGen {
 
     fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_clearer() {
-            let clear_name = self.helper_name_tok(fctx, fctx.clearer(), Some("clear"), "clearer")?;
+            let clear_name = self.clearer_name(fctx)?;
             let ident = fctx.ident_tok();
             let pub_tok = fctx.pub_tok();
             let ty = fctx.ty();
@@ -245,7 +239,7 @@ impl FXCGen for FXCodeGen {
 
     fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_predicate() {
-            let pred_name = self.helper_name_tok(fctx, fctx.predicate(), Some("has"), "predicate")?;
+            let pred_name = self.predicate_name(fctx)?;
             let ident = fctx.ident_tok();
             let pub_tok = fctx.pub_tok();
 
@@ -285,7 +279,7 @@ impl FXCGen for FXCodeGen {
     fn field_initializer(&self, fctx: &FXFieldCtx) {
         if fctx.is_lazy() {
             let ident = fctx.ident_tok();
-            let builder_name = match self.helper_name_tok(fctx, fctx.lazy(), Some("build"), "builder") {
+            let builder_name = match self.builder_name(fctx) {
                 Ok(name) => name,
                 Err(err) => {
                     self.ctx.push_error(err);

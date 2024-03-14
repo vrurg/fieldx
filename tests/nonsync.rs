@@ -14,7 +14,7 @@ struct NonSync {
     #[fieldx(clearer, predicate, setter, default = "bazzification")]
     baz: String,
 
-    #[fieldx(lazy, clearer)]
+    #[fieldx(lazy, clearer, rename = "piquant")]
     fubar: String,
 }
 
@@ -27,7 +27,7 @@ impl NonSync {
         42
     }
 
-    fn build_fubar(&self) -> String {
+    fn build_piquant(&self) -> String {
         "щось пікантне".to_string()
     }
 }
@@ -66,9 +66,9 @@ fn basic_lazies() {
         "this is foo with bar=12",
         "manually set bar is used to rebuild foo"
     );
-    assert_eq!(non_sync.fubar(), "щось пікантне", "fubar is built lazily");
+    assert_eq!(non_sync.piquant(), "щось пікантне", "fubar is built lazily");
     assert_eq!(
-        non_sync.clear_fubar(),
+        non_sync.clear_piquant(),
         Some(String::from("щось пікантне")),
         "cleared fubar"
     );

@@ -1,6 +1,4 @@
-use std::default;
-
-use crate::{fields::FXField, helper::*, util::args::FXSArgs, FXInputReceiver};
+use crate::{helper::*, util::args::FXSArgs, FXInputReceiver};
 pub use darling::{Error as DError, Result as DResult};
 use enum_dispatch::enum_dispatch;
 use proc_macro2::TokenStream;
@@ -16,6 +14,7 @@ mod sync;
 pub trait FXCGen {
     // Actual code producers
     fn field_accessor(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
+    fn field_accessor_mut(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
     fn field_reader(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
     fn field_writer(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
     fn field_setter(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
@@ -34,6 +33,7 @@ pub trait FXCGen {
 
     fn ctx(&self) -> &FXCodeGenCtx;
     fn type_tokens<'s>(&'s self, field_ctx: &'s FXFieldCtx) -> &'s TokenStream;
+    // fn type_tokens_mut<'s>(&'s self, field_ctx: &'s FXFieldCtx) -> &'s TokenStream;
 
     fn methods_combined(&self) -> TokenStream;
     fn fields_combined(&self) -> TokenStream;
@@ -45,15 +45,10 @@ pub trait FXCGen {
         &self.ctx().input
     }
 
-    fn ok_or(&self, for_elem: Option<&impl ToTokens>, err: DResult<TokenStream>) -> TokenStream {
-        err.unwrap_or_else(|err| {
+    fn ok_or(&self, outcome: DResult<TokenStream>) -> TokenStream {
+        outcome.unwrap_or_else(|err| {
             self.ctx().push_error(err);
-            if let Some(elem) = for_elem {
-                elem.to_token_stream()
-            }
-            else {
-                TokenStream::new()
-            }
+            quote![]
         })
     }
 
@@ -62,17 +57,31 @@ pub trait FXCGen {
         field_ctx: &FXFieldCtx,
         helper: &Option<FXHelper>,
         default_pfx: Option<&str>,
+        default_sfx: Option<&str>,
     ) -> Option<Ident> {
         match helper {
             Some(ref h) => match h.value() {
                 FXHelperKind::Flag(ref flag) => {
+                    if !flag {
+                        return None;
+                    }
                     let helper_base_name = field_ctx.helper_base_name()?;
-                    if let Some(pfx) = default_pfx {
-                        Some(format_ident!("{}_{}", pfx, helper_base_name))
-                    }
-                    else {
-                        Some(format_ident!("{}", helper_base_name))
-                    }
+                    Some(format_ident![
+                        "{}{}{}",
+                        if let Some(pfx) = default_pfx {
+                            [pfx, "_"].join("")
+                        }
+                        else {
+                            "".to_string()
+                        },
+                        helper_base_name,
+                        if let Some(sfx) = default_sfx {
+                            ["_", sfx].join("")
+                        }
+                        else {
+                            "".to_string()
+                        }
+                    ])
                 }
                 FXHelperKind::Name(ref name) => {
                     if name.is_empty() {
@@ -91,15 +100,17 @@ pub trait FXCGen {
         &self,
         field_ctx: &FXFieldCtx,
         helper: &Option<FXHelper>,
-        default_pfx: Option<&str>,
         helper_name: &str,
+        default_pfx: Option<&str>,
+        default_sfx: Option<&str>,
     ) -> DResult<TokenStream> {
-        if let Some(ref helper_ident) = self.helper_name(field_ctx, helper, default_pfx) {
+        // eprintln!("!!! HELPER {}: {:?}", helper_name, helper);
+        if let Some(ref helper_ident) = self.helper_name(field_ctx, helper, default_pfx, default_sfx) {
             Ok(helper_ident.to_token_stream())
         }
         else {
             let err = DError::custom(format!(
-                "Expected to have a method-helper name for {}{}",
+                "Expected to have {} helper method name {}",
                 helper_name,
                 field_ctx.for_ident_str()
             ));
@@ -113,25 +124,41 @@ pub trait FXCGen {
     }
 
     fn accessor_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
-        if let Some(ahelper) = field_ctx.accessor() {
-            self.helper_name_tok(field_ctx, ahelper, None, "accessor")
+        let aname = self.helper_name_tok(field_ctx, field_ctx.accessor(), "accessor", None, None);
+        if aname.is_err() && field_ctx.needs_accessor(self.ctx().is_sync) {
+            if let Some(helper_base_name) = field_ctx.helper_base_name() {
+                return Ok(format_ident!("{}", helper_base_name).to_token_stream());
+            }
         }
-        else {
-            let ident = field_ctx.ident_tok();
-            Ok(quote! [#ident])
-        }
+        aname
+    }
+
+    fn accessor_mut_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+        self.helper_name_tok(field_ctx, field_ctx.accessor_mut(), "accessor_mut", None, Some("mut"))
+    }
+
+    fn builder_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+        self.helper_name_tok(field_ctx, field_ctx.lazy(), "builder", Some("build"), None)
     }
 
     fn setter_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
-        self.helper_name_tok(field_ctx, field_ctx.setter(), Some("set"), "setter")
+        self.helper_name_tok(field_ctx, field_ctx.setter(), "setter", Some("set"), None)
     }
 
     fn clearer_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
-        self.helper_name_tok(field_ctx, field_ctx.clearer(), Some("clear"), "clearer")
+        self.helper_name_tok(field_ctx, field_ctx.clearer(), "clearer", Some("clear"), None)
     }
 
     fn predicate_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
-        self.helper_name_tok(field_ctx, field_ctx.predicate(), Some("has"), "predicate")
+        self.helper_name_tok(field_ctx, field_ctx.predicate(), "predicate", Some("has"), None)
+    }
+
+    fn reader_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+        self.helper_name_tok(field_ctx, field_ctx.reader(), "reader", Some("read"), None)
+    }
+
+    fn writer_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+        self.helper_name_tok(field_ctx, field_ctx.writer(), "writer", Some("write"), None)
     }
 
     fn field_default_value(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
@@ -188,14 +215,13 @@ pub trait FXCGen {
     }
 
     fn field_methods(&self, field_ctx: &FXFieldCtx) {
-        let field = field_ctx.field();
-
-        self.add_method_decl(self.ok_or(Some(field), self.field_accessor(field_ctx)));
-        self.add_method_decl(self.ok_or(Some(field), self.field_reader(field_ctx)));
-        self.add_method_decl(self.ok_or(Some(field), self.field_writer(field_ctx)));
-        self.add_method_decl(self.ok_or(Some(field), self.field_setter(field_ctx)));
-        self.add_method_decl(self.ok_or(Some(field), self.field_clearer(field_ctx)));
-        self.add_method_decl(self.ok_or(Some(field), self.field_predicate(field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_accessor(field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_accessor_mut(field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_reader(field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_writer(field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_setter(field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_clearer(field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_predicate(field_ctx)));
     }
 
     fn rewrite_struct(&self) {
@@ -207,7 +233,7 @@ pub trait FXCGen {
     }
 
     fn field_default(&self, field_ctx: &FXFieldCtx) {
-        let def_tok = self.ok_or(None::<&FXField>, self.field_default_wrap(field_ctx));
+        let def_tok = self.ok_or(self.field_default_wrap(field_ctx));
         let ident = field_ctx.ident_tok();
         self.add_defaults_decl(quote! [ #ident: #def_tok ])
     }

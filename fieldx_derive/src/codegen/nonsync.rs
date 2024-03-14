@@ -94,7 +94,7 @@ impl FXCGen for FXCodeGen {
             let accessor_name = self.accessor_name(fctx)?;
 
             if fctx.is_lazy() {
-                let builder_name = self.helper_name_tok(fctx, fctx.lazy(), Some("build"), "builder")?;
+                let builder_name = self.builder_name(fctx)?;
 
                 Ok(quote_spanned![*fctx.span()=>
                     #pub_tok fn #accessor_name(&self) -> &#ty { self.#ident.get_or_init( move || self.#builder_name() ) }
@@ -109,6 +109,37 @@ impl FXCGen for FXCodeGen {
             else {
                 Ok(quote_spanned![*fctx.span()=>
                     #pub_tok fn #accessor_name(&self) -> &#ty { &self.#ident }
+                ])
+            }
+        }
+        else {
+            Ok(TokenStream::new())
+        }
+    }
+
+    fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+        if fctx.needs_accessor_mut() {
+            let ident = fctx.ident_tok();
+            let pub_tok = fctx.pub_tok();
+            let ty = fctx.ty();
+            let accessor_name = self.accessor_mut_name(fctx)?;
+
+            if fctx.is_lazy() {
+                let builder_name = self.builder_name(fctx)?;
+
+                Ok(quote_spanned![*fctx.span()=>
+                    #pub_tok fn #accessor_name(&mut self) -> &mut #ty { self.#ident.get_or_init( || self.#builder_name() ); self.#ident.get_mut().unwrap() }
+                ])
+            }
+            else if fctx.is_optional() {
+                let ty_tok = self.type_tokens(fctx);
+                Ok(quote_spanned![*fctx.span()=>
+                    #pub_tok fn #accessor_name(&mut self) -> &mut #ty_tok { &mut self.#ident }
+                ])
+            }
+            else {
+                Ok(quote_spanned![*fctx.span()=>
+                    #pub_tok fn #accessor_name(&mut self) -> &mut #ty { &mut self.#ident }
                 ])
             }
         }
@@ -197,7 +228,12 @@ impl FXCGen for FXCodeGen {
             Ok(quote! [ fieldx::OnceCell::new() ])
         }
         else if fctx.is_optional() {
-            Ok(quote! [ Some(#def_tok) ])
+            if fctx.has_default() {
+                Ok(quote! [ Some(#def_tok) ])
+            }
+            else {
+                Ok(quote! [ None ])
+            }
         }
         else {
             Ok(quote! [ #def_tok ])

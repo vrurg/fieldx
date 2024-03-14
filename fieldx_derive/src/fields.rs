@@ -16,8 +16,9 @@ pub struct FXFieldReceiver {
     attrs: Vec<syn::Attribute>,
 
     lazy:         Option<FXHelper>,
+    #[darling(rename = "rename")]
+    base_name:    Option<String>,
     accessor:     Option<FXHelper>,
-    #[darling(rename = "mut")]
     accessor_mut: Option<FXHelper>,
     #[darling(default = "FXHelper::truthy")]
     reader:       Option<FXHelper>,
@@ -94,6 +95,7 @@ impl FXFieldReceiver {
             Self::flag_set(&self.accessor)
         }
         else if is_sync {
+            // A sync struct is better off using reader instead.
             false
         }
         else {
@@ -101,7 +103,7 @@ impl FXFieldReceiver {
         }
     }
 
-    pub fn needs_mutable(&self) -> bool {
+    pub fn needs_accessor_mut(&self) -> bool {
         Self::flag_set(&self.accessor_mut)
     }
 
