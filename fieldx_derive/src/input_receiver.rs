@@ -8,6 +8,7 @@ pub struct FXInputReceiver {
     pub ident: syn::Ident,
     pub data:  ast::Data<(), FXField>,
     pub attrs: Vec<syn::Attribute>,
+    pub generics: syn::Generics,
 }
 
 impl FXInputReceiver {

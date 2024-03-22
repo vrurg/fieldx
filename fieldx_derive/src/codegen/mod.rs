@@ -240,10 +240,13 @@ pub trait FXCGen {
 
     fn default_impl(&self) -> TokenStream {
         let defaults = self.defaults_combined();
-        let ident = &self.ctx().input.ident;
+        let ctx = self.ctx();
+        let ident = &ctx.input.ident;
+        let generics = &ctx.input.generics;
+        let where_clause = &generics.where_clause;
         if !defaults.is_empty() {
             quote! [
-                impl Default for #ident {
+                impl #generics Default for #ident #generics #where_clause {
                     fn default() -> Self {
                         Self { #defaults }
                     }
@@ -263,6 +266,7 @@ pub trait FXCGen {
             ref attrs,
             ref vis,
             ref ident,
+            ref generics,
             ..
         } = input;
 
@@ -270,13 +274,17 @@ pub trait FXCGen {
         let fields = self.fields_combined();
         let default = self.default_impl();
 
+        let where_clause = &generics.where_clause;
+
         self.ctx().tokens_extend(quote! [
             #( #attrs )*
-            #vis struct #ident {
+            #vis struct #ident #generics
+            #where_clause
+            {
                 #fields
             }
 
-            impl #ident {
+            impl #generics #ident #generics #where_clause {
                 #methods
             }
 
