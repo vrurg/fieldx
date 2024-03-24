@@ -1,19 +1,30 @@
 use crate::{fields::FXField, helper::FXHelper, input_receiver::FXInputReceiver, util::args};
 use delegate::delegate;
+use getset::{CopyGetters, Getters};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use std::cell::{OnceCell, RefCell};
 use syn;
 
+#[derive(Getters, CopyGetters)]
 pub struct FXCodeGenCtx {
     errors: RefCell<OnceCell<darling::error::Accumulator>>,
 
-    pub input: FXInputReceiver,
+    #[getset(get = "pub")]
+    input: FXInputReceiver,
 
     // Options
-    pub is_sync:   bool,
-    pub needs_new: bool,
-    tokens:        RefCell<OnceCell<TokenStream>>,
+    #[getset(get_copy = "pub")]
+    is_sync: bool,
+
+    #[getset(get_copy = "pub")]
+    needs_new: bool,
+
+    needs_builder_struct: RefCell<Option<bool>>,
+
+    needs_into: RefCell<Option<bool>>,
+
+    tokens: RefCell<OnceCell<TokenStream>>,
 }
 
 pub struct FXFieldCtx<'f> {
@@ -31,6 +42,8 @@ impl FXCodeGenCtx {
             input,
             is_sync: args.is_sync(),
             needs_new: args.needs_new(),
+            needs_into: RefCell::new(args.needs_into()),
+            needs_builder_struct: RefCell::new(args.needs_builder()),
             errors: RefCell::new(OnceCell::new()),
             tokens: RefCell::new(OnceCell::new()),
         }
@@ -43,7 +56,7 @@ impl FXCodeGenCtx {
     }
 
     pub fn input_ident(&self) -> &syn::Ident {
-        &self.input.ident
+        &self.input.ident()
     }
 
     pub fn tokens_extend(&self, toks: TokenStream) {
@@ -66,6 +79,21 @@ impl FXCodeGenCtx {
 
         self.tokens.borrow_mut().take().unwrap_or_else(|| TokenStream::new())
     }
+
+    pub fn needs_builder_struct(&self) -> Option<bool> {
+        *self.needs_builder_struct.borrow()
+    }
+
+    pub fn needs_into(&self) -> Option<bool> {
+        *self.needs_into.borrow()
+    }
+
+    pub fn require_builder(&self) {
+        let mut nb_ref = self.needs_builder_struct.borrow_mut();
+        if nb_ref.is_none() {
+            *nb_ref = Some(true);
+        }
+    }
 }
 
 impl<'f> FXFieldCtx<'f> {
@@ -78,8 +106,13 @@ impl<'f> FXFieldCtx<'f> {
             pub fn needs_setter(&self) -> bool;
             pub fn needs_clearer(&self) -> bool;
             pub fn needs_predicate(&self) -> bool;
+            pub fn needs_into(&self) -> Option<bool>;
+            pub fn needs_builder(&self) -> Option<bool>;
+            pub fn is_into(&self) -> bool;
             pub fn is_lazy(&self) -> bool;
+            pub fn is_ignorable(&self) -> bool;
             pub fn is_optional(&self) -> bool;
+            pub fn has_default(&self) -> bool;
             #[allow(dead_code)]
             pub fn is_pub(&self) -> bool;
             pub fn span(&self) -> &Span;
@@ -90,6 +123,7 @@ impl<'f> FXFieldCtx<'f> {
             pub fn base_name(&self) -> &Option<String>;
             pub fn accessor(&self) -> &Option<FXHelper>;
             pub fn accessor_mut(&self) -> &Option<FXHelper>;
+            pub fn builder(&self) -> &Option<FXHelper>;
             pub fn reader(&self) -> &Option<FXHelper>;
             pub fn writer(&self) -> &Option<FXHelper>;
             pub fn setter(&self) -> &Option<FXHelper>;
@@ -173,9 +207,5 @@ impl<'f> FXFieldCtx<'f> {
         else {
             None
         }
-    }
-
-    pub fn has_default(&self) -> bool {
-        self.field.default().is_some()
     }
 }

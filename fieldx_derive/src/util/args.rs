@@ -3,6 +3,8 @@ use darling::FromMeta;
 #[derive(Debug, FromMeta, Clone, Copy)]
 pub struct FXSArgs {
     sync:        Option<bool>,
+    builder:     Option<bool>,
+    into: Option<bool>,
     // Only plays for sync-safe structs
     without_new: Option<bool>,
 }
@@ -10,8 +12,10 @@ pub struct FXSArgs {
 impl Default for FXSArgs {
     fn default() -> Self {
         FXSArgs {
-            sync:        None,
             without_new: Some(false),
+            builder: None,
+            sync: None,
+            into: None,
         }
     }
 }
@@ -33,5 +37,13 @@ impl FXSArgs {
         else {
             true
         }
+    }
+
+    pub fn needs_builder(&self) -> Option<bool> {
+        self.builder
+    }
+
+    pub fn needs_into(&self) -> Option<bool> {
+        self.into
     }
 }

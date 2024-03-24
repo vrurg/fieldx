@@ -41,6 +41,14 @@ impl FXHelper {
     pub fn value(&self) -> &FXHelperKind {
         &self.value
     }
+
+    pub fn is_true(&self) -> bool {
+        match &self.value {
+            FXHelperKind::Flag(b) => *b,
+            FXHelperKind::Name(_) => true,
+        }
+    }
+
 }
 
 impl From<bool> for FXHelper {

@@ -7,7 +7,11 @@ pub use std::{
     sync::{atomic::Ordering, Arc},
 };
 
+pub use crate::errors::UninitializedFieldError;
+
 pub trait FXStruct {}
+
+pub mod errors;
 
 pub struct FXProxy<T> {
     value:   RwLock<Option<T>>,

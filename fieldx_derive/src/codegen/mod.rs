@@ -11,10 +11,13 @@ mod nonsync;
 mod sync;
 
 #[enum_dispatch]
-pub trait FXCGen {
+pub trait FXCGen<'f> {
     // Actual code producers
     fn field_accessor(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
     fn field_accessor_mut(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
+    fn field_builder(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
+    fn field_builder_field(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
+    fn field_builder_setter(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
     fn field_reader(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
     fn field_writer(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
     fn field_setter(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
@@ -30,6 +33,9 @@ pub trait FXCGen {
     fn add_defaults_decl(&self, defaults: TokenStream);
     fn add_method_decl(&self, method: TokenStream);
     fn add_initializer_decl(&self, initializer: TokenStream);
+    fn add_builder_decl(&self, builder_method: TokenStream);
+    fn add_builder_field_decl(&self, builder_field: TokenStream);
+    fn add_builder_field_ctx(&self, field_ctx: FXFieldCtx<'f>);
 
     fn ctx(&self) -> &FXCodeGenCtx;
     fn type_tokens<'s>(&'s self, field_ctx: &'s FXFieldCtx) -> &'s TokenStream;
@@ -39,10 +45,35 @@ pub trait FXCGen {
     fn fields_combined(&self) -> TokenStream;
     fn defaults_combined(&self) -> TokenStream;
     fn initializers_combined(&self) -> TokenStream;
+    fn builder_fields_combined(&self) -> TokenStream;
+    fn builders_combined(&self) -> TokenStream;
+    fn builder_fields_ctx(&'f self) -> std::cell::Ref<Vec<FXFieldCtx<'f>>>;
+
+    fn needs_builder_struct(&self) -> bool {
+        self.ctx().needs_builder_struct().unwrap_or(false)
+    }
+
+    fn field_needs_into(&self, field_ctx: &FXFieldCtx) -> bool {
+        if field_ctx.needs_into().is_some() {
+            field_ctx.is_into()
+        }
+        else {
+            self.ctx().needs_into().unwrap_or(false)
+        }
+    }
+
+    fn field_needs_builder(&self, field_ctx: &FXFieldCtx) -> bool {
+        if let Some(needs) = field_ctx.needs_builder() {
+            needs
+        }
+        else {
+            self.needs_builder_struct()
+        }
+    }
 
     // Common implementations
     fn input(&self) -> &FXInputReceiver {
-        &self.ctx().input
+        &self.ctx().input()
     }
 
     fn ok_or(&self, outcome: DResult<TokenStream>) -> TokenStream {
@@ -104,7 +135,6 @@ pub trait FXCGen {
         default_pfx: Option<&str>,
         default_sfx: Option<&str>,
     ) -> DResult<TokenStream> {
-        // eprintln!("!!! HELPER {}: {:?}", helper_name, helper);
         if let Some(ref helper_ident) = self.helper_name(field_ctx, helper, default_pfx, default_sfx) {
             Ok(helper_ident.to_token_stream())
         }
@@ -125,7 +155,7 @@ pub trait FXCGen {
 
     fn accessor_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
         let aname = self.helper_name_tok(field_ctx, field_ctx.accessor(), "accessor", None, None);
-        if aname.is_err() && field_ctx.needs_accessor(self.ctx().is_sync) {
+        if aname.is_err() && field_ctx.needs_accessor(self.ctx().is_sync()) {
             if let Some(helper_base_name) = field_ctx.helper_base_name() {
                 return Ok(format_ident!("{}", helper_base_name).to_token_stream());
             }
@@ -138,7 +168,11 @@ pub trait FXCGen {
     }
 
     fn builder_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
-        self.helper_name_tok(field_ctx, field_ctx.lazy(), "builder", Some("build"), None)
+        self.helper_name_tok(field_ctx, field_ctx.builder(), "builder", None, None)
+    }
+
+    fn lazy_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+        self.helper_name_tok(field_ctx, field_ctx.lazy(), "lazy builder", Some("build"), None)
     }
 
     fn setter_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
@@ -159,6 +193,17 @@ pub trait FXCGen {
 
     fn writer_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
         self.helper_name_tok(field_ctx, field_ctx.writer(), "writer", Some("write"), None)
+    }
+
+    fn generic_params(&self) -> TokenStream {
+        let generic_idents = self.ctx().input().generic_param_idents();
+
+        if generic_idents.len() > 0 {
+            quote![< #( #generic_idents ),* >]
+        }
+        else {
+            quote![]
+        }
     }
 
     fn field_default_value(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
@@ -185,22 +230,22 @@ pub trait FXCGen {
             }
 
             if is_str {
-                Ok(quote_spanned! [span=> String::from(#val_expr) ])
+                Ok(quote_spanned! [span=> ::std::string::String::from(#val_expr) ])
             }
             else {
                 Ok(quote_spanned! [span=> #val_expr ])
             }
         }
         else {
-            Ok(quote_spanned! [field.span()=> Default::default() ])
+            Ok(quote_spanned! [field.span()=> ::std::default::Default::default() ])
         }
     }
 
-    fn field_decl(&self, field_ctx: &FXFieldCtx) {
+    fn field_decl(&self, field_ctx: FXFieldCtx<'f>) {
         let attrs = field_ctx.attrs();
         let vis = field_ctx.vis();
 
-        let ty_tok = self.type_tokens(field_ctx);
+        let ty_tok = self.type_tokens(&field_ctx);
         // No check for None is needed because we're only applying to named structs.
         let ident = field_ctx.ident_tok();
 
@@ -209,27 +254,56 @@ pub trait FXCGen {
             #vis #ident: #ty_tok
         ]);
 
+        self.field_initializer(&field_ctx);
+        self.field_default(&field_ctx);
         self.field_methods(field_ctx);
-        self.field_initializer(field_ctx);
-        self.field_default(field_ctx);
     }
 
-    fn field_methods(&self, field_ctx: &FXFieldCtx) {
-        self.add_method_decl(self.ok_or(self.field_accessor(field_ctx)));
-        self.add_method_decl(self.ok_or(self.field_accessor_mut(field_ctx)));
-        self.add_method_decl(self.ok_or(self.field_reader(field_ctx)));
-        self.add_method_decl(self.ok_or(self.field_writer(field_ctx)));
-        self.add_method_decl(self.ok_or(self.field_setter(field_ctx)));
-        self.add_method_decl(self.ok_or(self.field_clearer(field_ctx)));
-        self.add_method_decl(self.ok_or(self.field_predicate(field_ctx)));
-    }
-
-    fn rewrite_struct(&self) {
-        for field in self.input().fields() {
-            let field_ctx = context::FXFieldCtx::new(field);
-            self.field_decl(&field_ctx);
+    fn field_methods(&self, field_ctx: FXFieldCtx<'f>) {
+        self.add_method_decl(self.ok_or(self.field_accessor(&field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_accessor_mut(&field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_reader(&field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_writer(&field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_setter(&field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_clearer(&field_ctx)));
+        self.add_method_decl(self.ok_or(self.field_predicate(&field_ctx)));
+        if self.needs_builder_struct() {
+            self.add_builder_decl(self.ok_or(self.field_builder(&field_ctx)));
+            self.add_builder_field_decl(self.ok_or(self.field_builder_field(&field_ctx)));
+            self.add_builder_field_ctx(field_ctx);
         }
+    }
+
+    fn rewrite_struct(&'f self) {
+        // If builder requirement is not set explicitly with fxstruct attribute then check out if any field is asking
+        // for it.
+        if self.ctx().needs_builder_struct().is_none() {
+            for field in self.input().fields() {
+                if let Some(needs) = field.needs_builder() {
+                    if needs {
+                        self.ctx().require_builder();
+                    }
+                }
+            }
+        }
+
+        for field in self.input().fields() {
+            let field_ctx = FXFieldCtx::<'f>::new(field);
+            self.field_decl(field_ctx);
+        }
+
         self.struct_extras();
+
+        if self.needs_builder_struct() {
+            let builder_ident = self.builder_ident();
+            let generic_params = self.generic_params();
+            self.add_method_decl(quote![
+                #[inline]
+                pub fn builder() -> #builder_ident #generic_params {
+                    #builder_ident::default()
+                }
+            ])
+        }
     }
 
     fn field_default(&self, field_ctx: &FXFieldCtx) {
@@ -241,8 +315,8 @@ pub trait FXCGen {
     fn default_impl(&self) -> TokenStream {
         let defaults = self.defaults_combined();
         let ctx = self.ctx();
-        let ident = &ctx.input.ident;
-        let generics = &ctx.input.generics;
+        let ident = &ctx.input().ident();
+        let generics = &ctx.input().generics();
         let where_clause = &generics.where_clause;
         if !defaults.is_empty() {
             quote! [
@@ -259,7 +333,83 @@ pub trait FXCGen {
         }
     }
 
-    fn finalize(&self) -> TokenStream {
+    fn builder_ident(&self) -> TokenStream {
+        let ident = self.ctx().input_ident();
+        format_ident!("{}{}", ident, "Builder").to_token_stream()
+    }
+
+    fn builder_struct(&'f self) -> TokenStream {
+        if self.needs_builder_struct() {
+            let builder_ident = self.builder_ident();
+            let builder_fields = self.builder_fields_combined();
+            let builder_impl = self.builder_impl();
+            let generics = self.ctx().input().generics();
+            let where_clause = &generics.where_clause;
+            let span = proc_macro2::Span::call_site();
+            quote_spanned![span=>
+                #[derive(Default)]
+                struct #builder_ident #generics
+                #where_clause
+                {
+                    #builder_fields
+                }
+
+                #builder_impl
+            ]
+        }
+        else {
+            quote![]
+        }
+    }
+
+    fn builder_impl(&'f self) -> TokenStream {
+        let ctx = self.ctx();
+        let builder_ident = self.builder_ident();
+        let builders = self.builders_combined();
+        let input_ident = ctx.input_ident();
+        let generics = ctx.input().generics();
+        let where_clause = &generics.where_clause;
+        let generic_params = self.generic_params();
+
+        let mut field_setters = Vec::<TokenStream>::new();
+        let mut use_default = false;
+        for fctx in self.builder_fields_ctx().iter() {
+            let fsetter = self.ok_or(self.field_builder_setter(&fctx));
+            if fsetter.is_empty() {
+                use_default = true;
+            }
+            else {
+                field_setters.push(fsetter);
+            }
+        }
+
+        let default_initializer = if use_default {
+            let comma = if field_setters.is_empty() { quote![] } else { quote![,] };
+            quote![#comma ..::core::default::Default::default()]
+        }
+        else {
+            quote![]
+        };
+
+        quote![
+            impl #generics #builder_ident #generic_params
+            #where_clause
+            {
+                #builders
+
+                fn build(&mut self) -> std::result::Result<#input_ident #generic_params, fieldx::errors::UninitializedFieldError> {
+                    Ok(
+                        #input_ident {
+                                #(#field_setters),*
+                                #default_initializer
+                            }
+                    )
+                }
+            }
+        ]
+    }
+
+    fn finalize(&'f self) -> TokenStream {
         let input = self.input();
 
         let &FXInputReceiver {
@@ -273,7 +423,7 @@ pub trait FXCGen {
         let methods = self.methods_combined();
         let fields = self.fields_combined();
         let default = self.default_impl();
-
+        let builder_struct = self.builder_struct();
         let where_clause = &generics.where_clause;
 
         self.ctx().tokens_extend(quote! [
@@ -289,6 +439,8 @@ pub trait FXCGen {
             }
 
             #default
+
+            #builder_struct
         ]);
         self.ctx().finalize()
     }
@@ -296,20 +448,20 @@ pub trait FXCGen {
 
 // FieldX Code Generator – FXCG
 #[enum_dispatch(FXCGen)]
-enum FXCG {
-    NonSync(nonsync::FXCodeGen),
-    Sync(sync::FXCodeGen),
+enum FXCG<'f> {
+    NonSync(nonsync::FXCodeGen<'f>),
+    Sync(sync::FXCodeGen<'f>),
 }
 
-pub struct FXRewriter {
-    generator: FXCG,
+pub struct FXRewriter<'f> {
+    generator: FXCG<'f>,
 }
 
-impl FXRewriter {
+impl<'f> FXRewriter<'f> {
     pub fn new(input: FXInputReceiver, args: &FXSArgs) -> Self {
         let ctx = FXCodeGenCtx::new(input, args);
 
-        let generator: FXCG = if ctx.is_sync {
+        let generator: FXCG = if ctx.is_sync() {
             sync::FXCodeGen::new(ctx).into()
         }
         else {
@@ -319,7 +471,7 @@ impl FXRewriter {
         Self { generator }
     }
 
-    pub fn rewrite(&mut self) -> TokenStream {
+    pub fn rewrite(&'f mut self) -> TokenStream {
         self.generator.rewrite_struct();
         self.generator.finalize()
     }

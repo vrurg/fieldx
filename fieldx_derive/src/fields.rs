@@ -29,6 +29,8 @@ pub struct FXFieldReceiver {
     predicate:    Option<FXHelper>,
     private:      Option<bool>,
     default:      Option<Meta>,
+    builder:      Option<FXHelper>,
+    into:         Option<bool>,
 
     #[darling(skip)]
     #[getset(skip)]
@@ -108,6 +110,16 @@ impl FXFieldReceiver {
     }
 
     #[inline]
+    pub fn needs_builder(&self) -> Option<bool> {
+        if self.builder.is_some() {
+            Some(Self::flag_set(&self.builder))
+        }
+        else {
+            None
+        }
+    }
+
+    #[inline]
     pub fn needs_reader(&self) -> bool {
         Self::flag_set(&self.reader)
     }
@@ -133,6 +145,11 @@ impl FXFieldReceiver {
     }
 
     #[inline]
+    pub fn needs_into(&self) -> Option<bool> {
+        self.into
+    }
+
+    #[inline]
     pub fn is_lazy(&self) -> bool {
         Self::flag_set(&self.lazy)
     }
@@ -144,6 +161,18 @@ impl FXFieldReceiver {
 
     pub fn is_pub(&self) -> bool {
         !self.private.unwrap_or(false)
+    }
+
+    pub fn is_into(&self) -> bool {
+        self.into.unwrap_or(false)
+    }
+
+    pub fn is_ignorable(&self) -> bool {
+        self.ident.to_token_stream().to_string().starts_with("_")
+    }
+
+    pub fn has_default(&self) -> bool {
+        self.default.is_some()
     }
 
     fn mark_implicitly(&mut self, orig: Meta) {

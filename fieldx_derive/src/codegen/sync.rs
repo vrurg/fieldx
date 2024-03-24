@@ -7,15 +7,18 @@ use quote::{quote, quote_spanned};
 use std::cell::RefCell;
 use syn::spanned;
 
-pub struct FXCodeGen {
-    ctx:              FXCodeGenCtx,
-    field_toks:       RefCell<Vec<TokenStream>>,
-    default_toks:     RefCell<Vec<TokenStream>>,
-    method_toks:      RefCell<Vec<TokenStream>>,
-    initializer_toks: RefCell<Vec<TokenStream>>,
+pub struct FXCodeGen<'f> {
+    ctx:                FXCodeGenCtx,
+    field_toks:         RefCell<Vec<TokenStream>>,
+    default_toks:       RefCell<Vec<TokenStream>>,
+    method_toks:        RefCell<Vec<TokenStream>>,
+    initializer_toks:   RefCell<Vec<TokenStream>>,
+    builder_field_toks: RefCell<Vec<TokenStream>>,
+    builder_toks:       RefCell<Vec<TokenStream>>,
+    builder_field_ctx:  RefCell<Vec<FXFieldCtx<'f>>>,
 }
 
-impl FXCodeGen {
+impl<'f> FXCodeGen<'f> {
     pub fn new(ctx: FXCodeGenCtx) -> Self {
         Self {
             ctx,
@@ -23,18 +26,21 @@ impl FXCodeGen {
             default_toks: RefCell::new(vec![]),
             method_toks: RefCell::new(vec![]),
             initializer_toks: RefCell::new(vec![]),
+            builder_field_toks: RefCell::new(vec![]),
+            builder_field_ctx: RefCell::new(vec![]),
+            builder_toks: RefCell::new(vec![]),
         }
     }
 }
 
-impl FXCodeGen {
+impl<'f> FXCodeGen<'f> {
     // This variable will hold Arc::new(self) value for __fieldx_init method implementation.
     fn arc_self(&self) -> TokenStream {
         quote![arc_self]
     }
 }
 
-impl FXCGen for FXCodeGen {
+impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     fn ctx(&self) -> &FXCodeGenCtx {
         &self.ctx
     }
@@ -57,6 +63,22 @@ impl FXCGen for FXCodeGen {
         }
     }
 
+    fn add_builder_decl(&self, builder: TokenStream) {
+        if !builder.is_empty() {
+            self.builder_toks.borrow_mut().push(builder);
+        }
+    }
+
+    fn add_builder_field_decl(&self, builder_field: TokenStream) {
+        if !builder_field.is_empty() {
+            self.builder_field_toks.borrow_mut().push(builder_field);
+        }
+    }
+
+    fn add_builder_field_ctx(&self, fctx: FXFieldCtx<'f>) {
+        self.builder_field_ctx.borrow_mut().push(fctx);
+    }
+
     fn methods_combined(&self) -> TokenStream {
         let method_toks = self.method_toks.borrow();
         quote! [ #( #method_toks )* ]
@@ -75,6 +97,20 @@ impl FXCGen for FXCodeGen {
     fn initializers_combined(&self) -> TokenStream {
         let initializer_toks = self.initializer_toks.borrow();
         quote![ #( #initializer_toks )* ]
+    }
+
+    fn builders_combined(&self) -> TokenStream {
+        // TODO
+        quote![]
+    }
+
+    fn builder_fields_combined(&self) -> TokenStream {
+        // TODO
+        quote![]
+    }
+
+    fn builder_fields_ctx(&self) -> std::cell::Ref<Vec<FXFieldCtx<'f>>> {
+        self.builder_field_ctx.borrow()
     }
 
     fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> &'s TokenStream {
@@ -118,6 +154,21 @@ impl FXCGen for FXCodeGen {
         else {
             Ok(quote![])
         }
+    }
+
+    fn field_builder_field(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+        // TODO
+        Ok(quote![])
+    }
+
+    fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+        // TODO
+        Ok(quote![])
+    }
+
+    fn field_builder_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+        // TODO
+        Ok(quote![])
     }
 
     fn field_reader(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
@@ -279,7 +330,7 @@ impl FXCGen for FXCodeGen {
     fn field_initializer(&self, fctx: &FXFieldCtx) {
         if fctx.is_lazy() {
             let ident = fctx.ident_tok();
-            let builder_name = match self.builder_name(fctx) {
+            let lazy_name = match self.lazy_name(fctx) {
                 Ok(name) => name,
                 Err(err) => {
                     self.ctx.push_error(err);
@@ -290,7 +341,7 @@ impl FXCGen for FXCodeGen {
 
             self.add_initializer_decl(quote! [
                 let self_weak = fieldx::Arc::downgrade(&#arc_self);
-                let callback = Box::new(move || self_weak.upgrade().unwrap().#builder_name());
+                let callback = Box::new(move || self_weak.upgrade().unwrap().#lazy_name());
                 #arc_self.#ident.proxy_setup(callback);
             ]);
         }
@@ -308,7 +359,7 @@ impl FXCGen for FXCodeGen {
             }
         ]);
 
-        if self.ctx.needs_new {
+        if self.ctx.needs_new() {
             self.add_method_decl(quote![
                 #[inline]
                 pub fn new() -> fieldx::Arc<Self> {
