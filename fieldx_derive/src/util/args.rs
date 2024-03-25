@@ -4,7 +4,7 @@ use darling::FromMeta;
 pub struct FXSArgs {
     sync:        Option<bool>,
     builder:     Option<bool>,
-    into: Option<bool>,
+    into:        Option<bool>,
     // Only plays for sync-safe structs
     without_new: Option<bool>,
 }
@@ -13,9 +13,9 @@ impl Default for FXSArgs {
     fn default() -> Self {
         FXSArgs {
             without_new: Some(false),
-            builder: None,
-            sync: None,
-            into: None,
+            builder:     None,
+            sync:        None,
+            into:        None,
         }
     }
 }

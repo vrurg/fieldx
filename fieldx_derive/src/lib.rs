@@ -1,9 +1,9 @@
 // #![feature(proc_macro_diagnostic)]
+mod codegen;
 mod fields;
 mod helper;
 mod input_receiver;
 mod util;
-mod codegen;
 
 use darling::{ast, FromDeriveInput, FromMeta};
 use proc_macro2::TokenStream;

@@ -4,7 +4,8 @@ use parking_lot::Mutex;
 #[fxstruct(sync)]
 #[derive(Debug)]
 pub struct Foo<T>
-where T: std::fmt::Debug + Clone + Send + Sync + 'static,
+where
+    T: std::fmt::Debug + Clone + Send + Sync + 'static,
 {
     #[fieldx(lazy, clearer, predicate)]
     foo:    String,
@@ -28,7 +29,8 @@ where T: std::fmt::Debug + Clone + Send + Sync + 'static,
 }
 
 impl<T> Foo<T>
-where T: std::fmt::Debug + Clone + Send + Sync + 'static,
+where
+    T: std::fmt::Debug + Clone + Send + Sync + 'static,
 {
     fn build_foo(&self) -> String {
         format!("Foo with bar={:?}", *self.read_bar()).to_string()

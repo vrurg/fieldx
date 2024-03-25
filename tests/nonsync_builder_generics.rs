@@ -8,7 +8,7 @@ trait Newish {
     fn new() -> Self;
 }
 
-#[fxstruct(builder,into)]
+#[fxstruct(builder, into)]
 #[derive(Debug)]
 struct NonSync<'a, 'b, T>
 where
@@ -18,7 +18,7 @@ where
     #[fieldx(lazy, clearer)]
     foo: T,
 
-    #[fieldx(lazy,clearer)]
+    #[fieldx(lazy, clearer)]
     bar: T,
 
     _p1: PhantomData<&'a T>,
@@ -54,8 +54,24 @@ fn basic() {
         .expect("NonSync instance");
 
     assert_eq!(nonsync.bar(), &"Bar manual".to_string(), "manually set value for bar");
-    assert_eq!(nonsync.clear_foo(), Some("Foo manual".to_string()), "foo was set manually");
-    assert_eq!(nonsync.foo(), &String::from("my default string"), "foo lazily set to our override");
-    assert_eq!(nonsync.clear_bar(), Some("Bar manual".to_string()), "bar was set manually");
-    assert_eq!(nonsync.bar(), &String::from("my default string"), "bar lazily set to our override");
+    assert_eq!(
+        nonsync.clear_foo(),
+        Some("Foo manual".to_string()),
+        "foo was set manually"
+    );
+    assert_eq!(
+        nonsync.foo(),
+        &String::from("my default string"),
+        "foo lazily set to our override"
+    );
+    assert_eq!(
+        nonsync.clear_bar(),
+        Some("Bar manual".to_string()),
+        "bar was set manually"
+    );
+    assert_eq!(
+        nonsync.bar(),
+        &String::from("my default string"),
+        "bar lazily set to our override"
+    );
 }

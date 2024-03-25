@@ -1,13 +1,11 @@
-use crate::{
-    codegen::{
-        context::{FXCodeGenCtx, FXFieldCtx},
-        DError, DResult, FXCGen,
-    },
-    helper::FXHelper,
+use crate::codegen::{
+    context::{FXCodeGenCtx, FXFieldCtx},
+    DError, DResult, FXCGen,
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
 use std::cell::RefCell;
+use syn::spanned::Spanned;
 
 pub struct FXCodeGen<'f> {
     ctx:                FXCodeGenCtx,
@@ -115,11 +113,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         let field = field_ctx.field();
         field_ctx.ty_wrapped(|| {
             let ty = field_ctx.ty();
+            let span = ty.span();
             if field.is_lazy() {
-                quote! [::fieldx::OnceCell<#ty>]
+                quote_spanned! [span=> ::fieldx::OnceCell<#ty>]
             }
             else if field.is_optional() {
-                quote! [::std::option::Option<#ty>]
+                quote_spanned! [span=> ::std::option::Option<#ty>]
             }
             else {
                 field_ctx.ty_tok().clone()
@@ -196,65 +195,18 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         }
     }
 
-    fn field_builder_field(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
-        if fctx.builder().as_ref().unwrap_or(&FXHelper::from(true)).is_true() {
-            let ident = fctx.ident_tok();
-            let span = *fctx.span();
-            let ty = fctx.ty();
-            if fctx.is_ignorable() {
-                Ok(quote_spanned![span=> #ident: #ty])
-            }
-            else {
-                Ok(quote_spanned![span=> #ident: ::std::option::Option<#ty>])
-            }
-        }
-        else {
-            Ok(quote![])
-        }
-    }
-
-    fn field_builder(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
-        if !fctx.is_ignorable() && fctx.builder().as_ref().unwrap_or(&FXHelper::from(true)).is_true() {
-            let ident = fctx.ident_tok();
-            let builder_name: TokenStream = self.builder_name(fctx).unwrap_or(ident.clone());
-            let span = *fctx.span();
-            let ty = fctx.ty();
-            if self.field_needs_into(fctx) {
-                Ok(quote_spanned![span=>
-                    pub fn #builder_name<FXVALINTO: ::std::convert::Into<#ty>>(&mut self, value: FXVALINTO) -> &mut Self {
-                        self.#ident = ::std::option::Option::Some(value.into());
-                        self
-                    }
-                ])
-            }
-            else {
-                Ok(quote_spanned![span=>
-                    pub fn #builder_name(&mut self, value: #ty) -> &mut Self {
-                        self.#ident = ::std::option::Option::Some(value);
-                        self
-                    }
-                ])
-            }
-        }
-        else {
-            Ok(quote![])
-        }
-    }
-
     fn field_builder_setter(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
         let span = fctx.span();
         let field_ident = fctx.ident_tok();
+        let field_default = self.ok_or(self.field_default_wrap(fctx));
 
         Ok(if fctx.is_ignorable() || !self.field_needs_builder(fctx) {
             quote![]
         }
         else if fctx.is_lazy() {
-            let field_default = self.ok_or(self.field_default_wrap(fctx));
             quote_spanned![*span=>
                 #field_ident: if self.#field_ident.is_some() {
-                    let new = ::fieldx::OnceCell::new();
-                    let _ = new.set( self.#field_ident.take().unwrap() );
-                    new
+                    ::fieldx::OnceCell::from(self.#field_ident.take().unwrap())
                 }
                 else {
                     #field_default
@@ -263,32 +215,16 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         }
         else if fctx.is_optional() {
             quote_spanned![*span=>
-                #field_ident: self.#field_ident.take()
+                #field_ident: if self.#field_ident.is_some() {
+                    self.#field_ident.take()
+                }
+                else {
+                    #field_default
+                }
             ]
         }
         else {
-            let field_name = field_ident.to_string();
-
-            let alternative = if fctx.has_default() {
-                self.ok_or(self.field_default_wrap(fctx))
-            }
-            else {
-                quote![
-                    return ::std::result::Result::Err(
-                        ::std::convert::Into::into(
-                            ::fieldx::errors::UninitializedFieldError::new(#field_name) )
-                    )
-                ]
-            };
-
-            quote_spanned![*span=>
-                #field_ident: if let ::std::option::Option::Some(ref fv) = self.#field_ident {
-                    self.#field_ident.take().unwrap()
-                }
-                else {
-                    #alternative
-                }
-            ]
+            self.simple_field_build_setter(fctx, field_ident, span)
         })
     }
 
@@ -356,21 +292,19 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let pub_tok = fctx.pub_tok();
 
             if fctx.is_lazy() {
-                return Ok(
-                    quote_spanned! [span=>
-                        #[inline]
-                        #pub_tok fn #predicate_name(&self) -> bool {
-                            self.#ident.get().is_some()
-                        }
-                    ]);
+                return Ok(quote_spanned! [span=>
+                    #[inline]
+                    #pub_tok fn #predicate_name(&self) -> bool {
+                        self.#ident.get().is_some()
+                    }
+                ]);
             }
             else if fctx.is_optional() {
-                return Ok(
-                    quote_spanned! [span=>
-                        #pub_tok fn #predicate_name(&self) -> bool {
-                            self.#ident.is_some()
-                        }
-                    ]);
+                return Ok(quote_spanned! [span=>
+                    #pub_tok fn #predicate_name(&self) -> bool {
+                        self.#ident.is_some()
+                    }
+                ]);
             }
         }
 
@@ -381,7 +315,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         let def_tok = self.field_default_value(fctx)?;
 
         if fctx.is_lazy() {
-            Ok(quote![::fieldx::OnceCell::new()])
+            if def_tok.is_empty() {
+                Ok(quote![::fieldx::OnceCell::new()])
+            }
+            else {
+                Ok(quote![::fieldx::OnceCell::from(#def_tok)])
+            }
         }
         else if fctx.is_optional() {
             if fctx.has_default() {
@@ -405,8 +344,9 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         Ok(quote![])
     }
 
-    // No-op since initialization is required by sync version only
-    fn field_initializer(&self, _fctx: &FXFieldCtx) {}
+    fn builder_trait(&self) -> TokenStream {
+        quote![FXStructBuilder]
+    }
 
     fn struct_extras(&self) {
         if self.ctx().needs_new() {

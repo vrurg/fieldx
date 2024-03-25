@@ -48,12 +48,20 @@ fn basic_lazies() {
     assert!(non_sync.has_bar(), "bar has been built");
     assert_eq!(non_sync.clear_bar(), Some(13), "cleared bar, value comes from default");
     assert!(!non_sync.has_bar(), "bar has been cleared");
-    assert_eq!(non_sync.foo(), "this is foo with bar=13", "foo remembers old bar value until cleared");
+    assert_eq!(
+        non_sync.foo(),
+        "this is foo with bar=13",
+        "foo remembers old bar value until cleared"
+    );
     assert!(
         !non_sync.has_bar(),
         "reading uncleared foo does not trigger bar building"
     );
-    assert_eq!(non_sync.bar(), &42, "cleared bar initialized lazily, no default involved");
+    assert_eq!(
+        non_sync.bar(),
+        &42,
+        "cleared bar initialized lazily, no default involved"
+    );
     non_sync.clear_bar();
     non_sync.clear_foo();
     assert_eq!(non_sync.foo(), &String::from("this is foo with bar=42"));

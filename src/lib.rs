@@ -7,11 +7,8 @@ pub use std::{
     sync::{atomic::Ordering, Arc},
 };
 
-pub use crate::errors::UninitializedFieldError;
-
-pub trait FXStruct {}
-
 pub mod errors;
+pub mod traits;
 
 pub struct FXProxy<T> {
     value:   RwLock<Option<T>>,
@@ -44,10 +41,30 @@ impl<T: fmt::Debug> fmt::Debug for FXProxy<T> {
     }
 }
 
+impl<T> From<T> for FXProxy<T> {
+    fn from(value: T) -> Self {
+        Self {
+            value:   RwLock::new(Some(value)),
+            is_set:  AtomicBool::new(true),
+            builder: RwLock::new(None),
+        }
+    }
+}
+
+impl<T> From<Option<T>> for FXProxy<T> {
+    fn from(value: Option<T>) -> Self {
+        Self {
+            value:   RwLock::new(value),
+            is_set:  AtomicBool::new(true),
+            builder: RwLock::new(None),
+        }
+    }
+}
+
 impl<T> FXProxy<T> {
     pub fn proxy_setup(&self, builder: Box<dyn Fn() -> T + Send + Sync>) {
         *self.builder.write() = Some(builder);
-        if (*self.value.read()).is_some() {
+        if !self.is_set() && (*self.value.read()).is_some() {
             self.is_set.store(true, Ordering::SeqCst);
         }
     }

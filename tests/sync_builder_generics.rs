@@ -61,8 +61,20 @@ fn basics() {
 
     assert_eq!(foo.clear_real(), Some(12.0f32), "real was set manually using Into");
     assert_eq!(*foo.read_real(), Some(25.0f32), "real is set lazily");
-    assert_eq!(foo.clear_foo(), Some("це користувацьке значення".to_string()), "foo is set manually");
-    assert_eq!(*foo.read_foo(), Some("my default string".to_string()), "foo is set lazily");
+    assert_eq!(
+        foo.clear_foo(),
+        Some("це користувацьке значення".to_string()),
+        "foo is set manually"
+    );
+    assert_eq!(
+        *foo.read_foo(),
+        Some("my default string".to_string()),
+        "foo is set lazily"
+    );
     foo.clear_real();
-    assert_eq!(*foo.read_real(), Some(17.0f32), "real is re-initialized lazily using new foo value");
+    assert_eq!(
+        *foo.read_real(),
+        Some(17.0f32),
+        "real is re-initialized lazily using new foo value"
+    );
 }

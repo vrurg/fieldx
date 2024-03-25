@@ -3,7 +3,8 @@ use fieldx::fxstruct;
 #[fxstruct]
 #[derive(Debug)]
 struct NonSync<T>
-where T: std::fmt::Debug + Clone + Send + Sync,
+where
+    T: std::fmt::Debug + Clone + Send + Sync,
 {
     #[fieldx(lazy, clearer, predicate)]
     foo:    String,
@@ -24,7 +25,8 @@ where T: std::fmt::Debug + Clone + Send + Sync,
 }
 
 impl<T> NonSync<T>
-where T: std::fmt::Debug + Clone + Send + Sync,
+where
+    T: std::fmt::Debug + Clone + Send + Sync,
 {
     fn build_foo(&self) -> String {
         format!("this is foo with bar={}", self.bar()).to_string()

@@ -48,7 +48,6 @@ impl FXHelper {
             FXHelperKind::Name(_) => true,
         }
     }
-
 }
 
 impl From<bool> for FXHelper {
@@ -98,7 +97,7 @@ impl TryFrom<&Expr> for FXHelperKind {
                     else {
                         Err(darling::Error::custom(format!("Helper method name cannot be empty")))
                     }
-                },
+                }
                 _ => Err(darling::Error::custom(format!(
                     "Unexpected literal `{}`",
                     expr.to_token_stream()
