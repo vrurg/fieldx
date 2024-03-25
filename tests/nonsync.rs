@@ -5,7 +5,7 @@ use fieldx::fxstruct;
 struct NonSync {
     #[fieldx(lazy, clearer, predicate)]
     foo:    String,
-    #[fieldx(lazy, private, predicate, clearer, setter)]
+    #[fieldx(lazy, private, predicate, clearer, setter, default = 13)]
     bar:    i32,
     #[fieldx(default = 3.1415926)]
     pub pi: f32,
@@ -43,17 +43,21 @@ fn basic_lazies() {
     let mut non_sync = NonSync::new();
 
     assert!(!non_sync.has_foo(), "foo is not initialized yet");
-    assert_eq!(non_sync.foo(), "this is foo with bar=42", "both builders are involved");
+    assert_eq!(non_sync.foo(), "this is foo with bar=13", "both builders are involved");
     assert!(non_sync.has_foo(), "foo has been built");
     assert!(non_sync.has_bar(), "bar has been built");
-    assert_eq!(non_sync.clear_bar(), Some(42), "cleared bar");
+    assert_eq!(non_sync.clear_bar(), Some(13), "cleared bar, value comes from default");
     assert!(!non_sync.has_bar(), "bar has been cleared");
-    assert_eq!(non_sync.foo(), "this is foo with bar=42", "foo ");
+    assert_eq!(non_sync.foo(), "this is foo with bar=13", "foo remembers old bar value until cleared");
     assert!(
         !non_sync.has_bar(),
         "reading uncleared foo does not trigger bar building"
     );
-    assert_eq!(non_sync.set_bar(12), None, "set bar");
+    assert_eq!(non_sync.bar(), &42, "cleared bar initialized lazily, no default involved");
+    non_sync.clear_bar();
+    non_sync.clear_foo();
+    assert_eq!(non_sync.foo(), &String::from("this is foo with bar=42"));
+    assert_eq!(non_sync.set_bar(12), Some(42), "set bar");
     assert!(non_sync.has_bar(), "bar now has a value");
     assert_eq!(
         non_sync.clear_foo(),

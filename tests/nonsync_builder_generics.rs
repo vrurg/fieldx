@@ -15,7 +15,7 @@ where
     T: Display + Debug + Default + Newish,
     'b: 'a,
 {
-    #[fieldx(lazy, clearer, builder=off)]
+    #[fieldx(lazy, clearer)]
     foo: T,
 
     #[fieldx(lazy,clearer)]
@@ -48,13 +48,14 @@ impl Newish for String {
 #[test]
 fn basic() {
     let mut nonsync = NonSync::<String>::builder()
-        // .foo("Foo manual")
+        .foo("Foo manual")
         .bar("Bar manual")
         .build()
         .expect("NonSync instance");
-    println!("NON SYNC: {:?}", nonsync);
-    println!("CLEARING FOO: {:?}", nonsync.clear_foo());
-    println!("CLEARED: {}", nonsync.foo());
-    nonsync.clear_bar();
-    println!("CLEARED BAR: {}", nonsync.bar());
+
+    assert_eq!(nonsync.bar(), &"Bar manual".to_string(), "manually set value for bar");
+    assert_eq!(nonsync.clear_foo(), Some("Foo manual".to_string()), "foo was set manually");
+    assert_eq!(nonsync.foo(), &String::from("my default string"), "foo lazily set to our override");
+    assert_eq!(nonsync.clear_bar(), Some("Bar manual".to_string()), "bar was set manually");
+    assert_eq!(nonsync.bar(), &String::from("my default string"), "bar lazily set to our override");
 }
