@@ -397,18 +397,31 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     fn struct_extras(&self) {
         let arc_self = self.arc_self();
         let initializers = self.initializer_toks.borrow_mut();
+        let ctx = self.ctx();
+        let generics = ctx.input().generics();
+        let generic_params = self.generic_params();
+        let input = ctx.input_ident();
+        let where_clause = &generics.where_clause;
 
-        self.add_method_decl(quote! [
-            fn __fieldx_init(self) -> ::fieldx::Arc<Self> {
-                let #arc_self = ::fieldx::Arc::new(self);
-                #( #initializers )*
-                #arc_self
+        ctx.tokens_extend(quote![
+            impl #generics ::fieldx::traits::FXStructSync for #input #generic_params
+            #where_clause
+            {
+                fn __fieldx_init(self) -> ::fieldx::Arc<Self> {
+                    let #arc_self = ::fieldx::Arc::new(self);
+                    #( #initializers )*
+                    #arc_self
+                }
+
+                #[inline]
+                fn __fieldx_new() -> ::fieldx::Arc<Self> {
+                    Self::default().__fieldx_init()
+                }
             }
         ]);
 
-        if self.ctx.needs_new() {
+        if ctx.needs_new() {
             self.add_method_decl(quote![
-                #[inline]
                 pub fn new() -> ::fieldx::Arc<Self> {
                     Self::default().__fieldx_init()
                 }

@@ -349,13 +349,31 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     }
 
     fn struct_extras(&self) {
-        if self.ctx().needs_new() {
-            self.add_method_decl(quote![
+        let ctx = self.ctx();
+        let generics = ctx.input().generics();
+        let generic_params = self.generic_params();
+        let input = ctx.input_ident();
+        let where_clause = &generics.where_clause;
+        ctx.tokens_extend(quote![
+            impl #generics ::fieldx::traits::FXStructNonSync for #input #generic_params
+            #where_clause
+            {
                 #[inline]
-                pub fn new() -> Self {
+                fn __fieldx_new() -> Self {
                     Self::default()
                 }
-            ])
+            }
+        ]);
+
+        if ctx.needs_new() {
+            self.add_method_decl(
+                quote! [
+                    #[inline]
+                    pub fn new() -> Self {
+                        Self::default()
+                    }
+                ]
+            )
         }
     }
 }

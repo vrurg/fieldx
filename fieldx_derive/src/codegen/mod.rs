@@ -333,8 +333,8 @@ pub trait FXCGen<'f> {
     fn default_impl(&self) -> TokenStream {
         let defaults = self.defaults_combined();
         let ctx = self.ctx();
-        let ident = &ctx.input().ident();
-        let generics = &ctx.input().generics();
+        let ident = ctx.input().ident();
+        let generics = ctx.input().generics();
         let where_clause = &generics.where_clause;
         if !defaults.is_empty() {
             quote! [
