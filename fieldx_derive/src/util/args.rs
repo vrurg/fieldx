@@ -6,13 +6,13 @@ pub struct FXSArgs {
     builder:     Option<bool>,
     into:        Option<bool>,
     // Only plays for sync-safe structs
-    without_new: Option<bool>,
+    no_new: Option<bool>,
 }
 
 impl Default for FXSArgs {
     fn default() -> Self {
         FXSArgs {
-            without_new: Some(false),
+            no_new: Some(false),
             builder:     None,
             sync:        None,
             into:        None,
@@ -31,8 +31,8 @@ impl FXSArgs {
     }
 
     pub fn needs_new(&self) -> bool {
-        if let Some(ref without_new) = self.without_new {
-            !*without_new
+        if let Some(ref no_new) = self.no_new {
+            !*no_new
         }
         else {
             true
