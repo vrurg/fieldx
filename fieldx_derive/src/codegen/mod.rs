@@ -486,9 +486,10 @@ pub trait FXCGen<'f> {
             }
 
             #[allow(dead_code)]
-            impl #generics #builder_trait <#input_ident #generic_params> for #builder_ident #generic_params
+            impl #generics #builder_trait for #builder_ident #generic_params
             #where_clause
             {
+                type TargetStruct = #input_ident #generic_params;
                 fn build(&mut self) -> ::std::result::Result<#builder_return_type, ::fieldx::errors::UninitializedFieldError> {
                     Ok(#construction)
                 }

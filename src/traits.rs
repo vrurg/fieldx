@@ -12,16 +12,14 @@ pub trait FXStructSync: FXStruct {
     fn __fieldx_new() -> Arc<Self>;
 }
 
-pub trait FXStructBuilder<T>
-where
-    T: FXStruct,
+pub trait FXStructBuilder
 {
-    fn build(&mut self) -> std::result::Result<T, UninitializedFieldError>;
+    type TargetStruct: FXStructNonSync;
+    fn build(&mut self) -> std::result::Result<Self::TargetStruct, UninitializedFieldError>;
 }
 
-pub trait FXStructBuilderSync<T>
-where
-    T: FXStruct,
+pub trait FXStructBuilderSync
 {
-    fn build(&mut self) -> std::result::Result<Arc<T>, UninitializedFieldError>;
+    type TargetStruct: FXStructSync;
+    fn build(&mut self) -> std::result::Result<Arc<Self::TargetStruct>, UninitializedFieldError>;
 }
