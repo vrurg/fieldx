@@ -57,5 +57,5 @@ pub fn fxstruct(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
         Err(e) => return darling::Error::from(e).write_errors().into(),
     };
 
-    codegen::FXRewriter::new(fx, &args).rewrite().into()
+    codegen::FXRewriter::new(fx, args).rewrite().into()
 }

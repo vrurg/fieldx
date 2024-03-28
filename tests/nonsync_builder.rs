@@ -1,6 +1,6 @@
 use fieldx::fxstruct;
 
-#[fxstruct(builder)]
+#[fxstruct(builder(attributes(derive(Debug))))]
 #[derive(Debug)]
 #[allow(dead_code)]
 struct NonSync {
@@ -27,13 +27,6 @@ impl NonSync {
     fn build_bar(&self) -> i32 {
         42
     }
-}
-
-// This struct here is only to make sure we can have two fxstructs in the same scope.
-#[allow(dead_code)]
-#[fxstruct(builder)]
-struct Foo {
-    dummy: String,
 }
 
 #[test]

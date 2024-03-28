@@ -11,7 +11,7 @@ mod nonsync;
 mod sync;
 
 #[enum_dispatch]
-pub trait FXCGen<'f> {
+pub(crate) trait FXCGen<'f> {
     // Actual code producers
     fn field_accessor(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
     fn field_accessor_mut(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
@@ -47,6 +47,7 @@ pub trait FXCGen<'f> {
     fn builder_fields_ctx(&'f self) -> std::cell::Ref<Vec<FXFieldCtx<'f>>>;
     fn builder_trait(&self) -> TokenStream;
 
+    #[inline]
     fn needs_builder_struct(&self) -> bool {
         self.ctx().needs_builder_struct().unwrap_or(false)
     }
@@ -405,15 +406,20 @@ pub trait FXCGen<'f> {
 
     fn builder_struct(&'f self) -> TokenStream {
         if self.needs_builder_struct() {
+            let ctx = self.ctx();
+            let args = ctx.args();
             let builder_ident = self.builder_ident();
             let builder_fields = self.builder_fields_combined();
             let builder_impl = self.builder_impl();
-            let generics = self.ctx().input().generics();
+            let generics = ctx.input().generics();
             let where_clause = &generics.where_clause;
             let span = proc_macro2::Span::call_site();
+            let public = if args.builder_is_pub() { quote![pub] } else { quote![] };
+            let attributes = args.builder_attributes();
             quote_spanned![span=>
                 #[derive(Default)]
-                struct #builder_ident #generics
+                #attributes
+                #public struct #builder_ident #generics
                 #where_clause
                 {
                     #builder_fields
@@ -449,6 +455,7 @@ pub trait FXCGen<'f> {
         let generic_params = self.generic_params();
         let builder_return_type = self.builder_return_type();
         let builder_trait = self.builder_trait();
+        let attributes = ctx.args().builder_impl_attributes();
 
         let mut field_setters = Vec::<TokenStream>::new();
         let mut use_default = false;
@@ -479,6 +486,7 @@ pub trait FXCGen<'f> {
 
         quote![
             #[allow(dead_code)]
+            #attributes
             impl #generics #builder_ident #generic_params
             #where_clause
             {
@@ -551,7 +559,7 @@ pub struct FXRewriter<'f> {
 }
 
 impl<'f> FXRewriter<'f> {
-    pub fn new(input: FXInputReceiver, args: &FXSArgs) -> Self {
+    pub fn new(input: FXInputReceiver, args: FXSArgs) -> Self {
         let ctx = FXCodeGenCtx::new(input, args);
 
         let generator: FXCG = if ctx.is_sync() {

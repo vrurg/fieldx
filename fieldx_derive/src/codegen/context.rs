@@ -1,4 +1,9 @@
-use crate::{fields::FXField, helper::FXHelper, input_receiver::FXInputReceiver, util::args};
+use crate::{
+    fields::FXField,
+    helper::FXHelper,
+    input_receiver::FXInputReceiver,
+    util::args::{self, FXSArgs},
+};
 use delegate::delegate;
 use getset::{CopyGetters, Getters};
 use proc_macro2::{Span, TokenStream};
@@ -7,27 +12,21 @@ use std::cell::{OnceCell, RefCell};
 use syn;
 
 #[derive(Getters, CopyGetters)]
-pub struct FXCodeGenCtx {
+pub(crate) struct FXCodeGenCtx {
     errors: RefCell<OnceCell<darling::error::Accumulator>>,
+
+    #[getset(get = "pub")]
+    args: FXSArgs,
 
     #[getset(get = "pub")]
     input: FXInputReceiver,
 
-    // Options
-    #[getset(get_copy = "pub")]
-    is_sync: bool,
-
-    #[getset(get_copy = "pub")]
-    needs_new: bool,
-
     needs_builder_struct: RefCell<Option<bool>>,
-
-    needs_into: RefCell<Option<bool>>,
 
     tokens: RefCell<OnceCell<TokenStream>>,
 }
 
-pub struct FXFieldCtx<'f> {
+pub(crate) struct FXFieldCtx<'f> {
     field:      &'f FXField,
     pub_tok:    OnceCell<TokenStream>,
     ty_tok:     OnceCell<TokenStream>,
@@ -37,15 +36,21 @@ pub struct FXFieldCtx<'f> {
 }
 
 impl FXCodeGenCtx {
-    pub fn new(input: FXInputReceiver, args: &args::FXSArgs) -> Self {
+    delegate! {
+        to self.args {
+            pub fn is_sync(&self) -> bool;
+            pub fn needs_new(&self) -> bool;
+            pub fn needs_into(&self) -> Option<bool>;
+        }
+    }
+
+    pub fn new(input: FXInputReceiver, args: args::FXSArgs) -> Self {
         Self {
             input,
-            is_sync: args.is_sync(),
-            needs_new: args.needs_new(),
-            needs_into: RefCell::new(args.needs_into()),
-            needs_builder_struct: RefCell::new(args.needs_builder()),
+            args,
             errors: RefCell::new(OnceCell::new()),
             tokens: RefCell::new(OnceCell::new()),
+            needs_builder_struct: RefCell::new(None),
         }
     }
 
@@ -81,11 +86,7 @@ impl FXCodeGenCtx {
     }
 
     pub fn needs_builder_struct(&self) -> Option<bool> {
-        *self.needs_builder_struct.borrow()
-    }
-
-    pub fn needs_into(&self) -> Option<bool> {
-        *self.needs_into.borrow()
+        (*self.needs_builder_struct.borrow()).or(self.args.needs_builder())
     }
 
     pub fn require_builder(&self) {

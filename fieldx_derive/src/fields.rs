@@ -9,7 +9,7 @@ use syn::{spanned::Spanned, Meta};
 #[derive(Debug, FromField, Getters)]
 #[getset(get = "pub")]
 #[darling(attributes(fieldx), forward_attrs)]
-pub struct FXFieldReceiver {
+pub(crate) struct FXFieldReceiver {
     ident: Option<syn::Ident>,
     vis:   syn::Visibility,
     ty:    syn::Type,
@@ -38,7 +38,7 @@ pub struct FXFieldReceiver {
 }
 
 #[derive(Debug)]
-pub struct FXField(FXFieldReceiver);
+pub(crate) struct FXField(FXFieldReceiver);
 
 impl FromField for FXField {
     fn from_field(field: &syn::Field) -> darling::Result<Self> {

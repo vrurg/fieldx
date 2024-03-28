@@ -4,13 +4,13 @@ use quote::ToTokens;
 use syn::{Expr, Lit, Meta};
 
 #[derive(Debug)]
-pub enum FXHelperKind {
+pub(crate) enum FXHelperKind {
     Flag(bool),
     Name(String),
 }
 
 #[derive(Debug)]
-pub struct FXHelper {
+pub(crate) struct FXHelper {
     value: FXHelperKind,
     orig:  Option<Meta>,
 }

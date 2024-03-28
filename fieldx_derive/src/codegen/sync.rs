@@ -7,7 +7,7 @@ use quote::{quote, quote_spanned};
 use std::cell::RefCell;
 use syn::spanned::Spanned;
 
-pub struct FXCodeGen<'f> {
+pub(crate) struct FXCodeGen<'f> {
     ctx:                FXCodeGenCtx,
     field_toks:         RefCell<Vec<TokenStream>>,
     default_toks:       RefCell<Vec<TokenStream>>,
