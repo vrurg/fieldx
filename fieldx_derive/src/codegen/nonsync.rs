@@ -345,7 +345,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     }
 
     fn builder_trait(&self) -> TokenStream {
-        quote![FXStructBuilder]
+        quote![::fieldx::traits::FXStructBuilder]
     }
 
     fn struct_extras(&self) {
@@ -366,14 +366,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         ]);
 
         if ctx.needs_new() {
-            self.add_method_decl(
-                quote! [
-                    #[inline]
-                    pub fn new() -> Self {
-                        Self::default()
-                    }
-                ]
-            )
+            self.add_method_decl(quote![
+                #[inline]
+                pub fn new() -> Self {
+                    Self::default()
+                }
+            ])
         }
     }
 }

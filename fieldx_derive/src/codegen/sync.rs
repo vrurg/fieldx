@@ -238,7 +238,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             if fctx.is_lazy() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #writer_name<'fx_writer_lifetime>(&'fx_writer_lifetime self) -> fieldx::FXWrLock<'fx_writer_lifetime, #ty> {
+                    #pub_tok fn #writer_name<'fx_writer_lifetime>(&'fx_writer_lifetime self) -> ::fieldx::FXWrLock<'fx_writer_lifetime, #ty> {
                         self.#ident.write()
                     }
                 ])
@@ -247,7 +247,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 // If not lazy then it's optional
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #writer_name(&self) -> fieldx::RwLockWriteGuard<Option<#ty>> {
+                    #pub_tok fn #writer_name(&self) -> ::fieldx::RwLockWriteGuard<::std::option::Option<#ty>> {
                         self.#ident.write()
                     }
                 ])
@@ -268,7 +268,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             if fctx.is_lazy() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #set_name(&self, value: #ty) -> Option<#ty> {
+                    #pub_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
                         self.#ident.write().store(value)
                     }
                 ])
@@ -276,7 +276,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.is_optional() {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #set_name(&self, value: #ty) -> Option<#ty> {
+                    #pub_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
                         self.#ident.write().replace(value)
                     }
                 ])
@@ -306,7 +306,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             if fctx.is_lazy() {
                 Ok(quote_spanned![*fctx.span()=>
                    #[inline]
-                   #pub_tok fn #clear_name(&self) -> Option<#ty> {
+                   #pub_tok fn #clear_name(&self) -> ::std::option::Option<#ty> {
                        self.#ident.clear()
                    }
                 ])
@@ -315,7 +315,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 // If not lazy then it's optional
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #clear_name(&self) -> Option<#ty> {
+                    #pub_tok fn #clear_name(&self) -> ::std::option::Option<#ty> {
                        self.#ident.write().take()
                     }
                 ])
@@ -391,7 +391,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     }
 
     fn builder_trait(&self) -> TokenStream {
-        quote![FXStructBuilderSync]
+        quote![::fieldx::traits::FXStructBuilderSync]
     }
 
     fn struct_extras(&self) {
