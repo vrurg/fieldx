@@ -4,11 +4,11 @@ use fieldx::fxstruct;
 #[derive(Debug)]
 struct NonSync<T>
 where
-    T: std::fmt::Debug + Clone + Send + Sync,
+    T: std::fmt::Debug + Clone + Send + Sync + Default,
 {
     #[fieldx(lazy, clearer, predicate)]
     foo:    String,
-    #[fieldx(lazy, private, predicate, clearer, setter)]
+    #[fieldx(lazy, private, predicate, clearer, setter, copy)]
     bar:    i32,
     #[fieldx(default = 3.1415926)]
     pub pi: f32,
@@ -20,13 +20,13 @@ where
     #[fieldx(lazy, clearer, rename = "piquant")]
     fubar: String,
 
-    #[allow(dead_code)]
+    #[fieldx(lazy, clearer, predicate)]
     maybe: Option<T>,
 }
 
 impl<T> NonSync<T>
 where
-    T: std::fmt::Debug + Clone + Send + Sync,
+    T: std::fmt::Debug + Clone + Send + Sync + Default,
 {
     fn build_foo(&self) -> String {
         format!("this is foo with bar={}", self.bar()).to_string()
@@ -39,10 +39,15 @@ where
     fn build_piquant(&self) -> String {
         "щось пікантне".to_string()
     }
+
+    fn build_maybe(&self) -> Option<T> {
+        Some(T::default())
+    }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 struct Dummy;
+
 
 #[test]
 fn basic_default() {
@@ -58,6 +63,7 @@ fn basic_lazies() {
     assert_eq!(non_sync.foo(), "this is foo with bar=42", "both builders are involved");
     assert!(non_sync.has_foo(), "foo has been built");
     assert!(non_sync.has_bar(), "bar has been built");
+    assert_eq!(non_sync.bar(), 42, "bar accessor is using Copy trait");
     assert_eq!(non_sync.clear_bar(), Some(42), "cleared bar");
     assert!(!non_sync.has_bar(), "bar has been cleared");
     assert_eq!(non_sync.foo(), "this is foo with bar=42", "foo ");
@@ -106,4 +112,13 @@ fn basic_nonlazy() {
         "new baz",
         "manually set value for field baz"
     );
+}
+
+#[test]
+fn optional() {
+    let mut non_sync = NonSync::<Dummy>::new();
+
+    assert_eq!(non_sync.maybe(), &Some(Dummy::default()), "an optional field gets initialized");
+    assert_eq!(non_sync.clear_maybe(), Some(Some(Dummy::default())), "optional field clear");
+    assert!(!non_sync.has_maybe(), "optional field is empty after clearing");
 }

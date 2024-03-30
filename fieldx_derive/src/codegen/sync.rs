@@ -16,6 +16,7 @@ pub(crate) struct FXCodeGen<'f> {
     builder_field_toks: RefCell<Vec<TokenStream>>,
     builder_toks:       RefCell<Vec<TokenStream>>,
     builder_field_ctx:  RefCell<Vec<FXFieldCtx<'f>>>,
+    copyable_types: RefCell<Vec<syn::Type>>,
 }
 
 impl<'f> FXCodeGen<'f> {
@@ -29,6 +30,7 @@ impl<'f> FXCodeGen<'f> {
             builder_field_toks: RefCell::new(vec![]),
             builder_field_ctx: RefCell::new(vec![]),
             builder_toks: RefCell::new(vec![]),
+            copyable_types: RefCell::new(vec![]),
         }
     }
 }
@@ -60,6 +62,10 @@ impl<'f> FXCodeGen<'f> {
 impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     fn ctx(&self) -> &FXCodeGenCtx {
         &self.ctx
+    }
+
+    fn copyable_types(&self) -> std::cell::Ref<Vec<syn::Type>> {
+        self.copyable_types.borrow()
     }
 
     fn add_field_decl(&self, field: TokenStream) {
@@ -96,6 +102,10 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
 
     fn add_builder_field_ctx(&self, fctx: FXFieldCtx<'f>) {
         self.builder_field_ctx.borrow_mut().push(fctx);
+    }
+
+    fn check_for_impl_copy(&self,field_ctx: &FXFieldCtx) {
+        self.copyable_types.borrow_mut().push(field_ctx.ty().clone());
     }
 
     fn methods_combined(&self) -> TokenStream {

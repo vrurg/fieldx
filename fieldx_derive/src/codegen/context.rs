@@ -109,6 +109,7 @@ impl<'f> FXFieldCtx<'f> {
             pub fn needs_predicate(&self) -> bool;
             pub fn needs_into(&self) -> Option<bool>;
             pub fn needs_builder(&self) -> Option<bool>;
+            pub fn is_copy(&self) -> bool;
             pub fn is_into(&self) -> bool;
             pub fn is_lazy(&self) -> bool;
             pub fn is_ignorable(&self) -> bool;

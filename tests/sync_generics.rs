@@ -23,6 +23,7 @@ fn non_threaded() {
     assert!(!sync.has_foo(), "foo is not initialized yet");
     assert_eq!(*sync.read_foo(), Some("Foo with bar=Some(42)".to_string()), "built foo");
     assert!(sync.has_foo(), "foo has been built");
+    eprintln!("BAR: {:?}", *sync.read_bar());
     assert!(sync.has_bar(), "bar has been built");
     assert_eq!(sync.clear_bar(), Some(42), "cleared bar");
     assert!(!sync.has_bar(), "bar has been cleared");

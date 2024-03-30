@@ -31,6 +31,7 @@ pub(crate) struct FXFieldReceiver {
     default:      Option<Meta>,
     builder:      Option<FXHelper>,
     into:         Option<bool>,
+    copy:         Option<bool>,
 
     #[darling(skip)]
     #[getset(skip)]
@@ -156,7 +157,7 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn is_optional(&self) -> bool {
-        Self::flag_set(&self.clearer) || Self::flag_set(&self.predicate) || Self::flag_set(&self.lazy)
+        !Self::flag_set(&self.lazy) && (Self::flag_set(&self.clearer) || Self::flag_set(&self.predicate))
     }
 
     pub fn is_pub(&self) -> bool {
@@ -165,6 +166,10 @@ impl FXFieldReceiver {
 
     pub fn is_into(&self) -> bool {
         self.into.unwrap_or(false)
+    }
+
+    pub fn is_copy(&self) -> bool {
+        self.copy.unwrap_or(false)
     }
 
     pub fn is_ignorable(&self) -> bool {

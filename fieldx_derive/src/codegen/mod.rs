@@ -3,6 +3,7 @@ pub use darling::{Error as DError, Result as DResult};
 use enum_dispatch::enum_dispatch;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
+use std::cell::Ref;
 use syn::{spanned, spanned::Spanned, Expr, Ident, Lit};
 
 use context::{FXCodeGenCtx, FXFieldCtx};
@@ -25,7 +26,6 @@ pub(crate) trait FXCGen<'f> {
 
     fn struct_extras(&self);
 
-    // Helper methods
     fn add_field_decl(&self, field: TokenStream);
     fn add_defaults_decl(&self, defaults: TokenStream);
     fn add_method_decl(&self, method: TokenStream);
@@ -33,10 +33,11 @@ pub(crate) trait FXCGen<'f> {
     fn add_builder_decl(&self, builder_method: TokenStream);
     fn add_builder_field_decl(&self, builder_field: TokenStream);
     fn add_builder_field_ctx(&self, field_ctx: FXFieldCtx<'f>);
+    fn check_for_impl_copy(&self, field_ctx: &FXFieldCtx);
 
     fn ctx(&self) -> &FXCodeGenCtx;
     fn type_tokens<'s>(&'s self, field_ctx: &'s FXFieldCtx) -> &'s TokenStream;
-    // fn type_tokens_mut<'s>(&'s self, field_ctx: &'s FXFieldCtx) -> &'s TokenStream;
+    fn copyable_types(&self) -> Ref<Vec<syn::Type>>;
 
     fn methods_combined(&self) -> TokenStream;
     fn fields_combined(&self) -> TokenStream;
@@ -248,6 +249,10 @@ pub(crate) trait FXCGen<'f> {
             #( #attrs )*
             #vis #ident: #ty_tok
         ]);
+
+        if field_ctx.is_copy() {
+            self.check_for_impl_copy(&field_ctx);
+        }
 
         self.field_initializer(&field_ctx);
         self.field_default(&field_ctx);
@@ -523,8 +528,24 @@ pub(crate) trait FXCGen<'f> {
         let where_clause = &generics.where_clause;
         let generic_params = self.generic_params();
 
+        let copyables = self.copyable_types();
+        let copyable_validation = if !copyables.is_empty() {
+            let copyables: Vec<TokenStream> = copyables.iter().map(|ct| ct.to_token_stream()).collect();
+            Some(quote![
+                const _: fn() = || {
+                    fn field_implements_copy<T: ?Sized + Copy>() {}
+                    #( field_implements_copy::<#copyables>(); )*
+                };
+            ])
+        }
+        else {
+            None
+        };
+
         self.ctx().tokens_extend(quote! [
             use ::fieldx::traits::*;
+
+            #copyable_validation
 
             #( #attrs )*
             #vis struct #ident #generics
