@@ -9,7 +9,7 @@ use std::sync::{
 mod syncish_generics;
 use syncish_generics::Foo;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 struct Dummy;
 
 #[test]

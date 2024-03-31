@@ -5,17 +5,17 @@ use parking_lot::Mutex;
 #[derive(Debug)]
 pub struct Foo<T>
 where
-    T: std::fmt::Debug + Clone + Send + Sync + 'static,
+    T: std::fmt::Debug + Default + Clone + Send + Sync + 'static,
 {
     #[fieldx(lazy, clearer, predicate)]
     foo:    String,
-    #[fieldx(lazy, reader, predicate, clearer, setter)]
+    #[fieldx(lazy, reader, predicate, clearer, set)]
     bar:    i32,
     #[fieldx(default = 3.1415926)]
     pub pi: f32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(clearer, predicate, setter, default = "bazzification")]
+    #[fieldx(clearer, predicate, set, default = "bazzification")]
     baz: String,
 
     #[fieldx(lazy, clearer)]
@@ -24,13 +24,13 @@ where
     bar_builds: Mutex<i32>,
     next_bar:   Mutex<Option<i32>>,
 
-    #[allow(dead_code)]
-    dummy: Mutex<Option<T>>,
+    #[fieldx(lazy)]
+    dummy: T,
 }
 
 impl<T> Foo<T>
 where
-    T: std::fmt::Debug + Clone + Send + Sync + 'static,
+    T: std::fmt::Debug + Default + Clone + Send + Sync + 'static,
 {
     fn build_foo(&self) -> String {
         format!("Foo with bar={:?}", *self.read_bar()).to_string()
@@ -44,6 +44,10 @@ where
         else {
             42
         }
+    }
+
+    fn build_dummy(&self) -> T {
+        T::default()
     }
 
     fn build_fubar(&self) -> String {

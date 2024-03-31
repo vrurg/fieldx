@@ -18,13 +18,16 @@ pub(crate) struct FXFieldReceiver {
     lazy:         Option<FXHelper>,
     #[darling(rename = "rename")]
     base_name:    Option<String>,
+    #[darling(rename = "get")]
     accessor:     Option<FXHelper>,
+    #[darling(rename = "get_mut")]
     accessor_mut: Option<FXHelper>,
+    #[darling(rename = "set")]
+    setter:       Option<FXHelper>,
     #[darling(default = "FXHelper::truthy")]
     reader:       Option<FXHelper>,
     #[darling(default = "FXHelper::truthy")]
     writer:       Option<FXHelper>,
-    setter:       Option<FXHelper>,
     clearer:      Option<FXHelper>,
     predicate:    Option<FXHelper>,
     private:      Option<bool>,

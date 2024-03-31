@@ -2,10 +2,10 @@ use fieldx::fxstruct;
 
 #[fxstruct]
 struct Foo {
-    #[fieldx(lazy, predicate, accessor_mut)]
+    #[fieldx(lazy, predicate, get_mut)]
     lazish: String,
 
-    #[fieldx(predicate, accessor_mut)]
+    #[fieldx(predicate, get_mut)]
     std: String,
 }
 

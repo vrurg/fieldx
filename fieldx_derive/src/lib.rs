@@ -34,7 +34,6 @@ fn prettify_tok(item: TokenStream) -> String {
 
 #[proc_macro_attribute]
 pub fn fxstruct(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // eprintln!("--- FIELDX ATTRIBUTE");
     let attr_args = match ast::NestedMeta::parse_meta_list(args.into()) {
         Ok(v) => v,
         Err(e) => {
@@ -46,10 +45,6 @@ pub fn fxstruct(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
         Ok(v) => v,
         Err(e) => return darling::Error::from(e).write_errors().into(),
     };
-
-    // eprintln!("&&& ARGS {:#?}", args);
-    // eprintln!("<<< INPUT:\n{}", input.to_string());
-    // eprintln!("<<< Input span: {:?}", input.span());
 
     let input_ast = parse_macro_input!(input as DeriveInput);
     let fx = match FXInputReceiver::from_derive_input(&input_ast) {

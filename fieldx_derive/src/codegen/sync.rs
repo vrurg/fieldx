@@ -16,7 +16,7 @@ pub(crate) struct FXCodeGen<'f> {
     builder_field_toks: RefCell<Vec<TokenStream>>,
     builder_toks:       RefCell<Vec<TokenStream>>,
     builder_field_ctx:  RefCell<Vec<FXFieldCtx<'f>>>,
-    copyable_types: RefCell<Vec<syn::Type>>,
+    copyable_types:     RefCell<Vec<syn::Type>>,
 }
 
 impl<'f> FXCodeGen<'f> {
@@ -104,7 +104,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         self.builder_field_ctx.borrow_mut().push(fctx);
     }
 
-    fn check_for_impl_copy(&self,field_ctx: &FXFieldCtx) {
+    fn check_for_impl_copy(&self, field_ctx: &FXFieldCtx) {
         self.copyable_types.borrow_mut().push(field_ctx.ty().clone());
     }
 
@@ -167,8 +167,30 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
 
     fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_accessor(true) {
-            Err(darling::Error::custom("Accessors are not supported for sync structs")
-                .with_span(&fctx.accessor().span()))
+            let ident = fctx.ident_tok();
+            let pub_tok = fctx.pub_tok();
+            let accessor_name = self.accessor_name(fctx)?;
+            let ty = fctx.ty();
+
+            if fctx.is_lazy() || fctx.is_optional() {
+                let cmethod = if fctx.is_copy() { quote![copied] } else { quote![cloned] };
+
+                Ok(quote_spanned![*fctx.span()=>
+                    #pub_tok fn #accessor_name(&self) -> ::std::option::Option<#ty> {
+                        let rlock = self.#ident.read();
+                        (*rlock).as_ref().#cmethod()
+                    }
+                ])
+            }
+            else {
+                let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
+
+                Ok(quote_spanned![*fctx.span()=>
+                    #pub_tok fn #accessor_name(&self) -> #ty {
+                        self.#ident #cmethod
+                    }
+                ])
+            }
         }
         else {
             Ok(quote![])

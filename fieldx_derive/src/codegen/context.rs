@@ -125,10 +125,10 @@ impl<'f> FXFieldCtx<'f> {
             pub fn base_name(&self) -> &Option<String>;
             pub fn accessor(&self) -> &Option<FXHelper>;
             pub fn accessor_mut(&self) -> &Option<FXHelper>;
+            pub fn setter(&self) -> &Option<FXHelper>;
             pub fn builder(&self) -> &Option<FXHelper>;
             pub fn reader(&self) -> &Option<FXHelper>;
             pub fn writer(&self) -> &Option<FXHelper>;
-            pub fn setter(&self) -> &Option<FXHelper>;
             pub fn clearer(&self) -> &Option<FXHelper>;
             pub fn predicate(&self) -> &Option<FXHelper>;
             #[allow(dead_code)]
