@@ -12,7 +12,6 @@ pub(crate) struct FXSAttributes {
 #[derive(Debug, Default, Clone, FromMeta, Getters)]
 #[getset(get = "pub")]
 pub(crate) struct FXSBuilder {
-    public:          Option<bool>,
     attributes:      Option<FXSAttributes>,
     attributes_impl: Option<FXSAttributes>,
 }
@@ -64,20 +63,6 @@ impl FXSArgs {
         self.into
     }
 
-    pub fn builder_is_pub(&self) -> bool {
-        if let Some(ref bldr) = self.builder {
-            if let Override::Explicit(builder) = bldr {
-                builder.is_pub()
-            }
-            else {
-                false
-            }
-        }
-        else {
-            false
-        }
-    }
-
     pub fn builder_attributes(&self) -> Option<&FXSAttributes> {
         self.builder.as_ref().and_then(|b| {
             if let Override::Explicit(builder) = b {
@@ -98,12 +83,6 @@ impl FXSArgs {
                 None
             }
         })
-    }
-}
-
-impl FXSBuilder {
-    pub fn is_pub(&self) -> bool {
-        self.public.unwrap_or(false)
     }
 }
 

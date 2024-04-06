@@ -1,33 +1,31 @@
-use fieldx::fxstruct;
+mod foo {
+    use fieldx::fxstruct;
 
-#[fxstruct(sync, builder)]
-#[derive(Debug)]
-struct Foo {
-    #[fieldx(lazy, clearer)]
-    foo: String,
+    #[fxstruct(sync, builder)]
+    #[derive(Debug)]
+    pub(crate) struct Foo {
+        #[fieldx(lazy, clearer)]
+        foo: String,
 
-    #[fieldx(lazy, clearer, into)]
-    real: f32,
-}
-
-impl Foo {
-    fn build_foo(&self) -> String {
-        "це є ледачим значенням".into()
+        #[fieldx(lazy, clearer, into)]
+        real: f32,
     }
 
-    fn build_real(&self) -> f32 {
-        let l: u16 = (*self.read_foo())
-            .chars()
-            .count()
-            .try_into()
-            .expect("u32 value");
-        l.try_into().expect("f32 value")
+    impl Foo {
+        fn build_foo(&self) -> String {
+            "це є ледачим значенням".into()
+        }
+
+        fn build_real(&self) -> f32 {
+            let l: u16 = (*self.read_foo()).chars().count().try_into().expect("u32 value");
+            l.try_into().expect("f32 value")
+        }
     }
 }
 
 #[test]
 fn basics() {
-    let foo = Foo::builder()
+    let foo = foo::Foo::builder()
         .foo("це користувацьке значення".into())
         .real(1u16)
         .build()
@@ -46,9 +44,5 @@ fn basics() {
         "foo re-initialized lazily"
     );
     foo.clear_real();
-    assert_eq!(
-        *foo.read_real(),
-        22f32,
-        "real re-initialized lazily from new foo value"
-    );
+    assert_eq!(*foo.read_real(), 22f32, "real re-initialized lazily from new foo value");
 }

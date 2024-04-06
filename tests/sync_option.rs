@@ -1,8 +1,8 @@
 use fieldx::fxstruct;
 
-#[fxstruct(sync,into)]
+#[fxstruct(sync, into)]
 struct Foo {
-    #[fieldx(get,set,private,predicate)]
+    #[fieldx(get, set, private, predicate)]
     foo: Option<String>,
 }
 

@@ -297,9 +297,10 @@ pub(crate) trait FXCGen<'f> {
         if self.needs_builder_struct() {
             let builder_ident = self.builder_ident();
             let generic_params = self.generic_params();
+            let vis = self.ctx().input().vis();
             self.add_method_decl(quote![
                 #[inline]
-                pub fn builder() -> #builder_ident #generic_params {
+                #vis fn builder() -> #builder_ident #generic_params {
                     #builder_ident::default()
                 }
             ])
@@ -419,12 +420,12 @@ pub(crate) trait FXCGen<'f> {
             let generics = ctx.input().generics();
             let where_clause = &generics.where_clause;
             let span = proc_macro2::Span::call_site();
-            let public = if args.builder_is_pub() { quote![pub] } else { quote![] };
+            let vis = ctx.input().vis();
             let attributes = args.builder_attributes();
             quote_spanned![span=>
                 #[derive(Default)]
                 #attributes
-                #public struct #builder_ident #generics
+                #vis struct #builder_ident #generics
                 #where_clause
                 {
                     #builder_fields
@@ -452,6 +453,7 @@ pub(crate) trait FXCGen<'f> {
 
     fn builder_impl(&'f self) -> TokenStream {
         let ctx = self.ctx();
+        let vis = ctx.input().vis();
         let builder_ident = self.builder_ident();
         let builders = self.builders_combined();
         let input_ident = ctx.input_ident();
@@ -459,7 +461,6 @@ pub(crate) trait FXCGen<'f> {
         let where_clause = &generics.where_clause;
         let generic_params = self.generic_params();
         let builder_return_type = self.builder_return_type();
-        let builder_trait = self.builder_trait();
         let attributes = ctx.args().builder_impl_attributes();
 
         let mut field_setters = Vec::<TokenStream>::new();
@@ -496,14 +497,7 @@ pub(crate) trait FXCGen<'f> {
             #where_clause
             {
                 #builders
-            }
-
-            #[allow(dead_code)]
-            impl #generics #builder_trait for #builder_ident #generic_params
-            #where_clause
-            {
-                type TargetStruct = #input_ident #generic_params;
-                fn build(&mut self) -> ::std::result::Result<#builder_return_type, ::fieldx::errors::UninitializedFieldError> {
+                #vis fn build(&mut self) -> ::std::result::Result<#builder_return_type, ::fieldx::errors::UninitializedFieldError> {
                     Ok(#construction)
                 }
             }
