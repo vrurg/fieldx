@@ -171,9 +171,25 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let pub_tok = fctx.pub_tok();
             let accessor_name = self.accessor_name(fctx)?;
             let ty = fctx.ty();
+            let is_optional = fctx.is_optional();
 
-            if fctx.is_lazy() || fctx.is_optional() {
-                let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
+            if fctx.is_lazy() || is_optional {
+                let cmethod = if fctx.is_copy() {
+                    if is_optional {
+                        quote![.as_ref().unwrap().as_ref().copied()]
+                    }
+                    else {
+                        quote![]
+                    }
+                }
+                else {
+                    if is_optional {
+                        quote![.as_ref().unwrap().as_ref().cloned()]
+                    }
+                    else {
+                        quote![.clone()]
+                    }
+                };
 
                 Ok(quote_spanned![*fctx.span()=>
                     #pub_tok fn #accessor_name(&self) -> #ty {
@@ -257,7 +273,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 ])
             }
             else {
-                Ok( quote_spanned! [*fctx.span()=>
+                Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
                     #pub_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
                         ::fieldx::RwLockReadGuard::map(self.#ident.read(), |data: &Option<#ty>| data.as_ref().unwrap())
