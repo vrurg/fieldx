@@ -173,12 +173,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let ty = fctx.ty();
 
             if fctx.is_lazy() || fctx.is_optional() {
-                let cmethod = if fctx.is_copy() { quote![copied] } else { quote![cloned] };
+                let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
 
                 Ok(quote_spanned![*fctx.span()=>
-                    #pub_tok fn #accessor_name(&self) -> ::std::option::Option<#ty> {
+                    #pub_tok fn #accessor_name(&self) -> #ty {
                         let rlock = self.#ident.read();
-                        (*rlock).as_ref().#cmethod()
+                        (*rlock)#cmethod
                     }
                 ])
             }
@@ -248,12 +248,22 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let pub_tok = fctx.pub_tok();
             let ty = fctx.ty();
 
-            Ok(quote_spanned! [*fctx.span()=>
-                #[inline]
-                #pub_tok fn #reader_name(&self) -> ::fieldx::RwLockReadGuard<Option<#ty>> {
-                    self.#ident.read()
-                }
-            ])
+            if fctx.is_lazy() {
+                Ok(quote_spanned! [*fctx.span()=>
+                    #[inline]
+                    #pub_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
+                        self.#ident.read()
+                    }
+                ])
+            }
+            else {
+                Ok( quote_spanned! [*fctx.span()=>
+                    #[inline]
+                    #pub_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
+                        ::fieldx::RwLockReadGuard::map(self.#ident.read(), |data: &Option<#ty>| data.as_ref().unwrap())
+                    }
+                ])
+            }
         }
         else {
             Ok(TokenStream::new())

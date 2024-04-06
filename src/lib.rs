@@ -1,5 +1,5 @@
 pub use fieldx_derive::fxstruct;
-pub use parking_lot::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
+pub use parking_lot::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard, MappedRwLockReadGuard};
 use std::{any, cell::RefCell, sync::atomic::AtomicBool};
 pub use std::{
     cell::OnceCell,
@@ -69,7 +69,7 @@ impl<T> FXProxy<T> {
         }
     }
 
-    pub fn read(&self) -> RwLockReadGuard<Option<T>> {
+    pub fn read<'a>(&'a self) -> MappedRwLockReadGuard<'a, T> {
         let guard = self.value.upgradable_read();
         if (*guard).is_none() {
             // eprintln!("+ need to rebuild");
@@ -87,11 +87,9 @@ impl<T> FXProxy<T> {
                     None => panic!("Builder is not set"),
                 }
             }
-            return RwLockWriteGuard::downgrade(wguard);
+            return RwLockReadGuard::map(RwLockWriteGuard::downgrade(wguard), |data: &Option<T>| data.as_ref().unwrap())
         }
-        else {
-            return RwLockUpgradableReadGuard::downgrade(guard);
-        }
+        RwLockReadGuard::map(RwLockUpgradableReadGuard::downgrade(guard), |data: &Option<T>| data.as_ref().unwrap())
     }
 
     pub fn write<'a>(&'a self) -> FXWrLock<'a, T> {

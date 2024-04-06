@@ -36,7 +36,7 @@ where
     }
 
     fn build_real(&self) -> f32 {
-        let l: u16 = format!("{}", (*self.read_foo()).as_ref().unwrap())
+        let l: u16 = format!("{}", *self.read_foo())
             .chars()
             .count()
             .try_into()
@@ -60,7 +60,7 @@ fn basics() {
         .unwrap();
 
     assert_eq!(foo.clear_real(), Some(12.0f32), "real was set manually using Into");
-    assert_eq!(*foo.read_real(), Some(25.0f32), "real is set lazily");
+    assert_eq!(*foo.read_real(), 25.0f32, "real is set lazily");
     assert_eq!(
         foo.clear_foo(),
         Some("це користувацьке значення".to_string()),
@@ -68,13 +68,13 @@ fn basics() {
     );
     assert_eq!(
         *foo.read_foo(),
-        Some("my default string".to_string()),
+        "my default string".to_string(),
         "foo is set lazily"
     );
     foo.clear_real();
     assert_eq!(
         *foo.read_real(),
-        Some(17.0f32),
+        17.0f32,
         "real is re-initialized lazily using new foo value"
     );
 }

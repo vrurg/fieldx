@@ -7,15 +7,15 @@ pub struct Foo<T>
 where
     T: std::fmt::Debug + Default + Clone + Send + Sync + 'static,
 {
-    #[fieldx(lazy, clearer, predicate)]
+    #[fieldx(lazy, writer, clearer, predicate)]
     foo:    String,
-    #[fieldx(lazy, reader, predicate, clearer, set)]
+    #[fieldx(lazy, writer, reader, predicate, clearer, set)]
     bar:    i32,
     #[fieldx(default = 3.1415926)]
     pub pi: f32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(clearer, predicate, set, default = "bazzification")]
+    #[fieldx(writer, clearer, predicate, set, default = "bazzification")]
     baz: String,
 
     #[fieldx(lazy, clearer)]

@@ -15,13 +15,9 @@ struct Dummy;
 #[test]
 fn non_threaded() {
     let sync = Foo::<Dummy>::new();
-    // assert_eq!(*sync.read_foo(), Some("Foo with bar=Some(42)".to_string()));
-    // assert_eq!(sync.bar(), Some(42));
-    // assert_eq!(*sync.read_bar(), Some(42));
-    // assert_eq!(sync.pi, 3.1415926);
 
     assert!(!sync.has_foo(), "foo is not initialized yet");
-    assert_eq!(*sync.read_foo(), Some("Foo with bar=Some(42)".to_string()), "built foo");
+    assert_eq!(*sync.read_foo(), "Foo with bar=42".to_string(), "built foo");
     assert!(sync.has_foo(), "foo has been built");
     eprintln!("BAR: {:?}", *sync.read_bar());
     assert!(sync.has_bar(), "bar has been built");
@@ -29,7 +25,7 @@ fn non_threaded() {
     assert!(!sync.has_bar(), "bar has been cleared");
     assert_eq!(
         *sync.read_foo(),
-        Some("Foo with bar=Some(42)".to_string()),
+        "Foo with bar=42".to_string(),
         "foo is unchanged after clearng bar"
     );
     assert!(!sync.has_bar(), "reading uncleared foo does not trigger bar building");
@@ -37,13 +33,13 @@ fn non_threaded() {
     assert!(sync.has_bar(), "bar now has a value");
     assert_eq!(
         sync.clear_foo(),
-        Some(String::from("Foo with bar=Some(42)")),
+        Some(String::from("Foo with bar=42")),
         "cleared foo"
     );
     assert!(!sync.has_foo(), "foo has been cleared");
     assert_eq!(
         *sync.read_foo(),
-        Some(String::from("Foo with bar=Some(12)")),
+        String::from("Foo with bar=12"),
         "manually set bar is used to rebuild foo"
     );
 
@@ -55,11 +51,11 @@ fn non_threaded() {
 
     assert_eq!(
         *sync.read_foo(),
-        Some(String::from("Foo with bar=Some(666)")),
+        String::from("Foo with bar=666"),
         "manually set bar using write lock"
     );
 
-    assert_eq!(*sync.read_fubar(), Some(String::from("аби було")), "built fubar");
+    assert_eq!(*sync.read_fubar(), String::from("аби було"), "built fubar");
     assert_eq!(sync.clear_fubar(), Some(String::from("аби було")), "cleared fubar");
 }
 
@@ -69,7 +65,7 @@ fn non_lazy() {
 
     assert_eq!(
         *sync.read_baz(),
-        Some(String::from("bazzification")),
+        String::from("bazzification"),
         "initially set to a default"
     );
     assert_eq!(sync.clear_baz(), Some(String::from("bazzification")), "cleared");
@@ -78,13 +74,13 @@ fn non_lazy() {
         let mut wrg = sync.write_baz();
         *wrg = Some("bazzish".to_string());
     }
-    assert_eq!(*sync.read_baz(), Some(String::from("bazzish")), "set to a new value");
+    assert_eq!(*sync.read_baz(), String::from("bazzish"), "set to a new value");
     assert_eq!(
         sync.set_baz("bazzuka".to_string()),
         Some("bazzish".to_string()),
         "setter returns old value"
     );
-    assert_eq!(*sync.read_baz(), Some(String::from("bazzuka")), "set with a setter");
+    assert_eq!(*sync.read_baz(), String::from("bazzuka"), "set with a setter");
 }
 
 #[test]
@@ -96,7 +92,7 @@ fn threaded() {
         let stop = Arc::new(AtomicBool::new(false));
         let next_bar = Arc::new(Mutex::new(100));
         let cleared = Arc::new(AtomicI32::new(0));
-        let expected_foo = Arc::new(Mutex::new(String::from("Foo with bar=Some(42)")));
+        let expected_foo = Arc::new(Mutex::new(String::from("Foo with bar=42")));
         let mut thandles: Vec<thread::ScopedJoinHandle<()>> = vec![];
 
         for thread_id in 0..thread_count {
@@ -113,7 +109,7 @@ fn threaded() {
                 while !tstop.load(Ordering::Relaxed) {
                     i += 1;
                     eprintln!("[{:>4}] {:?}", thread_id, scopy.read_foo().clone());
-                    assert_eq!(*scopy.read_foo(), Some((*texpect.lock()).clone()), "foo value");
+                    assert_eq!(*scopy.read_foo(), (*texpect.lock()).clone(), "foo value");
                     if (i % 13) == 0 {
                         eprintln!("Time to clear for {} since {} % 13 == {}", thread_id, i, i % 13);
                         // Prevent other threads from accessing foo untils we're done updating bar
@@ -124,7 +120,7 @@ fn threaded() {
                         scopy.clear_bar();
                         assert!(!scopy.has_bar(), "bar is cleared and stays so until foo is unlocked");
                         tcleared.fetch_add(1, Ordering::SeqCst);
-                        *texpect.lock() = format!("Foo with bar=Some({})", *wnext).to_string();
+                        *texpect.lock() = format!("Foo with bar={}", *wnext).to_string();
                         lock_foo.clear();
                         eprintln!("Now should expect for '{}' // {}", *texpect.lock(), scopy.has_foo());
                     }

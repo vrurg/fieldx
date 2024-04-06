@@ -26,7 +26,6 @@ pub(crate) struct FXFieldReceiver {
     setter:       Option<FXHelper>,
     #[darling(default = "FXHelper::truthy")]
     reader:       Option<FXHelper>,
-    #[darling(default = "FXHelper::truthy")]
     writer:       Option<FXHelper>,
     clearer:      Option<FXHelper>,
     predicate:    Option<FXHelper>,
@@ -130,7 +129,7 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn needs_writer(&self) -> bool {
-        Self::flag_set(&self.reader) && (self.is_lazy() || self.is_optional())
+        Self::flag_set(&self.writer) && (self.is_lazy() || self.is_optional())
     }
 
     #[inline]

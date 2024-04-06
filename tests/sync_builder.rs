@@ -17,8 +17,6 @@ impl Foo {
 
     fn build_real(&self) -> f32 {
         let l: u16 = (*self.read_foo())
-            .as_ref()
-            .unwrap()
             .chars()
             .count()
             .try_into()
@@ -36,7 +34,7 @@ fn basics() {
         .unwrap();
 
     assert_eq!(foo.clear_real(), Some(1f32), "real was set manually");
-    assert_eq!(*foo.read_real(), Some(25f32), "real was set lazily");
+    assert_eq!(*foo.read_real(), 25f32, "real was set lazily");
     assert_eq!(
         foo.clear_foo(),
         Some("це користувацьке значення".to_string()),
@@ -44,13 +42,13 @@ fn basics() {
     );
     assert_eq!(
         *foo.read_foo(),
-        Some("це є ледачим значенням".to_string()),
+        "це є ледачим значенням".to_string(),
         "foo re-initialized lazily"
     );
     foo.clear_real();
     assert_eq!(
         *foo.read_real(),
-        Some(22f32),
+        22f32,
         "real re-initialized lazily from new foo value"
     );
 }

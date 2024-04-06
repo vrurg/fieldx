@@ -70,12 +70,12 @@ fn sync_accessors() {
         "clone accessor to plain field"
     );
 
-    let bcopy1 = foo.lazy_bar_copy().unwrap();
-    let bcopy2 = foo.lazy_bar_copy().unwrap();
+    let bcopy1 = foo.lazy_bar_copy();
+    let bcopy2 = foo.lazy_bar_copy();
     assert_ne!(&bcopy1 as *const _, &bcopy2 as *const _, "copy accessor to plain field");
 
-    let bclone1 = foo.lazy_bar_clone().unwrap();
-    let bclone2 = foo.lazy_bar_clone().unwrap();
+    let bclone1 = foo.lazy_bar_clone();
+    let bclone2 = foo.lazy_bar_clone();
     assert_ne!(
         &bclone1 as *const _, &bclone2 as *const _,
         "clone accessor to plain field"
