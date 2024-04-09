@@ -87,44 +87,41 @@ pub(crate) trait FXCGen<'f> {
         &self,
         field_ctx: &FXFieldCtx,
         helper: &Option<FXHelper>,
+        helper_name: &str,
         default_pfx: Option<&str>,
         default_sfx: Option<&str>,
-    ) -> Option<Ident> {
-        match helper {
-            Some(ref h) => match h.value() {
-                FXHelperKind::Flag(ref flag) => {
-                    if !flag {
-                        return None;
-                    }
-                    let helper_base_name = field_ctx.helper_base_name()?;
-                    Some(format_ident![
-                        "{}{}{}",
-                        if let Some(pfx) = default_pfx {
-                            [pfx, "_"].join("")
-                        }
-                        else {
-                            "".to_string()
-                        },
-                        helper_base_name,
-                        if let Some(sfx) = default_sfx {
-                            ["_", sfx].join("")
-                        }
-                        else {
-                            "".to_string()
-                        }
-                    ])
+    ) -> DResult<Ident> {
+        if let Some(ref h) = helper {
+            if let FXHelperKind::Name(ref name) = h.value() {
+                if !name.is_empty() {
+                    return Ok(format_ident!("{}", name));
                 }
-                FXHelperKind::Name(ref name) => {
-                    if name.is_empty() {
-                        None
-                    }
-                    else {
-                        Some(format_ident!("{}", name.clone()))
-                    }
-                }
-            },
-            None => None,
+            }
         }
+
+        let helper_base_name = field_ctx.helper_base_name().ok_or(
+            darling::Error::custom(format!(
+                "This field doesn't have a name I can use to name {} helper",
+                helper_name
+            ))
+            .with_span(field_ctx.field()),
+        )?;
+        Ok(format_ident![
+            "{}{}{}",
+            if let Some(pfx) = default_pfx {
+                [pfx, "_"].join("")
+            }
+            else {
+                "".to_string()
+            },
+            helper_base_name,
+            if let Some(sfx) = default_sfx {
+                ["_", sfx].join("")
+            }
+            else {
+                "".to_string()
+            }
+        ])
     }
 
     fn helper_name_tok(
@@ -135,32 +132,13 @@ pub(crate) trait FXCGen<'f> {
         default_pfx: Option<&str>,
         default_sfx: Option<&str>,
     ) -> DResult<TokenStream> {
-        if let Some(ref helper_ident) = self.helper_name(field_ctx, helper, default_pfx, default_sfx) {
-            Ok(helper_ident.to_token_stream())
-        }
-        else {
-            let err = DError::custom(format!(
-                "Expected to have {} helper method name {}",
-                helper_name,
-                field_ctx.for_ident_str()
-            ));
-            if let Some(ref fxh) = helper {
-                Err(err.with_span(fxh))
-            }
-            else {
-                Err(err)
-            }
-        }
+        Ok(self
+            .helper_name(field_ctx, helper, helper_name, default_pfx, default_sfx)?
+            .to_token_stream())
     }
 
     fn accessor_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
-        let aname = self.helper_name_tok(field_ctx, field_ctx.accessor(), "accessor", None, None);
-        if aname.is_err() && field_ctx.needs_accessor(self.ctx().is_sync()) {
-            if let Some(helper_base_name) = field_ctx.helper_base_name() {
-                return Ok(format_ident!("{}", helper_base_name).to_token_stream());
-            }
-        }
-        aname
+        self.helper_name_tok(field_ctx, field_ctx.accessor(), "accessor", None, None)
     }
 
     fn accessor_mut_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {

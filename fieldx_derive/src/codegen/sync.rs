@@ -155,6 +155,9 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.is_optional() {
                 quote_spanned! [span=> ::fieldx::RwLock<Option<#ty_tok>>]
             }
+            else if fctx.needs_reader() || fctx.needs_writer() {
+                quote_spanned! [span=> ::fieldx::RwLock<#ty_tok>]
+            }
             else {
                 ty_tok.clone()
             }
@@ -252,13 +255,19 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 #field_ident: ::fieldx::RwLock::new(self.#field_ident.take())
             ]
         }
+        else if fctx.needs_lock() {
+            quote_spanned![*span=>
+                // When lock is needed then we need to wrap the value in RwLock
+                #field_ident: ::fieldx::RwLock::new(self.#field_ident.take().unwrap())
+            ]
+        }
         else {
             self.simple_field_build_setter(fctx, field_ident, span)
         })
     }
 
     fn field_reader(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        if fctx.needs_reader() && (fctx.is_lazy() || fctx.is_optional()) {
+        if fctx.needs_reader() {
             let reader_name = self.reader_name(fctx)?;
             let ident = fctx.ident_tok();
             let pub_tok = fctx.pub_tok();
@@ -272,11 +281,19 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     }
                 ])
             }
-            else {
+            else if fctx.is_optional() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
                     #pub_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
                         ::fieldx::RwLockReadGuard::map(self.#ident.read(), |data: &Option<#ty>| data.as_ref().unwrap())
+                    }
+                ])
+            }
+            else {
+                Ok(quote_spanned! [*fctx.span()=>
+                    #[inline]
+                    #pub_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::RwLockReadGuard<#ty> {
+                        self.#ident.read()
                     }
                 ])
             }
@@ -287,7 +304,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     }
 
     fn field_writer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        if fctx.needs_writer() && (fctx.is_lazy() || fctx.is_optional()) {
+        if fctx.needs_writer() {
             let writer_name = self.writer_name(fctx)?;
             let ident = fctx.ident_tok();
             let pub_tok = fctx.pub_tok();
@@ -301,11 +318,18 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     }
                 ])
             }
-            else {
-                // If not lazy then it's optional
+            else if fctx.is_optional() {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
                     #pub_tok fn #writer_name(&self) -> ::fieldx::RwLockWriteGuard<::std::option::Option<#ty>> {
+                        self.#ident.write()
+                    }
+                ])
+            }
+            else {
+                Ok(quote_spanned![*fctx.span()=>
+                    #[inline]
+                    #pub_tok fn #writer_name(&self) -> ::fieldx::RwLockWriteGuard<#ty> {
                         self.#ident.write()
                     }
                 ])
@@ -426,6 +450,9 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         }
         else if fctx.is_optional() {
             Ok(quote![ ::fieldx::RwLock::new(Some(#def_tok)) ])
+        }
+        else if fctx.needs_lock() {
+            Ok(quote![ ::fieldx::RwLock::new(#def_tok) ])
         }
         else {
             Ok(quote![ #def_tok ])

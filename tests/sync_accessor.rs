@@ -27,6 +27,10 @@ struct Foo {
 
     #[fieldx(lazy, get)]
     lazy_bar_clone: BarClone,
+
+    // Make sure it is possible to lock-protect a field
+    #[fieldx(reader, writer = "write_lb", default="protected")]
+    locked_bar: String,
 }
 
 impl Foo {
@@ -80,4 +84,13 @@ fn sync_accessors() {
         &bclone1 as *const _, &bclone2 as *const _,
         "clone accessor to plain field"
     );
+}
+
+#[test]
+fn sync_locked() {
+    let foo = Foo::for_test();
+
+    assert_eq!(*foo.read_locked_bar(), "protected", "read-lock is supported for non-optional, non-lazy field");
+    *foo.write_lb() = "changed".to_string();
+    assert_eq!(*foo.read_locked_bar(), "changed", "updated the field via write-lock");
 }

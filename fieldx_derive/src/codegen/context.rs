@@ -109,6 +109,7 @@ impl<'f> FXFieldCtx<'f> {
             pub fn needs_predicate(&self) -> bool;
             pub fn needs_into(&self) -> Option<bool>;
             pub fn needs_builder(&self) -> Option<bool>;
+            pub fn needs_lock(&self) -> bool;
             pub fn is_copy(&self) -> bool;
             pub fn is_into(&self) -> bool;
             pub fn is_lazy(&self) -> bool;
@@ -191,19 +192,18 @@ impl<'f> FXFieldCtx<'f> {
         })
     }
 
-    pub fn for_ident_str(&self) -> String {
-        match self.ident() {
-            Some(ident) => format!(" for field '{}'", ident.to_string()),
-            None => String::new(),
-        }
-    }
+    // pub fn for_ident_str(&self) -> String {
+    //     match self.ident() {
+    //         Some(ident) => format!(" for field '{}'", ident.to_string()),
+    //         None => String::new(),
+    //     }
+    // }
 
     pub fn helper_base_name(&self) -> Option<String> {
         if let Some(base_name) = self.base_name() {
             Some(base_name.clone())
         }
         else if let Some(ident) = self.field.ident() {
-            // let ident = self.field.ident();
             Some(ident.to_string())
         }
         else {

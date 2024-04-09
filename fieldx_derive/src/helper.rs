@@ -34,9 +34,9 @@ impl FXHelper {
         }
     }
 
-    pub fn truthy() -> Option<Self> {
-        Some(FXHelper::boolish(true))
-    }
+    // pub fn truthy() -> Option<Self> {
+    //     Some(FXHelper::boolish(true))
+    // }
 
     pub fn value(&self) -> &FXHelperKind {
         &self.value

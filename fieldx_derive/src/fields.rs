@@ -24,7 +24,6 @@ pub(crate) struct FXFieldReceiver {
     accessor_mut: Option<FXHelper>,
     #[darling(rename = "set")]
     setter:       Option<FXHelper>,
-    #[darling(default = "FXHelper::truthy")]
     reader:       Option<FXHelper>,
     writer:       Option<FXHelper>,
     clearer:      Option<FXHelper>,
@@ -124,12 +123,13 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn needs_reader(&self) -> bool {
-        Self::flag_set(&self.reader)
+        (self.reader.is_some() && Self::flag_set(&self.reader))
+        || self.is_lazy() || self.is_optional()
     }
 
     #[inline]
     pub fn needs_writer(&self) -> bool {
-        Self::flag_set(&self.writer) && (self.is_lazy() || self.is_optional())
+        Self::flag_set(&self.writer) && self.needs_lock()
     }
 
     #[inline]
@@ -150,6 +150,11 @@ impl FXFieldReceiver {
     #[inline]
     pub fn needs_into(&self) -> Option<bool> {
         self.into
+    }
+
+    #[inline]
+    pub fn needs_lock(&self) -> bool {
+        self.needs_reader() || self.needs_writer()
     }
 
     #[inline]

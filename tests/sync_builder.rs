@@ -9,6 +9,9 @@ mod foo {
 
         #[fieldx(lazy, clearer, into)]
         real: f32,
+
+        #[fieldx(reader,writer,into,default="initial")]
+        locked_bar: String,
     }
 
     impl Foo {
@@ -26,8 +29,9 @@ mod foo {
 #[test]
 fn basics() {
     let foo = foo::Foo::builder()
-        .foo("це користувацьке значення".into())
+        .foo("це користувацьке значення".to_string())
         .real(1u16)
+        .locked_bar("custom set")
         .build()
         .unwrap();
 
@@ -45,4 +49,6 @@ fn basics() {
     );
     foo.clear_real();
     assert_eq!(*foo.read_real(), 22f32, "real re-initialized lazily from new foo value");
+
+    assert_eq!(*foo.read_locked_bar(), "custom set", "locked_bar was set manually");
 }
