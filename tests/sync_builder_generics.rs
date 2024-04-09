@@ -66,11 +66,7 @@ fn basics() {
         Some("це користувацьке значення".to_string()),
         "foo is set manually"
     );
-    assert_eq!(
-        *foo.read_foo(),
-        "my default string".to_string(),
-        "foo is set lazily"
-    );
+    assert_eq!(*foo.read_foo(), "my default string".to_string(), "foo is set lazily");
     foo.clear_real();
     assert_eq!(
         *foo.read_real(),

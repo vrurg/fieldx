@@ -176,7 +176,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let ty = fctx.ty();
             let is_optional = fctx.is_optional();
 
-            if fctx.is_lazy() || is_optional {
+            if fctx.is_lazy() || fctx.needs_lock() || is_optional {
                 let cmethod = if fctx.is_copy() {
                     if is_optional {
                         quote![.as_ref().unwrap().as_ref().copied()]
@@ -360,6 +360,15 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     #[inline]
                     #pub_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
                         self.#ident.write().replace(value)
+                    }
+                ])
+            }
+            else if fctx.needs_lock() {
+                Ok(quote_spanned![*fctx.span()=>
+                    #[inline]
+                    #pub_tok fn #set_name(&self, value: #ty) -> #ty {
+                        let mut wlock = self.#ident.write();
+                        ::std::mem::replace(&mut *wlock, value)
                     }
                 ])
             }

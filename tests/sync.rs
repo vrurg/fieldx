@@ -30,11 +30,7 @@ fn non_threaded() {
     assert!(!sync.has_bar(), "reading uncleared foo does not trigger bar building");
     assert_eq!(sync.set_bar(12), None, "set bar");
     assert!(sync.has_bar(), "bar now has a value");
-    assert_eq!(
-        sync.clear_foo(),
-        Some(String::from("Foo with bar=42")),
-        "cleared foo"
-    );
+    assert_eq!(sync.clear_foo(), Some(String::from("Foo with bar=42")), "cleared foo");
     assert!(!sync.has_foo(), "foo has been cleared");
     assert_eq!(
         *sync.read_foo(),

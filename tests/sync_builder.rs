@@ -10,7 +10,7 @@ mod foo {
         #[fieldx(lazy, clearer, into)]
         real: f32,
 
-        #[fieldx(reader,writer,into,default="initial")]
+        #[fieldx(reader, writer, get, set, into, default = "initial")]
         locked_bar: String,
     }
 
@@ -51,4 +51,7 @@ fn basics() {
     assert_eq!(*foo.read_real(), 22f32, "real re-initialized lazily from new foo value");
 
     assert_eq!(*foo.read_locked_bar(), "custom set", "locked_bar was set manually");
+    assert_eq!(foo.locked_bar(), "custom set", "locked_bar accessor");
+    foo.set_locked_bar("with setter".to_string());
+    assert_eq!(foo.locked_bar(), "with setter", "locked_bar setter works");
 }

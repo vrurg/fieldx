@@ -28,10 +28,10 @@ pub(crate) struct FXSArgs {
 impl Default for FXSArgs {
     fn default() -> Self {
         FXSArgs {
-            no_new: Some(false),
+            no_new:  Some(false),
             builder: Default::default(),
-            sync: None,
-            into: None,
+            sync:    None,
+            into:    None,
         }
     }
 }

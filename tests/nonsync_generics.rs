@@ -48,7 +48,6 @@ where
 #[derive(Debug, Default, Clone, PartialEq)]
 struct Dummy;
 
-
 #[test]
 fn basic_default() {
     let non_sync = NonSync::<Dummy>::new();
@@ -118,7 +117,15 @@ fn basic_nonlazy() {
 fn optional() {
     let mut non_sync = NonSync::<Dummy>::new();
 
-    assert_eq!(non_sync.maybe(), &Some(Dummy::default()), "an optional field gets initialized");
-    assert_eq!(non_sync.clear_maybe(), Some(Some(Dummy::default())), "optional field clear");
+    assert_eq!(
+        non_sync.maybe(),
+        &Some(Dummy::default()),
+        "an optional field gets initialized"
+    );
+    assert_eq!(
+        non_sync.clear_maybe(),
+        Some(Some(Dummy::default())),
+        "optional field clear"
+    );
     assert!(!non_sync.has_maybe(), "optional field is empty after clearing");
 }

@@ -123,8 +123,7 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn needs_reader(&self) -> bool {
-        (self.reader.is_some() && Self::flag_set(&self.reader))
-        || self.is_lazy() || self.is_optional()
+        (self.reader.is_some() && Self::flag_set(&self.reader)) || self.is_lazy() || self.is_optional()
     }
 
     #[inline]
