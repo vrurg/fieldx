@@ -303,7 +303,7 @@ pub(crate) trait FXCGen<'f> {
             quote![
                 return ::std::result::Result::Err(
                     ::std::convert::Into::into(
-                        ::fieldx::errors::FieldXError::uninitialized_field(#field_name) )
+                        ::fieldx::errors::FieldXError::uninitialized_field(#field_name.into()) )
                 )
             ]
         };
