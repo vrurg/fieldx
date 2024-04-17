@@ -1,130 +1,109 @@
-use darling::{util::Override, FromMeta};
+use crate::{
+    helper::{
+        FXAccessor, FXAccessorMode, FXArgsBuilder, FXAttributes, FXHelper, FXHelperTrait, FXNestingAttr,
+        FXPubMode, FXSetter, FXWithOrig,
+    },
+    util::{needs_helper, validate_exclusives},
+};
+use darling::{util::Flag, FromMeta};
 use getset::Getters;
-use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
-use syn::{parse_quote_spanned, spanned::Spanned, Meta};
+use proc_macro2::{Span, TokenStream};
 
-#[derive(Debug, Clone, Getters)]
+#[derive(Debug, FromMeta, Clone, Getters, Default)]
+#[darling(and_then = Self::validate)]
 #[getset(get = "pub")]
-pub(crate) struct FXSAttributes {
-    list: Vec<syn::Attribute>,
-}
-#[derive(Debug, Default, Clone, FromMeta, Getters)]
-#[getset(get = "pub")]
-pub(crate) struct FXSBuilder {
-    attributes:      Option<FXSAttributes>,
-    attributes_impl: Option<FXSAttributes>,
-}
-
-#[derive(Debug, FromMeta, Clone)]
 pub(crate) struct FXSArgs {
-    sync:    Option<bool>,
-    builder: Option<darling::util::Override<FXSBuilder>>,
+    sync:    Flag,
+    builder: Option<FXArgsBuilder>,
     into:    Option<bool>,
     // Only plays for sync-safe structs
-    no_new:  Option<bool>,
-}
+    no_new:  Flag,
 
-impl Default for FXSArgs {
-    fn default() -> Self {
-        FXSArgs {
-            no_new:  Some(false),
-            builder: Default::default(),
-            sync:    None,
-            into:    None,
-        }
-    }
+    // Field defaults
+    lazy:         Option<FXHelper<true>>,
+    #[darling(rename = "get")]
+    accessor:     Option<FXAccessor<true>>,
+    #[darling(rename = "get_mut")]
+    accessor_mut: Option<FXHelper<true>>,
+    #[darling(rename = "set")]
+    setter:       Option<FXSetter<true>>,
+    reader:       Option<FXHelper<true>>,
+    writer:       Option<FXHelper<true>>,
+    clearer:      Option<FXHelper<true>>,
+    predicate:    Option<FXHelper<true>>,
+    public:       Option<FXNestingAttr<FXPubMode>>,
+    private:      Option<FXWithOrig<bool, syn::Meta>>,
+    clone:        Option<bool>,
+    copy:         Option<bool>,
+    // #[darling(skip)]
+    // recurs_cnt: RefCell<u32>,
 }
 
 impl FXSArgs {
+    validate_exclusives!("visibility" => public, private; "accessor mode" => copy, clone);
+
+    // Generate needs_<helper> methods
+    needs_helper! {accessor, accessor_mut, setter, reader, writer, clearer, predicate}
+
+    pub fn validate(self) -> Result<Self, darling::Error> {
+        self.validate_exclusives()
+            .map_err(|err| err.with_span(&Span::call_site()))?;
+        Ok(self)
+    }
+
     pub fn is_sync(&self) -> bool {
-        if let Some(ref is_sync) = self.sync {
-            *is_sync
-        }
-        else {
-            false
-        }
+        self.sync.is_present()
+    }
+
+    pub fn is_into(&self) -> Option<bool> {
+        self.into
+    }
+
+    pub fn is_copy(&self) -> Option<bool> {
+        self.clone.map(|c| !c).or_else(|| self.copy)
+    }
+
+    pub fn is_accessor_copy(&self) -> Option<bool> {
+        self.accessor_mode().map(|m| m == FXAccessorMode::Copy)
+    }
+
+    pub fn is_setter_into(&self) -> Option<bool> {
+        self.setter.as_ref().and_then(|h| h.is_into())
+    }
+
+    pub fn is_builder_into(&self) -> Option<bool> {
+        self.builder.as_ref().and_then(|h| h.is_into())
     }
 
     pub fn needs_new(&self) -> bool {
-        if let Some(ref no_new) = self.no_new {
-            !*no_new
-        }
-        else {
-            true
-        }
+        !self.no_new.is_present()
     }
 
     pub fn needs_builder(&self) -> Option<bool> {
         self.builder.as_ref().and(Some(true))
     }
 
-    pub fn needs_into(&self) -> Option<bool> {
-        self.into
+    pub fn is_lazy(&self) -> Option<bool> {
+        // *self.recurs_cnt.borrow_mut() += 1;
+        // fxtrace!(*self.recurs_cnt.borrow());
+        // *self.recurs_cnt.borrow_mut() -= 1;
+        // rc
+        self.lazy.as_ref().map(|h| h.is_true())
     }
 
-    pub fn builder_attributes(&self) -> Option<&FXSAttributes> {
-        self.builder.as_ref().and_then(|b| {
-            if let Override::Explicit(builder) = b {
-                builder.attributes.as_ref()
-            }
-            else {
-                None
-            }
-        })
+    pub fn accessor_mode(&self) -> Option<FXAccessorMode> {
+        self.accessor.as_ref().and_then(|h| h.mode().copied())
     }
 
-    pub fn builder_impl_attributes(&self) -> Option<&FXSAttributes> {
-        self.builder.as_ref().and_then(|b| {
-            if let Override::Explicit(builder) = b {
-                builder.attributes_impl.as_ref()
-            }
-            else {
-                None
-            }
-        })
+    pub fn vis_tok(&self) -> Option<TokenStream> {
+        self.public.as_ref().and_then(|p| p.vis_tok().into())
     }
-}
 
-impl FromMeta for FXSAttributes {
-    fn from_meta(input: &Meta) -> Result<Self, darling::Error> {
-        match input {
-            Meta::List(ref ml) => {
-                let ml_chunks: Vec<TokenStream> = vec![TokenStream::new()];
-                // Split the incoming tokenstream into chunks separated by Puncts (i.e. by commas)
-                let mut ml_chunks = ml.tokens.clone().into_iter().fold(ml_chunks, |mut mlc, item| {
-                    if let proc_macro2::TokenTree::Punct(_) = item {
-                        mlc.push(TokenStream::new());
-                    }
-                    else {
-                        mlc.last_mut().unwrap().extend([item]);
-                    }
-                    mlc
-                });
-
-                // If the list ends with a comma or is empty then we'd end up with an empty chunk at the end.
-                if let Some(last_meta) = ml_chunks.last() {
-                    if last_meta.is_empty() {
-                        let _ = ml_chunks.pop();
-                    }
-                }
-
-                // Transform chunks into attributes
-                let pound = quote![#];
-                Ok(Self {
-                    list: ml_chunks
-                        .iter()
-                        .map(|tt| parse_quote_spanned!(tt.span()=> #pound [ #tt ]))
-                        .collect(),
-                })
-            }
-            _ => unimplemented!("Can't deal with this kind of input"),
-        }
+    pub fn builder_attributes(&self) -> Option<&FXAttributes> {
+        self.builder.as_ref().and_then(|b| b.attributes().as_ref())
     }
-}
 
-impl ToTokens for FXSAttributes {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.extend(self.list.iter().map(|a| a.to_token_stream()));
+    pub fn builder_impl_attributes(&self) -> Option<&FXAttributes> {
+        self.builder.as_ref().and_then(|b| b.attributes_impl().as_ref())
     }
 }

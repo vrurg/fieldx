@@ -7,10 +7,10 @@ mod foo {
         #[fieldx(lazy, clearer)]
         foo: String,
 
-        #[fieldx(lazy, clearer, into)]
+        #[fieldx(lazy, clearer, builder(into))]
         real: f32,
 
-        #[fieldx(reader, writer, get, set, into, default = "initial")]
+        #[fieldx(reader, writer, get(clone), set, builder(into), default = "initial")]
         locked_bar: String,
     }
 

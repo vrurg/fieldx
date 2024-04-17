@@ -1,4 +1,4 @@
-pub use crate::errors::UninitializedFieldError;
+pub use crate::errors::FieldXError;
 use std::sync::Arc;
 
 pub trait FXStruct: Sized {}

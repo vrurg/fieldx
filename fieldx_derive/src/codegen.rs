@@ -53,24 +53,6 @@ pub(crate) trait FXCGen<'f> {
         self.ctx().needs_builder_struct().unwrap_or(false)
     }
 
-    fn field_needs_into(&self, field_ctx: &FXFieldCtx) -> bool {
-        if field_ctx.needs_into().is_some() {
-            field_ctx.is_into()
-        }
-        else {
-            self.ctx().needs_into().unwrap_or(false)
-        }
-    }
-
-    fn field_needs_builder(&self, field_ctx: &FXFieldCtx) -> bool {
-        if let Some(needs) = field_ctx.needs_builder() {
-            needs
-        }
-        else {
-            self.needs_builder_struct()
-        }
-    }
-
     // Common implementations
     fn input(&self) -> &FXInputReceiver {
         &self.ctx().input()
@@ -86,13 +68,13 @@ pub(crate) trait FXCGen<'f> {
     fn helper_name(
         &self,
         field_ctx: &FXFieldCtx,
-        helper: &Option<FXHelper>,
+        helper: Option<&impl FXHelperTrait>,
         helper_name: &str,
         default_pfx: Option<&str>,
         default_sfx: Option<&str>,
     ) -> DResult<Ident> {
         if let Some(ref h) = helper {
-            if let FXHelperKind::Name(ref name) = h.value() {
+            if let Some(ref name) = h.rename() {
                 if !name.is_empty() {
                     return Ok(format_ident!("{}", name));
                 }
@@ -127,13 +109,19 @@ pub(crate) trait FXCGen<'f> {
     fn helper_name_tok(
         &self,
         field_ctx: &FXFieldCtx,
-        helper: &Option<FXHelper>,
+        helper: &Option<FXNestingAttr<impl FXHelperTrait + FromNestAttr>>,
         helper_name: &str,
         default_pfx: Option<&str>,
         default_sfx: Option<&str>,
     ) -> DResult<TokenStream> {
         Ok(self
-            .helper_name(field_ctx, helper, helper_name, default_pfx, default_sfx)?
+            .helper_name(
+                field_ctx,
+                helper.as_ref().map(|h| &**h),
+                helper_name,
+                default_pfx,
+                default_sfx,
+            )?
             .to_token_stream())
     }
 
@@ -184,15 +172,29 @@ pub(crate) trait FXCGen<'f> {
         }
     }
 
+    fn into_toks(&self, field_ctx: &FXFieldCtx, use_into: bool) -> (TokenStream, TokenStream, TokenStream) {
+        let ty = field_ctx.ty();
+        if use_into {
+            (
+                quote![<FXVALINTO: ::std::convert::Into<#ty>>],
+                quote![FXVALINTO],
+                quote![.into()],
+            )
+        }
+        else {
+            (quote![], quote![#ty], quote![])
+        }
+    }
+
     fn field_initializer(&self, _field_ctx: &FXFieldCtx) {}
 
     fn field_default_value(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
         let field = field_ctx.field();
 
-        if let Some(def_meta) = field_ctx.default() {
+        if let Some(def_meta) = field_ctx.default_value() {
             let val_expr = &def_meta.require_name_value()?.value;
             let mut is_str = false;
-            let span = (field_ctx.default().as_ref().unwrap() as &dyn spanned::Spanned).span();
+            let span = (field_ctx.default_value().as_ref().unwrap() as &dyn spanned::Spanned).span();
 
             if let Expr::Lit(lit_val) = val_expr {
                 if let Lit::Str(_) = lit_val.lit {
@@ -207,7 +209,7 @@ pub(crate) trait FXCGen<'f> {
                 Ok(quote_spanned! [span=> #val_expr ])
             }
         }
-        else if field.is_lazy() {
+        else if field_ctx.is_lazy() {
             Ok(quote![])
         }
         else {
@@ -228,7 +230,7 @@ pub(crate) trait FXCGen<'f> {
             #vis #ident: #ty_tok
         ]);
 
-        if field_ctx.is_copy() {
+        if field_ctx.needs_accessor() && field_ctx.is_copy() {
             self.check_for_impl_copy(&field_ctx);
         }
 
@@ -253,9 +255,10 @@ pub(crate) trait FXCGen<'f> {
     }
 
     fn rewrite_struct(&'f self) {
+        let ctx = self.ctx();
         // If builder requirement is not set explicitly with fxstruct attribute then check out if any field is asking
         // for it.
-        if self.ctx().needs_builder_struct().is_none() {
+        if ctx.needs_builder_struct().is_none() {
             for field in self.input().fields() {
                 if let Some(needs) = field.needs_builder() {
                     if needs {
@@ -266,7 +269,7 @@ pub(crate) trait FXCGen<'f> {
         }
 
         for field in self.input().fields() {
-            let field_ctx = FXFieldCtx::<'f>::new(field);
+            let field_ctx = FXFieldCtx::<'f>::new(field, ctx);
             self.field_decl(field_ctx);
         }
 
@@ -293,14 +296,14 @@ pub(crate) trait FXCGen<'f> {
 
     fn simple_field_build_setter(&self, field_ctx: &FXFieldCtx, field_ident: &TokenStream, span: &Span) -> TokenStream {
         let field_name = field_ident.to_string();
-        let alternative = if field_ctx.has_default() {
+        let alternative = if field_ctx.has_default_value() {
             self.ok_or(self.field_default_wrap(field_ctx))
         }
         else {
             quote![
                 return ::std::result::Result::Err(
                     ::std::convert::Into::into(
-                        ::fieldx::errors::UninitializedFieldError::new(#field_name) )
+                        ::fieldx::errors::FieldXError::uninitialized_field(#field_name) )
                 )
             ]
         };
@@ -342,15 +345,16 @@ pub(crate) trait FXCGen<'f> {
     }
 
     fn field_builder_field(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
-        if fctx.needs_builder().unwrap_or(true) {
+        if fctx.needs_builder() {
             let ident = fctx.ident_tok();
             let span = *fctx.span();
             let ty = fctx.ty();
+            let attributes = fctx.builder_attributes();
             if fctx.is_ignorable() {
-                Ok(quote_spanned![span=> #ident: #ty])
+                Ok(quote_spanned![span=> #attributes #ident: #ty])
             }
             else {
-                Ok(quote_spanned![span=> #ident: ::std::option::Option<#ty>])
+                Ok(quote_spanned![span=> #attributes #ident: ::std::option::Option<#ty>])
             }
         }
         else {
@@ -359,29 +363,21 @@ pub(crate) trait FXCGen<'f> {
     }
 
     fn field_builder(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
-        if !fctx.is_ignorable() && fctx.builder().as_ref().unwrap_or(&FXHelper::from(true)).is_true() {
+        if !fctx.is_ignorable() && fctx.needs_builder() {
             let ident = fctx.ident_tok();
             let builder_name: TokenStream = self
                 .builder_name(fctx)
                 .unwrap_or(format_ident!("{}", fctx.helper_base_name().expect("Field name")).to_token_stream());
             let span = *fctx.span();
-            let ty = fctx.ty();
-            if self.field_needs_into(fctx) {
-                Ok(quote_spanned![span=>
-                    pub fn #builder_name<FXVALINTO: ::std::convert::Into<#ty>>(&mut self, value: FXVALINTO) -> &mut Self {
-                        self.#ident = ::std::option::Option::Some(value.into());
-                        self
-                    }
-                ])
-            }
-            else {
-                Ok(quote_spanned![span=>
-                    pub fn #builder_name(&mut self, value: #ty) -> &mut Self {
-                        self.#ident = ::std::option::Option::Some(value);
-                        self
-                    }
-                ])
-            }
+            let (gen_params, val_type, into_tok) = self.into_toks(fctx, fctx.is_builder_into());
+            let attributes = fctx.builder_fn_attributes();
+            Ok(quote_spanned![span=>
+                #attributes
+                pub fn #builder_name #gen_params(&mut self, value: #val_type) -> &mut Self {
+                    self.#ident = ::std::option::Option::Some(value #into_tok);
+                    self
+                }
+            ])
         }
         else {
             Ok(quote![])
@@ -469,13 +465,12 @@ pub(crate) trait FXCGen<'f> {
         ]);
 
         quote![
-            #[allow(dead_code)]
             #attributes
             impl #generics #builder_ident #generic_params
             #where_clause
             {
                 #builders
-                #vis fn build(&mut self) -> ::std::result::Result<#builder_return_type, ::fieldx::errors::UninitializedFieldError> {
+                #vis fn build(&mut self) -> ::std::result::Result<#builder_return_type, ::fieldx::errors::FieldXError> {
                     Ok(#construction)
                 }
             }
@@ -555,7 +550,7 @@ impl<'f> FXRewriter<'f> {
     pub fn new(input: FXInputReceiver, args: FXSArgs) -> Self {
         let ctx = FXCodeGenCtx::new(input, args);
 
-        let generator: FXCG = if ctx.is_sync() {
+        let generator: FXCG = if ctx.args().is_sync() {
             sync::FXCodeGen::new(ctx).into()
         }
         else {

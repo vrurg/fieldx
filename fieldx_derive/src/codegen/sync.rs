@@ -164,20 +164,17 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         })
     }
 
-    // fn type_tokens_mut<'s>(&'s self,field_ctx: &'s FXFieldCtx) ->  &'s TokenStream {
-    //     self.type_tokens(field_ctx)
-    // }
-
     fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        if fctx.needs_accessor(true) {
+        if fctx.needs_accessor() {
             let ident = fctx.ident_tok();
-            let pub_tok = fctx.pub_tok();
+            let vis_tok = fctx.vis_tok();
             let accessor_name = self.accessor_name(fctx)?;
             let ty = fctx.ty();
             let is_optional = fctx.is_optional();
+            let is_copy = fctx.is_copy();
 
             if fctx.is_lazy() || fctx.needs_lock() || is_optional {
-                let cmethod = if fctx.is_copy() {
+                let cmethod = if is_copy {
                     if is_optional {
                         quote![.as_ref().unwrap().as_ref().copied()]
                     }
@@ -195,7 +192,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 };
 
                 Ok(quote_spanned![*fctx.span()=>
-                    #pub_tok fn #accessor_name(&self) -> #ty {
+                    #vis_tok fn #accessor_name(&self) -> #ty {
                         let rlock = self.#ident.read();
                         (*rlock)#cmethod
                     }
@@ -205,7 +202,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
 
                 Ok(quote_spanned![*fctx.span()=>
-                    #pub_tok fn #accessor_name(&self) -> #ty {
+                    #vis_tok fn #accessor_name(&self) -> #ty {
                         self.#ident #cmethod
                     }
                 ])
@@ -234,7 +231,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         let field_default = self.ok_or(self.field_default_wrap(fctx));
         let field_type = self.type_tokens(fctx);
 
-        Ok(if fctx.is_ignorable() || !self.field_needs_builder(fctx) {
+        Ok(if fctx.is_ignorable() || !fctx.needs_builder() {
             quote![]
         }
         else if fctx.is_lazy() {
@@ -270,13 +267,13 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         if fctx.needs_reader() {
             let reader_name = self.reader_name(fctx)?;
             let ident = fctx.ident_tok();
-            let pub_tok = fctx.pub_tok();
+            let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
 
             if fctx.is_lazy() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
+                    #vis_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
                         self.#ident.read()
                     }
                 ])
@@ -284,7 +281,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.is_optional() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
+                    #vis_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
                         ::fieldx::RwLockReadGuard::map(self.#ident.read(), |data: &Option<#ty>| data.as_ref().unwrap())
                     }
                 ])
@@ -292,7 +289,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::RwLockReadGuard<#ty> {
+                    #vis_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::RwLockReadGuard<#ty> {
                         self.#ident.read()
                     }
                 ])
@@ -307,13 +304,13 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         if fctx.needs_writer() {
             let writer_name = self.writer_name(fctx)?;
             let ident = fctx.ident_tok();
-            let pub_tok = fctx.pub_tok();
+            let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
 
             if fctx.is_lazy() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #writer_name<'fx_writer_lifetime>(&'fx_writer_lifetime self) -> ::fieldx::FXWrLock<'fx_writer_lifetime, #ty> {
+                    #vis_tok fn #writer_name<'fx_writer_lifetime>(&'fx_writer_lifetime self) -> ::fieldx::FXWrLock<'fx_writer_lifetime, #ty> {
                         self.#ident.write()
                     }
                 ])
@@ -321,7 +318,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.is_optional() {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #writer_name(&self) -> ::fieldx::RwLockWriteGuard<::std::option::Option<#ty>> {
+                    #vis_tok fn #writer_name(&self) -> ::fieldx::RwLockWriteGuard<::std::option::Option<#ty>> {
                         self.#ident.write()
                     }
                 ])
@@ -329,7 +326,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #writer_name(&self) -> ::fieldx::RwLockWriteGuard<#ty> {
+                    #vis_tok fn #writer_name(&self) -> ::fieldx::RwLockWriteGuard<#ty> {
                         self.#ident.write()
                     }
                 ])
@@ -341,16 +338,17 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     }
 
     fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+        // eprintln!("??? FIELD {} needs setter (from field:{:?}, args:{:?}): {:?}", fctx.ident_str(), fctx.field().needs_setter(), fctx.codegen_ctx().args().needs_setter(), fctx.needs_setter());
         if fctx.needs_setter() {
             let set_name = self.setter_name(fctx)?;
             let ident = fctx.ident_tok();
-            let pub_tok = fctx.pub_tok();
+            let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
 
             if fctx.is_lazy() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
+                    #vis_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
                         self.#ident.write().store(value)
                     }
                 ])
@@ -358,7 +356,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.is_optional() {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
+                    #vis_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
                         self.#ident.write().replace(value)
                     }
                 ])
@@ -366,7 +364,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.needs_lock() {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #set_name(&self, value: #ty) -> #ty {
+                    #vis_tok fn #set_name(&self, value: #ty) -> #ty {
                         let mut wlock = self.#ident.write();
                         ::std::mem::replace(&mut *wlock, value)
                     }
@@ -374,7 +372,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             }
             else {
                 Ok(quote_spanned! [*fctx.span()=>
-                    #pub_tok fn #set_name(&mut self, value: #ty) -> #ty {
+                    #vis_tok fn #set_name(&mut self, value: #ty) -> #ty {
                         let old = self.#ident;
                         self.#ident = value;
                         old
@@ -391,13 +389,13 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         if fctx.needs_clearer() {
             let clear_name = self.clearer_name(fctx)?;
             let ident = fctx.ident_tok();
-            let pub_tok = fctx.pub_tok();
+            let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
 
             if fctx.is_lazy() {
                 Ok(quote_spanned![*fctx.span()=>
                    #[inline]
-                   #pub_tok fn #clear_name(&self) -> ::std::option::Option<#ty> {
+                   #vis_tok fn #clear_name(&self) -> ::std::option::Option<#ty> {
                        self.#ident.clear()
                    }
                 ])
@@ -406,7 +404,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 // If not lazy then it's optional
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #clear_name(&self) -> ::std::option::Option<#ty> {
+                    #vis_tok fn #clear_name(&self) -> ::std::option::Option<#ty> {
                        self.#ident.write().take()
                     }
                 ])
@@ -421,12 +419,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         if fctx.needs_predicate() {
             let pred_name = self.predicate_name(fctx)?;
             let ident = fctx.ident_tok();
-            let pub_tok = fctx.pub_tok();
+            let vis_tok = fctx.vis_tok();
 
             if fctx.is_lazy() {
                 Ok(quote_spanned![*fctx.span()=>
                    #[inline]
-                   #pub_tok fn #pred_name(&self) -> bool {
+                   #vis_tok fn #pred_name(&self) -> bool {
                       self.#ident.is_set()
                    }
                 ])
@@ -435,7 +433,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 // If not lazy then it's optional
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
-                    #pub_tok fn #pred_name(&self) -> bool {
+                    #vis_tok fn #pred_name(&self) -> bool {
                       self.#ident.read().is_some()
                    }
                 ])
@@ -514,7 +512,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             }
         ]);
 
-        if ctx.needs_new() {
+        if ctx.args().needs_new() {
             self.add_method_decl(quote![
                 pub fn new() -> ::fieldx::Arc<Self> {
                     Self::default().__fieldx_init()

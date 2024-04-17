@@ -1,26 +1,13 @@
-#[derive(Debug)]
-pub struct UninitializedFieldError(&'static str);
+use thiserror::Error;
 
-impl UninitializedFieldError {
-    pub fn new(field_name: &'static str) -> Self {
-        UninitializedFieldError(field_name)
-    }
-
-    pub fn field_name(&self) -> &'static str {
-        self.0
-    }
+#[derive(Error, Debug)]
+pub enum FieldXError {
+    #[error("Field '{0}' is not set")]
+    UninitializedField(String),
 }
 
-impl std::fmt::Display for UninitializedFieldError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "Field '{}' is not set", self.0)
-    }
-}
-
-impl std::error::Error for UninitializedFieldError {}
-
-impl From<&'static str> for UninitializedFieldError {
-    fn from(field_name: &'static str) -> Self {
-        Self::new(field_name)
+impl FieldXError {
+    pub fn uninitialized_field(field_name: String) -> FieldXError {
+        FieldXError::UninitializedField(field_name)
     }
 }

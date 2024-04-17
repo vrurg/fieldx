@@ -9,7 +9,7 @@ use std::sync::{
 mod syncish_generics;
 use syncish_generics::Foo;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 struct Dummy;
 
 #[test]
@@ -53,6 +53,8 @@ fn non_threaded() {
 
     assert_eq!(*sync.read_fubar(), String::from("аби було"), "built fubar");
     assert_eq!(sync.clear_fubar(), Some(String::from("аби було")), "cleared fubar");
+
+    assert_eq!(*sync.read_dummy(), Dummy);
 }
 
 #[test]

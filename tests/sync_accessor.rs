@@ -19,17 +19,17 @@ struct Foo {
     #[fieldx(get, copy)]
     bar_copy: BarCopy,
 
-    #[fieldx(get)]
+    #[fieldx(get(clone))]
     bar_clone: BarClone,
 
-    #[fieldx(lazy, get, copy)]
+    #[fieldx(lazy, get, clone)]
     lazy_bar_copy: BarCopy,
 
-    #[fieldx(lazy, get)]
+    #[fieldx(lazy, get(clone))]
     lazy_bar_clone: BarClone,
 
     // Make sure it is possible to lock-protect a field
-    #[fieldx(reader, writer = "write_lb", default = "protected")]
+    #[fieldx(reader, writer("write_lb"), default = "protected")]
     locked_bar: String,
 }
 
