@@ -1,15 +1,15 @@
-use super::{FXHelperSwitch, FXHelperTrait, FromNestAttr};
+use super::{FXAttributes, FXHelperTrait, FromNestAttr};
 use crate::util::set_literals;
-use darling::FromMeta;
+use darling::{util::Flag, FromMeta};
 use getset::Getters;
 use syn::Lit;
 
 #[derive(FromMeta, Default, Debug, Clone, Getters)]
 pub(crate) struct FXBaseHelper<const BOOL_ONLY: bool = false> {
-    #[getset(skip)]
-    rename: Option<String>,
+    rename:        Option<String>,
     #[getset(get = "pub(crate)")]
-    off:    Option<FXHelperSwitch>,
+    off:           Flag,
+    attributes_fn: Option<FXAttributes>,
 }
 
 impl<const BOOL_ONLY: bool> FXBaseHelper<BOOL_ONLY> {
@@ -23,11 +23,16 @@ impl<const BOOL_ONLY: bool> FXBaseHelper<BOOL_ONLY> {
 
 impl<const BOOL_ONLY: bool> FXHelperTrait for FXBaseHelper<BOOL_ONLY> {
     fn is_true(&self) -> bool {
-        self.off.as_ref().map_or(true, |switch| !**switch)
+        // self.off.as_ref().map_or(true, |switch| !**switch)
+        !self.off.is_present()
     }
 
     fn rename(&self) -> Option<&str> {
         self.rename.as_deref()
+    }
+
+    fn attributes_fn(&self) -> Option<&FXAttributes> {
+        self.attributes_fn.as_ref()
     }
 }
 
@@ -41,21 +46,22 @@ impl<const BOOL_ONLY: bool> FromNestAttr for FXBaseHelper<BOOL_ONLY> {
 
 impl<const BOOL_ONLY: bool> From<FXBaseHelper<BOOL_ONLY>> for bool {
     fn from(value: FXBaseHelper<BOOL_ONLY>) -> Self {
-        value.off.map_or(false, |off| off.into())
+        value.is_true()
     }
 }
 
 impl<const BOOL_ONLY: bool> From<&FXBaseHelper<BOOL_ONLY>> for bool {
     fn from(value: &FXBaseHelper<BOOL_ONLY>) -> Self {
-        value.off.as_ref().map_or(false, |off| off.into())
+        value.is_true()
     }
 }
 
 impl<const BOOL_ONLY: bool> From<bool> for FXBaseHelper<BOOL_ONLY> {
     fn from(value: bool) -> Self {
         Self {
-            rename: None,
-            off:    Some(value.into()),
+            rename:        None,
+            off:           Flag::from(value),
+            attributes_fn: None,
         }
     }
 }

@@ -1,6 +1,6 @@
 use super::{FXAttributes, FXHelperTrait, FromNestAttr};
 use crate::util::set_literals;
-use darling::FromMeta;
+use darling::{util::Flag, FromMeta};
 use getset::Getters;
 use syn::Lit;
 
@@ -31,6 +31,7 @@ impl FromNestAttr for FXArgsBuilderHelper {
 pub(crate) struct FXFieldBuilderHelper {
     #[getset(skip)]
     rename:        Option<String>,
+    off:           Flag,
     attributes:    Option<FXAttributes>,
     attributes_fn: Option<FXAttributes>,
     into:          Option<bool>,
@@ -52,10 +53,18 @@ impl FromNestAttr for FXFieldBuilderHelper {
 
 impl FXHelperTrait for FXFieldBuilderHelper {
     fn is_true(&self) -> bool {
-        true
+        !self.off.is_present()
     }
 
     fn rename(&self) -> Option<&str> {
         self.rename.as_deref()
+    }
+
+    fn attributes(&self) -> Option<&FXAttributes> {
+        self.attributes.as_ref()
+    }
+
+    fn attributes_fn(&self) -> Option<&FXAttributes> {
+        self.attributes_fn.as_ref()
     }
 }

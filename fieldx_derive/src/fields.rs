@@ -1,6 +1,7 @@
 use crate::{
     helper::{
-        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXFieldBuilder, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXWithOrig, FromNestAttr
+        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXFieldBuilder, FXHelper, FXHelperTrait, FXNestingAttr,
+        FXOrig, FXPubMode, FXSetter, FXWithOrig, FromNestAttr,
     },
     util::{needs_helper, validate_exclusives},
 };
@@ -29,6 +30,7 @@ pub(crate) struct FXFieldReceiver {
     accessor_mut:  Option<FXHelper>,
     #[darling(rename = "set")]
     setter:        Option<FXSetter>,
+    attributes_fn: Option<FXAttributes>,
     reader:        Option<FXHelper>,
     writer:        Option<FXHelper>,
     clearer:       Option<FXHelper>,

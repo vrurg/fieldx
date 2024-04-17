@@ -10,7 +10,7 @@ use quote::{quote, quote_spanned};
 use std::cell::RefCell;
 use syn::spanned::Spanned;
 
-use super::FXAccessorMode;
+use super::{FXAccessorMode};
 
 pub(crate) struct FXCodeGen<'f> {
     ctx:                FXCodeGenCtx,
@@ -149,6 +149,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
             let accessor_name = self.accessor_name(fctx)?;
+            let attributes_fn = fctx.attributes_fn(fctx.accessor().as_ref());
 
             let (reference, deref, meth) = match fctx.accessor_mode() {
                 FXAccessorMode::Copy => (quote![], quote![*], quote![]),
@@ -161,6 +162,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 let lazy_name = self.lazy_name(fctx)?;
 
                 Ok(quote_spanned![*fctx.span()=>
+                    #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty {
                         #deref self.#ident.get_or_init( move || self.#lazy_name() ) #meth
                     }
@@ -169,11 +171,13 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.is_optional() {
                 let ty_tok = self.type_tokens(fctx);
                 Ok(quote_spanned![*fctx.span()=>
+                    #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty_tok { #reference self.#ident #meth }
                 ])
             }
             else {
                 Ok(quote_spanned![*fctx.span()=>
+                    #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty { #reference self.#ident #meth }
                 ])
             }
@@ -189,11 +193,13 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
             let accessor_name = self.accessor_mut_name(fctx)?;
+            let attributes_fn = fctx.attributes_fn(fctx.accessor_mut().as_ref());
 
             if fctx.is_lazy() {
                 let lazy_name = self.lazy_name(fctx)?;
 
                 Ok(quote_spanned![*fctx.span()=>
+                    #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty {
                         self.#ident.get_or_init( || self.#lazy_name() );
                         self.#ident.get_mut().unwrap()
@@ -204,12 +210,14 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 let ty_tok = self.type_tokens(fctx);
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty_tok { &mut self.#ident }
                 ])
             }
             else {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty { &mut self.#ident }
                 ])
             }
@@ -259,20 +267,23 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
+            let attributes_fn = fctx.attributes_fn(fctx.setter().as_ref());
 
             let (gen_params, val_type, into_tok) = self.into_toks(fctx, fctx.is_setter_into());
 
             if fctx.is_lazy() {
                 Ok(quote_spanned![span=>
-                        #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> ::std::option::Option<#ty> {
-                            let old = self.#ident.take();
-                            let _ = self.#ident.set(value #into_tok);
-                            old
-                        }
+                    #attributes_fn
+                    #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> ::std::option::Option<#ty> {
+                        let old = self.#ident.take();
+                        let _ = self.#ident.set(value #into_tok);
+                        old
+                    }
                 ])
             }
             else if fctx.is_optional() {
                 Ok(quote_spanned! [span=>
+                    #attributes_fn
                     #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> ::std::option::Option<#ty> {
                         self.#ident.replace(value #into_tok)
                     }
@@ -280,11 +291,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             }
             else {
                 Ok(quote_spanned![span=>
-                        #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> #ty {
-                            let old = self.#ident;
-                            self.#ident = value #into_tok;
-                            old
-                        }
+                    #attributes_fn
+                    #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> #ty {
+                        let old = self.#ident;
+                        self.#ident = value #into_tok;
+                        old
+                    }
                 ])
             }
         }
@@ -299,7 +311,10 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
+            let attributes_fn = fctx.attributes_fn(fctx.clearer().as_ref());
+
             Ok(quote_spanned! [*fctx.span()=>
+                #attributes_fn
                 #vis_tok fn #clearer_name(&mut self) -> ::std::option::Option<#ty> {
                     self.#ident.take()
                 }
@@ -316,10 +331,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let span = *fctx.span();
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok();
+            let attributes_fn = fctx.attributes_fn(fctx.predicate().as_ref());
 
             if fctx.is_lazy() {
                 return Ok(quote_spanned! [span=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #predicate_name(&self) -> bool {
                         self.#ident.get().is_some()
                     }
@@ -327,6 +344,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             }
             else if fctx.is_optional() {
                 return Ok(quote_spanned! [span=>
+                    #attributes_fn
                     #vis_tok fn #predicate_name(&self) -> bool {
                         self.#ident.is_some()
                     }

@@ -25,6 +25,18 @@ use syn::{Lit, Meta};
 pub(crate) trait FXHelperTrait {
     fn is_true(&self) -> bool;
     fn rename(&self) -> Option<&str>;
+
+    fn attributes(&self) -> Option<&FXAttributes> {
+        None
+    }
+
+    fn attributes_fn(&self) -> Option<&FXAttributes> {
+        None
+    }
+
+    fn attributes_impl(&self) -> Option<&FXAttributes> {
+        None
+    }
 }
 
 #[derive(Debug, Clone, Getters)]

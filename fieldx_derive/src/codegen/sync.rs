@@ -172,6 +172,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let ty = fctx.ty();
             let is_optional = fctx.is_optional();
             let is_copy = fctx.is_copy();
+            let attributes_fn = fctx.attributes_fn(fctx.accessor().as_ref());
 
             if fctx.is_lazy() || fctx.needs_lock() || is_optional {
                 let cmethod = if is_copy {
@@ -192,6 +193,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 };
 
                 Ok(quote_spanned![*fctx.span()=>
+                    #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #ty {
                         let rlock = self.#ident.read();
                         (*rlock)#cmethod
@@ -202,6 +204,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
 
                 Ok(quote_spanned![*fctx.span()=>
+                    #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #ty {
                         self.#ident #cmethod
                     }
@@ -269,10 +272,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
+            let attributes_fn = fctx.attributes_fn(fctx.reader().as_ref());
 
             if fctx.is_lazy() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
                         self.#ident.read()
                     }
@@ -281,6 +286,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.is_optional() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
                         ::fieldx::RwLockReadGuard::map(self.#ident.read(), |data: &Option<#ty>| data.as_ref().unwrap())
                     }
@@ -289,6 +295,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::RwLockReadGuard<#ty> {
                         self.#ident.read()
                     }
@@ -306,10 +313,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
+            let attributes_fn = fctx.attributes_fn(fctx.writer().as_ref());
 
             if fctx.is_lazy() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #writer_name<'fx_writer_lifetime>(&'fx_writer_lifetime self) -> ::fieldx::FXWrLock<'fx_writer_lifetime, #ty> {
                         self.#ident.write()
                     }
@@ -318,6 +327,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.is_optional() {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #writer_name(&self) -> ::fieldx::RwLockWriteGuard<::std::option::Option<#ty>> {
                         self.#ident.write()
                     }
@@ -326,6 +336,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #writer_name(&self) -> ::fieldx::RwLockWriteGuard<#ty> {
                         self.#ident.write()
                     }
@@ -344,10 +355,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
+            let attributes_fn = fctx.attributes_fn(fctx.setter().as_ref());
 
             if fctx.is_lazy() {
                 Ok(quote_spanned! [*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
                         self.#ident.write().store(value)
                     }
@@ -356,6 +369,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.is_optional() {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
                         self.#ident.write().replace(value)
                     }
@@ -364,6 +378,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             else if fctx.needs_lock() {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #set_name(&self, value: #ty) -> #ty {
                         let mut wlock = self.#ident.write();
                         ::std::mem::replace(&mut *wlock, value)
@@ -372,6 +387,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             }
             else {
                 Ok(quote_spanned! [*fctx.span()=>
+                    #attributes_fn
                     #vis_tok fn #set_name(&mut self, value: #ty) -> #ty {
                         let old = self.#ident;
                         self.#ident = value;
@@ -391,19 +407,22 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok();
             let ty = fctx.ty();
+            let attributes_fn = fctx.attributes_fn(fctx.clearer().as_ref());
 
             if fctx.is_lazy() {
                 Ok(quote_spanned![*fctx.span()=>
-                   #[inline]
-                   #vis_tok fn #clear_name(&self) -> ::std::option::Option<#ty> {
-                       self.#ident.clear()
-                   }
+                    #[inline]
+                    #attributes_fn
+                    #vis_tok fn #clear_name(&self) -> ::std::option::Option<#ty> {
+                        self.#ident.clear()
+                    }
                 ])
             }
             else {
                 // If not lazy then it's optional
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #clear_name(&self) -> ::std::option::Option<#ty> {
                        self.#ident.write().take()
                     }
@@ -420,19 +439,22 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let pred_name = self.predicate_name(fctx)?;
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok();
+            let attributes_fn = fctx.attributes_fn(fctx.predicate().as_ref());
 
             if fctx.is_lazy() {
                 Ok(quote_spanned![*fctx.span()=>
-                   #[inline]
-                   #vis_tok fn #pred_name(&self) -> bool {
-                      self.#ident.is_set()
-                   }
+                    #[inline]
+                    #attributes_fn
+                    #vis_tok fn #pred_name(&self) -> bool {
+                        self.#ident.is_set()
+                    }
                 ])
             }
             else {
                 // If not lazy then it's optional
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
+                    #attributes_fn
                     #vis_tok fn #pred_name(&self) -> bool {
                       self.#ident.read().is_some()
                    }

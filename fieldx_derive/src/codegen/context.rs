@@ -11,7 +11,9 @@ use quote::ToTokens;
 use std::cell::{OnceCell, RefCell};
 use syn::Meta;
 
-use super::{FXAccessor, FXAccessorMode, FXAttributes, FXFieldBuilder, FXSetter};
+use super::{
+    FXAccessor, FXAccessorMode, FXAttributes, FXFieldBuilder, FXHelperTrait, FXNestingAttr, FXSetter, FromNestAttr,
+};
 
 // For FXFieldCtx
 macro_rules! helper_fn_ctx {
@@ -251,6 +253,29 @@ impl<'f> FXFieldCtx<'f> {
                 })
             })
             .unwrap_or(FXAccessorMode::None)
+    }
+
+    #[allow(dead_code)]
+    pub fn attributes<'a>(
+        &'a self,
+        helper: Option<&'a FXNestingAttr<impl FXHelperTrait + FromNestAttr>>,
+    ) -> Option<&'a FXAttributes> {
+        helper.and_then(|h| h.attributes())
+    }
+
+    pub fn attributes_fn<'a>(
+        &'a self,
+        helper: Option<&'a FXNestingAttr<impl FXHelperTrait + FromNestAttr>>,
+    ) -> Option<&'a FXAttributes> {
+        helper.and_then(|h| h.attributes_fn().or_else(|| self.field.attributes_fn().as_ref()))
+    }
+
+    #[allow(dead_code)]
+    pub fn attributes_impl<'a>(
+        &'a self,
+        helper: Option<&'a FXNestingAttr<impl FXHelperTrait + FromNestAttr>>,
+    ) -> Option<&'a FXAttributes> {
+        helper.and_then(|h| h.attributes_impl())
     }
 
     #[inline]
