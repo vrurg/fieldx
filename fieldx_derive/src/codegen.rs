@@ -22,6 +22,7 @@ pub(crate) trait FXCGen<'f> {
     fn field_setter(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
     fn field_clearer(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
     fn field_predicate(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
+    fn field_value_wrap(&self, field_ctx: &FXFieldCtx, value: TokenStream) -> DResult<TokenStream>;
     fn field_default_wrap(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
 
     fn struct_extras(&self);
@@ -308,9 +309,11 @@ pub(crate) trait FXCGen<'f> {
             ]
         };
 
+        let manual_wrapped = self.ok_or(self.field_value_wrap(field_ctx, quote![field_manual_value]));
+
         quote_spanned![*span=>
             #field_ident: if let ::std::option::Option::Some(field_manual_value) = self.#field_ident.take() {
-                field_manual_value
+                #manual_wrapped
             }
             else {
                 #alternative

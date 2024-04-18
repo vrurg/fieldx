@@ -10,7 +10,7 @@ use quote::{quote, quote_spanned};
 use std::cell::RefCell;
 use syn::spanned::Spanned;
 
-use super::{FXAccessorMode};
+use super::FXAccessorMode;
 
 pub(crate) struct FXCodeGen<'f> {
     ctx:                FXCodeGenCtx,
@@ -355,28 +355,30 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         Ok(TokenStream::new())
     }
 
-    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
-        let def_tok = self.field_default_value(fctx)?;
-
+    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: TokenStream) -> DResult<TokenStream> {
         if fctx.is_lazy() {
-            if def_tok.is_empty() {
+            if value.is_empty() {
                 Ok(quote![::fieldx::OnceCell::new()])
             }
             else {
-                Ok(quote![::fieldx::OnceCell::from(#def_tok)])
+                Ok(quote![::fieldx::OnceCell::from(#value)])
             }
         }
         else if fctx.is_optional() {
             if fctx.has_default_value() {
-                Ok(quote! [ ::std::option::Option::Some(#def_tok) ])
+                Ok(quote! [ ::std::option::Option::Some(#value) ])
             }
             else {
                 Ok(quote![::std::option::Option::None])
             }
         }
         else {
-            Ok(quote! [ #def_tok ])
+            Ok(quote! [ #value ])
         }
+    }
+
+    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+        self.field_value_wrap(fctx, self.field_default_value(fctx)?)
     }
 
     // Reader/writer make no sense for non-sync. Hence do nothing.

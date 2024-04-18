@@ -255,12 +255,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 #field_ident: ::fieldx::RwLock::new(self.#field_ident.take())
             ]
         }
-        else if fctx.needs_lock() {
-            quote_spanned![*span=>
-                // When lock is needed then we need to wrap the value in RwLock
-                #field_ident: ::fieldx::RwLock::new(self.#field_ident.take().unwrap())
-            ]
-        }
+        // else if fctx.needs_lock() {
+        //     quote_spanned![*span=>
+        //         // When lock is needed then we need to wrap the value in RwLock
+        //         #field_ident: ::fieldx::RwLock::new(self.#field_ident.take().unwrap())
+        //     ]
+        // }
         else {
             self.simple_field_build_setter(fctx, field_ident, span)
         })
@@ -466,26 +466,29 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         }
     }
 
-    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        let def_tok = self.field_default_value(fctx)?;
+    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: TokenStream) -> darling::Result<TokenStream> {
         if fctx.is_lazy() {
             let ty_tok = fctx.ty_tok();
-            if def_tok.is_empty() {
+            if value.is_empty() {
                 Ok(quote![::std::default::Default::default()])
             }
             else {
-                Ok(quote![ ::fieldx::FXProxy::<#ty_tok>::from(#def_tok) ])
+                Ok(quote![ ::fieldx::FXProxy::<#ty_tok>::from(#value) ])
             }
         }
         else if fctx.is_optional() {
-            Ok(quote![ ::fieldx::RwLock::new(Some(#def_tok)) ])
+            Ok(quote![ ::fieldx::RwLock::new(Some(#value)) ])
         }
         else if fctx.needs_lock() {
-            Ok(quote![ ::fieldx::RwLock::new(#def_tok) ])
+            Ok(quote![ ::fieldx::RwLock::new(#value) ])
         }
         else {
-            Ok(quote![ #def_tok ])
+            Ok(quote![ #value ])
         }
+    }
+
+    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+        self.field_value_wrap(fctx, self.field_default_value(fctx)?)
     }
 
     fn field_initializer(&self, fctx: &FXFieldCtx) {

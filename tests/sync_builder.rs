@@ -7,7 +7,7 @@ mod foo {
         #[fieldx(lazy, clearer)]
         foo: String,
 
-        #[fieldx(lazy, clearer, builder(into))]
+        #[fieldx(lazy, clearer, builder(into), get(copy))]
         real: f32,
 
         #[fieldx(reader, writer, get(clone), set, builder(into), default = "initial")]
@@ -54,4 +54,19 @@ fn basics() {
     assert_eq!(foo.locked_bar(), "custom set", "locked_bar accessor");
     foo.set_locked_bar("with setter".to_string());
     assert_eq!(foo.locked_bar(), "with setter", "locked_bar setter works");
+}
+
+#[test]
+fn empties() {
+    let foo = foo::Foo::builder().build().unwrap();
+
+    assert_eq!(
+        *foo.read_foo(),
+        "це є ледачим значенням".to_string(),
+        "when no value from builder foo gets built"
+    );
+
+    assert_eq!(foo.real(), 22f32, "when no manual real is built from foo");
+
+    assert_eq!(foo.locked_bar(), "initial", "when no value from builder locked_bar gets its default value");
 }
