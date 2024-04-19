@@ -51,16 +51,6 @@ impl<T> From<T> for FXProxy<T> {
     }
 }
 
-impl<T> From<Option<T>> for FXProxy<T> {
-    fn from(value: Option<T>) -> Self {
-        Self {
-            value:   RwLock::new(value),
-            is_set:  AtomicBool::new(true),
-            builder: RwLock::new(None),
-        }
-    }
-}
-
 impl<T> FXProxy<T> {
     pub fn proxy_setup(&self, builder: Box<dyn Fn() -> T + Send + Sync>) {
         *self.builder.write() = Some(builder);
