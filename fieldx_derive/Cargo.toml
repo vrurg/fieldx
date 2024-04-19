@@ -6,17 +6,17 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-quote = "1.0"
-syn = {version = "2.0", features = ["extra-traits", "parsing"] }
+quote = { workspace = true }
+syn = {workspace = true, features = ["extra-traits", "parsing"] }
 # darling = { version = ">=0.20.7", features = ["diagnostics", "suggestions"] }
-darling = { version = ">=0.20.7", features = [ "suggestions"] }
-proc-macro2 = "1.0"
-rust-format = "0.3"
-enum_dispatch = "0.3"
-delegate = "0.12"
-getset = "0.1"
-thiserror = "1.0"
-paste = "1.0"
+darling = { workspace = true, features = [ "suggestions"] }
+proc-macro2 = { workspace = true }
+rust-format = { workspace = true }
+enum_dispatch = { workspace = true }
+delegate = { workspace = true }
+getset = { workspace = true }
+thiserror = { workspace = true }
+paste = { workspace = true }
 
 [lib]
 proc-macro = true

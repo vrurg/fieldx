@@ -1,6 +1,5 @@
 /target
 **/target
 .vscode/
-Cargo.lock
 fieldx.code-workspace
 

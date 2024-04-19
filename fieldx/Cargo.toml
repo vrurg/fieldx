@@ -1,0 +1,22 @@
+[package]
+name = "fieldx"
+version = "0.1.0"
+edition = "2021"
+authors = ["vrurg"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+fieldx_derive = { workspace = true, features = ["tracing"] }
+parking_lot = { workspace = true }
+thiserror = { workspace = true }
+getset = { workspace = true }
+
+[dev-dependencies]
+trybuild = { workspace = true }
+parking_lot = { workspace = true }
+num_cpus = { workspace = true }
+crossbeam = { workspace = true }
+
+[features]
+diagnostics = ["fieldx_derive/diagnostics"]
