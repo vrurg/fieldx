@@ -19,3 +19,7 @@ paste = "1.0"
 trybuild = "1.0"
 num_cpus = "1.16"
 crossbeam = "0.8"
+
+[patch.crates-io]
+fieldx = { path = "fieldx" }
+fieldx_derive = { path = "fieldx_derive" }
