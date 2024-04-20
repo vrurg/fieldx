@@ -145,7 +145,7 @@ name = "fieldx"
 version = "0.1.0"
 dependencies = [
  "crossbeam",
- "fieldx_derive",
+ "fieldx_derive 0.1.0 (git+ssh://vrurg@zoo.lflat.org/~/git.repos/fieldx)",
  "getset",
  "num_cpus",
  "parking_lot",
@@ -156,6 +156,23 @@ dependencies = [
 [[package]]
 name = "fieldx_derive"
 version = "0.1.0"
+dependencies = [
+ "darling",
+ "delegate",
+ "enum_dispatch",
+ "getset",
+ "paste",
+ "proc-macro2",
+ "quote",
+ "rust-format",
+ "syn 2.0.60",
+ "thiserror",
+]
+
+[[package]]
+name = "fieldx_derive"
+version = "0.1.0"
+source = "git+ssh://vrurg@zoo.lflat.org/~/git.repos/fieldx#75174cf37ddf569bac2ccc53cccd5b563db7043f"
 dependencies = [
  "darling",
  "delegate",
