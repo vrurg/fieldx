@@ -13,7 +13,7 @@ use std::{cell::OnceCell, ops::Deref};
 use syn::{spanned::Spanned, Meta};
 
 #[derive(Debug, FromField, Getters)]
-#[getset(get = "pub")]
+#[getset(get = "pub(crate)")]
 #[darling(attributes(fieldx), forward_attrs)]
 pub(crate) struct FXFieldReceiver {
     ident: Option<syn::Ident>,
@@ -148,11 +148,11 @@ impl FXFieldReceiver {
     }
 
     pub fn builder_attributes(&self) -> Option<&FXAttributes> {
-        self.builder.as_ref().and_then(|b| b.attributes().as_ref())
+        self.builder.as_ref().and_then(|b| b.attributes())
     }
 
     pub fn builder_fn_attributes(&self) -> Option<&FXAttributes> {
-        self.builder.as_ref().and_then(|b| b.attributes_fn().as_ref())
+        self.builder.as_ref().and_then(|b| b.attributes_fn())
     }
 
     fn mark_implicitly(&mut self, orig: Meta) -> Result<(), &str> {

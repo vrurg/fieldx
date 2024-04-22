@@ -1,7 +1,9 @@
 use super::{FXAttributes, FXHelperTrait, FromNestAttr};
-use darling::{util::Flag, FromMeta};
+use darling::{FromMeta};
+use fieldx_derive_support::fxhelper;
 use quote::ToTokens;
 use syn::Lit;
+use getset::Getters;
 
 #[derive(FromMeta, Debug, Clone, Copy, Default, PartialEq)]
 pub(crate) enum FXAccessorMode {
@@ -12,11 +14,9 @@ pub(crate) enum FXAccessorMode {
     None,
 }
 
+#[fxhelper]
 #[derive(FromMeta, Default, Debug, Clone)]
 pub(crate) struct FXAccessorHelper<const BOOL_ONLY: bool = false> {
-    rename: Option<String>,
-    off:    Flag,
-    attributes_fn: Option<FXAttributes>,
     #[darling(flatten, default)]
     mode:   FXAccessorMode,
 }
@@ -32,19 +32,19 @@ impl<const BOOL_ONLY: bool> FXAccessorHelper<BOOL_ONLY> {
     }
 }
 
-impl<const BOOL_ONLY: bool> FXHelperTrait for FXAccessorHelper<BOOL_ONLY> {
-    fn is_true(&self) -> bool {
-        !self.off.is_present()
-    }
+// impl<const BOOL_ONLY: bool> FXHelperTrait for FXAccessorHelper<BOOL_ONLY> {
+//     fn is_true(&self) -> bool {
+//         !self.off.is_present()
+//     }
 
-    fn rename(&self) -> Option<&str> {
-        self.rename.as_deref()
-    }
+//     fn rename(&self) -> Option<&str> {
+//         self.rename.as_deref()
+//     }
 
-    fn attributes_fn(&self) -> Option<&FXAttributes> {
-        self.attributes_fn.as_ref()
-    }
-}
+//     fn attributes_fn(&self) -> Option<&FXAttributes> {
+//         self.attributes_fn.as_ref()
+//     }
+// }
 
 impl<const BOOL_ONLY: bool> FromNestAttr for FXAccessorHelper<BOOL_ONLY> {
     fn for_keyword() -> Self {

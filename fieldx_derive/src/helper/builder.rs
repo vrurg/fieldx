@@ -1,6 +1,7 @@
 use super::{FXAttributes, FXHelperTrait, FromNestAttr};
 use crate::util::set_literals;
-use darling::{util::Flag, FromMeta};
+use darling::FromMeta;
+use fieldx_derive_support::fxhelper;
 use getset::Getters;
 use syn::Lit;
 
@@ -26,15 +27,13 @@ impl FromNestAttr for FXArgsBuilderHelper {
     }
 }
 
-#[derive(FromMeta, Debug, Clone, Default, Getters)]
-#[getset(get = "pub(crate)")]
+#[fxhelper]
+#[derive(FromMeta, Debug, Clone, Default)]
 pub(crate) struct FXFieldBuilderHelper {
     #[getset(skip)]
-    rename:        Option<String>,
-    off:           Flag,
-    attributes:    Option<FXAttributes>,
-    attributes_fn: Option<FXAttributes>,
-    into:          Option<bool>,
+    attributes: Option<FXAttributes>,
+    #[getset(get = "pub(crate)")]
+    into:       Option<bool>,
 }
 
 impl FXFieldBuilderHelper {
@@ -51,20 +50,20 @@ impl FromNestAttr for FXFieldBuilderHelper {
     }
 }
 
-impl FXHelperTrait for FXFieldBuilderHelper {
-    fn is_true(&self) -> bool {
-        !self.off.is_present()
-    }
+// impl FXHelperTrait for FXFieldBuilderHelper {
+//     fn is_true(&self) -> bool {
+//         !self.off.is_present()
+//     }
 
-    fn rename(&self) -> Option<&str> {
-        self.rename.as_deref()
-    }
+//     fn rename(&self) -> Option<&str> {
+//         self.rename.as_deref()
+//     }
 
-    fn attributes(&self) -> Option<&FXAttributes> {
-        self.attributes.as_ref()
-    }
+//     fn attributes(&self) -> Option<&FXAttributes> {
+//         self.attributes.as_ref()
+//     }
 
-    fn attributes_fn(&self) -> Option<&FXAttributes> {
-        self.attributes_fn.as_ref()
-    }
-}
+//     fn attributes_fn(&self) -> Option<&FXAttributes> {
+//         self.attributes_fn.as_ref()
+//     }
+// }

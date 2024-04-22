@@ -283,11 +283,13 @@ impl<'f> FXFieldCtx<'f> {
         self.field
     }
 
+    #[inline]
     pub fn vis_tok(&self) -> &TokenStream {
         self.vis_tok
             .get_or_init(|| self.field().vis_tok().unwrap_or_else(|| self.codegen_ctx.vis_tok()))
     }
 
+    #[inline]
     pub fn ty_tok(&self) -> &TokenStream {
         self.ty_tok.get_or_init(|| self.field.ty().to_token_stream())
     }

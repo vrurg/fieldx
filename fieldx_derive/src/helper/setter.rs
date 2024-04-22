@@ -1,17 +1,15 @@
 use super::{FXAttributes, FXHelperTrait, FromNestAttr};
 use crate::util::set_literals;
 use darling::{util::Flag, FromMeta};
+use fieldx_derive_support::fxhelper;
 use getset::Getters;
 use syn::Lit;
 
+#[fxhelper]
 #[derive(FromMeta, Default, Debug, Clone, Getters)]
 pub(crate) struct FXSetterHelper<const BOOL_ONLY: bool = false> {
-    rename:        Option<String>,
     #[getset(get = "pub(crate)")]
     into:          Option<bool>,
-    #[getset(get = "pub(crate)")]
-    off:           Flag,
-    attributes_fn: Option<FXAttributes>,
 }
 
 impl<const BOOL_ONLY: bool> FXSetterHelper<BOOL_ONLY> {
@@ -28,20 +26,19 @@ impl<const BOOL_ONLY: bool> FXSetterHelper<BOOL_ONLY> {
     }
 }
 
-impl<const BOOL_ONLY: bool> FXHelperTrait for FXSetterHelper<BOOL_ONLY> {
-    fn is_true(&self) -> bool {
-        // self.off.as_ref().map_or(true, |switch| !**switch)
-        !self.off.is_present()
-    }
+// impl<const BOOL_ONLY: bool> FXHelperTrait for FXSetterHelper<BOOL_ONLY> {
+//     fn is_true(&self) -> bool {
+//         !self.off.is_present()
+//     }
 
-    fn rename(&self) -> Option<&str> {
-        self.rename.as_deref()
-    }
+//     fn rename(&self) -> Option<&str> {
+//         self.rename.as_deref()
+//     }
 
-    fn attributes_fn(&self) -> Option<&FXAttributes> {
-        self.attributes_fn.as_ref()
-    }
-}
+//     fn attributes_fn(&self) -> Option<&FXAttributes> {
+//         self.attributes_fn.as_ref()
+//     }
+// }
 
 impl<const BOOL_ONLY: bool> FromNestAttr for FXSetterHelper<BOOL_ONLY> {
     set_literals! { setter, ..1 => rename as Lit::Str; pre_validate => allowed_literals }

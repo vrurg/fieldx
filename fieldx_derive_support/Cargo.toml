@@ -1,0 +1,13 @@
+[package]
+name = "fieldx_derive_support"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+quote = { workspace = true }
+syn = {workspace = true, features = ["extra-traits", "parsing"] }
+darling = { workspace = true, features = [ "suggestions"] }
+proc-macro2 = { workspace = true }
+
+[lib]
+proc-macro = true
