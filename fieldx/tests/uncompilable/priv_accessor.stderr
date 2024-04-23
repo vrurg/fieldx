@@ -1,0 +1,9 @@
+error[E0624]: method `foo` is private
+  --> tests/uncompilable/priv_accessor.rs:18:18
+   |
+9  | /         #[fieldx(get(private), predicate(off))]
+10 | |         foo: u32,
+   | |________________- private method defined here
+...
+18 |       let _r = foo.foo();
+   |                    ^^^ private method

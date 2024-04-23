@@ -1,5 +1,3 @@
-use quote::quote;
-
 pub(crate) mod args;
 
 macro_rules! validate_exclusives {
@@ -7,26 +5,17 @@ macro_rules! validate_exclusives {
         fn validate_exclusives(&self) -> ::darling::Result<()> {
             $(
                 {
-                    // let mut set_params: Vec<(&str, &dyn ::quote::ToTokens)> = vec![];
                     let mut set_params: Vec<&str> = vec![];
                     $(
                         if self.$field.is_some() {
-                            // let $field: &dyn ::quote::ToTokens = self.$field.as_ref().unwrap().orig().unwrap();
-                            // set_params.push((stringify!($field), $field));
                             set_params.push(stringify!($field));
                         }
                     )+
 
                     if set_params.len() > 1 {
-                        #[allow(unused_mut)]
-                        let mut err = darling::Error::custom(
+                        let err = darling::Error::custom(
                             format!("The following options from group '{}' cannot be used together: {}", $group, set_params.iter().map(|f| format!("`{}`", f)).collect::<Vec<String>>().join(", "))
                         );
-
-                        #[cfg(feature = "diagnostics")]
-                        for field in set_params.iter() {
-                            err = err.span_warning(&field.1, format!("`{}` is declared here", field.0));
-                        }
 
                         return Err(err);
                     }
@@ -92,104 +81,6 @@ macro_rules! set_literals {
     };
 }
 
-// macro_rules! helper_std_fields {
-//     // Move on to the next syntax struct: generic params, where clauses, or the actual struct body
-//     (@ next ( $( $shead:tt )+ ) -> [ { $( $body:tt )* } ] ) => {
-//         // This is what is this all about...
-//         $( $shead )+ {
-//             rename: Option<String>,
-//             off: Flag,
-//             attributes_fn: Option<FXAttributes>,
-//             public: Option<FXNestingAttr<FXPubMode>>,
-//             private: Option<FXWithOrig<bool, syn::Meta>>,
-
-//             $( $body )*
-//         }
-//     };
-
-//     (@ next ( $( $shead:tt )+ ) -> [ < $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ gparam ( $( $shead )+ < ) -> [ $( $tail )+ ] }
-//     };
-
-//     (@ next ( $( $shead:tt )+ ) -> [ where $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ gparam ( $( $shead )+ where ) -> [ $( $tail )+ ] }
-//     };
-
-//     // --- Bounds parsing
-//     // Lifetime bounds
-//     (@ bounds ( $( $shead:tt )+ ) -> [ $lt:lifetime $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ bounds ( $( $shead )+ $lt ) -> [ $( $tail )+ ] }
-//     };
-
-//     // Trait name in bounds, possibly an FQN with `::`.
-//     (@ bounds ( $( $shead:tt )+ ) -> [ $t:ident $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ bounds ( $( $shead )+ $t ) -> [ $( $tail )+ ] }
-//     };
-//     (@ bounds ( $( $shead:tt )+ ) -> [ :: $t:ident $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ bounds ( $( $shead )+ :: $t ) -> [ $( $tail )+ ] }
-//     };
-
-//     // This one is for `where` which may end with comma followed by struct body
-//     (@ bounds ( $( $shead:tt )+ ) -> [ $(,)+ { $( $tail:tt )+ } ] ) => {
-//         helper_std_fields!{@ next ( $( $shead )+ , ) -> [ { $( $tail )+ } ] }
-//     };
-
-//     (@ bounds ( $( $shead:tt )+ ) -> [ + $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ bounds ( $( $shead )+ + ) -> [ $( $tail )+ ] }
-//     };
-//     (@ bounds ( $( $shead:tt )+ ) -> [ > $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ next ( $( $shead )+ > ) -> [ $( $tail )+ ] }
-//     };
-//     (@ bounds ( $( $shead:tt )+ ) -> [ $(,)+ $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ gpunct ( $( $shead )+ ) -> [ , $( $tail )+ ] }
-//     };
-//     (@ bounds ( $( $shead:tt )+ ) -> [ { $( $body:tt )+ } ] ) => {
-//         helper_std_fields!{@ next ( $( $shead )+ ) -> [ { $( $body )+ } ] }
-//     };
-
-//     // : <bounds>
-//     (@ gpunct ( $( $shead:tt )+ ) -> [ : $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ bounds ( $( $shead )+ : ) -> [ $( $tail )+ ] }
-//     };
-
-//     // , <next parameter>
-//     (@ gpunct ( $( $shead:tt )+ ) -> [ $(,)+ $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ gparam ( $( $shead )+ , ) -> [ $( $tail )+ ] }
-//     };
-
-//     // > [where | { ... }]
-//     (@ gpunct ( $( $shead:tt )+ ) -> [ > $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ next ( $( $shead )+ > ) -> [ $( $tail )+ ] }
-//     };
-
-//     // = <literal> (for consts)
-//     (@ gpunct ( $( $shead:tt )+ ) -> [ = $lit:literal $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ gpunct ( $( $shead )+ = $lit ) -> [ $( $tail )+ ] }
-//     };
-
-//     // const param
-//     (@ gparam ( $( $shead:tt )+ ) -> [ const $gp:ident : $gtype:ty = $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ gpunct ( $( $shead )+ const $gp: $gtype ) -> [ = $( $tail )+ ] }
-//     };
-//     (@ gparam ( $( $shead:tt )+ ) -> [ const $gp:ident : $gtype:ty , $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ gpunct ( $( $shead )+ const $gp: $gtype ) -> [ , $( $tail )+ ] }
-//     };
-
-//     // Generic type param
-//     (@ gparam ( $( $shead:tt )+ ) -> [ $gname:ident $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ gpunct ( $( $shead )+ $gname ) -> [ $( $tail )+ ] }
-//     };
-
-//     // Lifetime param
-//     (@ gparam ( $( $shead:tt )+ ) -> [ $lf:lifetime $( $tail:tt )+ ] ) => {
-//         helper_std_fields!{@ gpunct ( $( $shead )+ $lf ) -> [ $( $tail )+ ] }
-//     };
-
-//     ( $( #[$attrs:meta] )* $svis:vis struct $sname:ident $( $tail:tt )* ) => {
-//         helper_std_fields!{@ next ( { attrs: [ $(#[$attrs])* ], sname: [ $sname ] } => $svis struct $sname ) -> [ $( $tail )+ ]  }
-//     };
-// }
-
 #[cfg(feature = "tracing")]
 #[allow(unused_macros)]
 macro_rules! fxtrace {
@@ -206,7 +97,7 @@ macro_rules! fxtrace {
     () => {};
 }
 
-#[cfg(not(feature = "tracing"))]
+#[allow(unused_imports)]
 pub(crate) use fxtrace;
 pub(crate) use needs_helper;
 pub(crate) use set_literals;

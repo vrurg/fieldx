@@ -7,12 +7,13 @@ use crate::{
 use delegate::delegate;
 use getset::{CopyGetters, Getters};
 use proc_macro2::{Span, TokenStream};
-use quote::ToTokens;
+use quote::{quote, ToTokens};
 use std::cell::{OnceCell, RefCell};
 use syn::Meta;
 
 use super::{
-    FXAccessor, FXAccessorMode, FXAttributes, FXFieldBuilder, FXHelperTrait, FXNestingAttr, FXSetter, FromNestAttr,
+    FXAccessor, FXAccessorMode, FXAttributes, FXFieldBuilder, FXHelperContainer, FXHelperKind, FXHelperTrait,
+    FXNestingAttr, FXPubMode, FXSetter, FromNestAttr,
 };
 
 // For FXFieldCtx
@@ -49,7 +50,6 @@ pub(crate) struct FXCodeGenCtx {
 pub(crate) struct FXFieldCtx<'f> {
     field:       &'f FXField,
     codegen_ctx: &'f FXCodeGenCtx,
-    vis_tok:     OnceCell<TokenStream>,
     ty_tok:      OnceCell<TokenStream>,
     ty_wrapped:  OnceCell<TokenStream>,
     ident:       OnceCell<Option<&'f syn::Ident>>,
@@ -108,13 +108,6 @@ impl FXCodeGenCtx {
             *nb_ref = Some(true);
         }
     }
-
-    #[inline]
-    pub fn vis_tok(&self) -> TokenStream {
-        self.args
-            .vis_tok()
-            .unwrap_or_else(|| self.input().vis().to_token_stream())
-    }
 }
 
 impl<'f> FXFieldCtx<'f> {
@@ -139,6 +132,7 @@ impl<'f> FXFieldCtx<'f> {
             pub fn default_value(&self) -> &Option<Meta>;
             pub fn builder_attributes(&self) -> Option<&FXAttributes>;
             pub fn builder_fn_attributes(&self) -> Option<&FXAttributes>;
+            pub fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait>;
         }
     }
 
@@ -150,7 +144,6 @@ impl<'f> FXFieldCtx<'f> {
         Self {
             field,
             codegen_ctx,
-            vis_tok: OnceCell::new(),
             ty_wrapped: OnceCell::new(),
             ident: OnceCell::new(),
             ident_tok: OnceCell::new(),
@@ -270,23 +263,32 @@ impl<'f> FXFieldCtx<'f> {
         helper.and_then(|h| h.attributes_fn().or_else(|| self.field.attributes_fn().as_ref()))
     }
 
-    #[allow(dead_code)]
-    pub fn attributes_impl<'a>(
-        &'a self,
-        helper: Option<&'a FXNestingAttr<impl FXHelperTrait + FromNestAttr>>,
-    ) -> Option<&'a FXAttributes> {
-        helper.and_then(|h| h.attributes_impl())
-    }
-
     #[inline]
     pub fn field(&self) -> &'f FXField {
         self.field
     }
 
-    #[inline]
-    pub fn vis_tok(&self) -> &TokenStream {
-        self.vis_tok
-            .get_or_init(|| self.field().vis_tok().unwrap_or_else(|| self.codegen_ctx.vis_tok()))
+    pub fn vis_tok(&self, helper_kind: FXHelperKind) -> TokenStream {
+        let ctx = self.codegen_ctx();
+        let helper = self.get_helper(helper_kind);
+        let public_mode = helper
+            .and_then(|h| h.public_mode())
+            .or_else(|| self.field.public_mode())
+            .or_else(|| {
+                let cg_helper = ctx.args().get_helper(helper_kind);
+                cg_helper
+                    .and_then(|h| h.public_mode())
+                    .or_else(|| ctx.args().public_mode())
+            });
+
+        match public_mode {
+            None => ctx.input().vis().to_token_stream(),
+            Some(FXPubMode::Private) => quote![],
+            Some(FXPubMode::All) => quote!(pub),
+            Some(FXPubMode::Super) => quote!(pub(super)),
+            Some(FXPubMode::Crate) => quote!(pub(crate)),
+            Some(FXPubMode::InMod(ref path)) => quote!(pub(in #path)),
+        }
     }
 
     #[inline]

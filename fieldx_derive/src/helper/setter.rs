@@ -1,4 +1,4 @@
-use super::{FXAttributes, FXHelperTrait, FromNestAttr};
+use super::FromNestAttr;
 use crate::util::set_literals;
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
@@ -6,10 +6,10 @@ use getset::Getters;
 use syn::Lit;
 
 #[fxhelper]
-#[derive(FromMeta, Default, Debug, Clone, Getters)]
+#[derive(Default, Debug, Getters)]
 pub(crate) struct FXSetterHelper<const BOOL_ONLY: bool = false> {
     #[getset(get = "pub(crate)")]
-    into:          Option<bool>,
+    into: Option<bool>,
 }
 
 impl<const BOOL_ONLY: bool> FXSetterHelper<BOOL_ONLY> {

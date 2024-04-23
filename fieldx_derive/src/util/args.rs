@@ -1,13 +1,15 @@
+// #[cfg(feature = "diagnostics")]
+// use crate::helper::FXOrig;
 use crate::{
     helper::{
-        FXAccessor, FXAccessorMode, FXArgsBuilder, FXAttributes, FXHelper, FXHelperTrait, FXNestingAttr,
-        FXPubMode, FXSetter, FXWithOrig,
+        FXAccessor, FXAccessorMode, FXArgsBuilder, FXAttributes, FXHelper, FXHelperContainer, FXHelperKind,
+        FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXWithOrig,
     },
     util::{needs_helper, validate_exclusives},
 };
 use darling::{util::Flag, FromMeta};
 use getset::Getters;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::Span;
 
 #[derive(Debug, FromMeta, Clone, Getters, Default)]
 #[darling(and_then = Self::validate)]
@@ -35,8 +37,6 @@ pub(crate) struct FXSArgs {
     private:      Option<FXWithOrig<bool, syn::Meta>>,
     clone:        Option<bool>,
     copy:         Option<bool>,
-    // #[darling(skip)]
-    // recurs_cnt: RefCell<u32>,
 }
 
 impl FXSArgs {
@@ -84,19 +84,11 @@ impl FXSArgs {
     }
 
     pub fn is_lazy(&self) -> Option<bool> {
-        // *self.recurs_cnt.borrow_mut() += 1;
-        // fxtrace!(*self.recurs_cnt.borrow());
-        // *self.recurs_cnt.borrow_mut() -= 1;
-        // rc
         self.lazy.as_ref().map(|h| h.is_true())
     }
 
     pub fn accessor_mode(&self) -> Option<FXAccessorMode> {
-        self.accessor.as_ref().and_then(|h| h.mode().copied())
-    }
-
-    pub fn vis_tok(&self) -> Option<TokenStream> {
-        self.public.as_ref().and_then(|p| p.vis_tok().into())
+        self.accessor.as_ref().and_then(|h| h.mode())
     }
 
     pub fn builder_attributes(&self) -> Option<&FXAttributes> {
@@ -105,5 +97,29 @@ impl FXSArgs {
 
     pub fn builder_impl_attributes(&self) -> Option<&FXAttributes> {
         self.builder.as_ref().and_then(|b| b.attributes_impl().as_ref())
+    }
+
+    pub fn public_mode(&self) -> Option<FXPubMode> {
+        if self.private.is_some() {
+            Some(FXPubMode::Private)
+        }
+        else {
+            self.public.as_ref().map(|pm| (**pm).clone())
+        }
+    }
+}
+
+impl FXHelperContainer for FXSArgs {
+    fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait> {
+        match kind {
+            // FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Accessor => self.accessor().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::AccesorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Clearer => self.clearer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Predicate => self.predicate().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Reader => self.reader().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Setter => self.setter().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Writer => self.writer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+        }
     }
 }

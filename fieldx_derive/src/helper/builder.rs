@@ -1,6 +1,6 @@
-use super::{FXAttributes, FXHelperTrait, FromNestAttr};
+use super::{FXAttributes, FromNestAttr};
 use crate::util::set_literals;
-use darling::FromMeta;
+use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
 use syn::Lit;
@@ -28,7 +28,7 @@ impl FromNestAttr for FXArgsBuilderHelper {
 }
 
 #[fxhelper]
-#[derive(FromMeta, Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub(crate) struct FXFieldBuilderHelper {
     #[getset(skip)]
     attributes: Option<FXAttributes>,

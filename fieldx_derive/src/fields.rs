@@ -1,14 +1,14 @@
 use crate::{
     helper::{
-        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXFieldBuilder, FXHelper, FXHelperTrait, FXNestingAttr,
-        FXOrig, FXPubMode, FXSetter, FXWithOrig, FromNestAttr,
+        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXFieldBuilder, FXHelper, FXHelperContainer,
+        FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXWithOrig, FromNestAttr,
     },
     util::{needs_helper, validate_exclusives},
 };
 use darling::FromField;
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{quote_spanned, ToTokens};
 use std::{cell::OnceCell, ops::Deref};
 use syn::{spanned::Spanned, Meta};
 
@@ -21,6 +21,8 @@ pub(crate) struct FXFieldReceiver {
     ty:    syn::Type,
     attrs: Vec<syn::Attribute>,
 
+    // Default method attributes for this field.
+    attributes_fn: Option<FXAttributes>,
     lazy:          Option<FXHelper>,
     #[darling(rename = "rename")]
     base_name:     Option<String>,
@@ -30,11 +32,11 @@ pub(crate) struct FXFieldReceiver {
     accessor_mut:  Option<FXHelper>,
     #[darling(rename = "set")]
     setter:        Option<FXSetter>,
-    attributes_fn: Option<FXAttributes>,
     reader:        Option<FXHelper>,
     writer:        Option<FXHelper>,
     clearer:       Option<FXHelper>,
     predicate:     Option<FXHelper>,
+
     public:        Option<FXNestingAttr<FXPubMode>>,
     private:       Option<FXWithOrig<bool, syn::Meta>>,
     #[darling(rename = "default")]
@@ -68,7 +70,7 @@ impl FromField for FXField {
             let err = darling::Error::custom("Can't set span for a field receiver object: it's been set already!")
                 .with_span(field);
             #[cfg(feature = "diagnostics")]
-            err.note("This must not happen normally, please report this error to the author of fieldx");
+            let err = err.note("This must not happen normally, please report this error to the author of fieldx");
             return Err(err);
         }
         fxfield.validate()?;
@@ -109,6 +111,15 @@ impl FXFieldReceiver {
         helper.as_ref().map(|h| h.is_true())
     }
 
+    pub fn public_mode(&self) -> Option<FXPubMode> {
+        if self.private.is_some() {
+            Some(FXPubMode::Private)
+        }
+        else {
+            self.public.as_ref().map(|pm| (**pm).clone())
+        }
+    }
+
     #[inline]
     pub fn is_lazy(&self) -> Option<bool> {
         Self::flag_set(&self.lazy)
@@ -144,7 +155,7 @@ impl FXFieldReceiver {
     }
 
     pub fn accessor_mode(&self) -> Option<FXAccessorMode> {
-        self.accessor.as_ref().and_then(|a| a.mode().copied())
+        self.accessor.as_ref().and_then(|a| a.mode())
     }
 
     pub fn builder_attributes(&self) -> Option<&FXAttributes> {
@@ -167,19 +178,6 @@ impl FXFieldReceiver {
         Ok(())
     }
 
-    pub fn vis_tok(&self) -> Option<TokenStream> {
-        if self.private.is_some() {
-            Some(quote![])
-        }
-        else {
-            self.public.as_ref().and_then(|p| {
-                let span = p.orig().span();
-                let vis = p.vis_tok();
-                Some(quote_spanned! {span=> #vis})
-            })
-        }
-    }
-
     #[inline]
     pub fn set_span(&mut self, span: Span) -> Result<(), Span> {
         self.span.set(span)
@@ -188,5 +186,20 @@ impl FXFieldReceiver {
     #[inline]
     pub fn span(&self) -> &Span {
         self.span.get_or_init(|| Span::call_site())
+    }
+}
+
+impl FXHelperContainer for FXFieldReceiver {
+    fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait> {
+        match kind {
+            // FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Accessor => self.accessor().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::AccesorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Clearer => self.clearer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Predicate => self.predicate().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Reader => self.reader().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Setter => self.setter().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Writer => self.writer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+        }
     }
 }

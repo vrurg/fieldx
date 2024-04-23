@@ -3,8 +3,8 @@ resolver = "2"
 members = ["fieldx", "fieldx_derive", "fieldx_derive_support"]
 
 [workspace.dependencies]
-fieldx = { version = "0.1.0", git = "ssh://vrurg@zoo.lflat.org/~/git.repos/fieldx", workspace = true }
-fieldx_derive = { version = "0.1.0", git = "ssh://vrurg@zoo.lflat.org/~/git.repos/fieldx", workspace = true }
+fieldx = { version = "0.1.0", workspace = true }
+fieldx_derive = { version = "0.1.0", workspace = true }
 fieldx_derive_support = { version = "0.1.0", workspace = true }
 parking_lot = "0.12"
 thiserror = "1.0"

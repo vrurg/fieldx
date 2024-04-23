@@ -18,25 +18,31 @@ use self::{builder::FXFieldBuilderHelper, setter::FXSetterHelper};
 use darling::FromMeta;
 use getset::Getters;
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::ToTokens;
 use std::ops::Deref;
 use syn::{Lit, Meta};
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum FXHelperKind {
+    Accessor,
+    AccesorMut,
+    Setter,
+    Reader,
+    Writer,
+    Clearer,
+    Predicate,
+}
+
+pub(crate) trait FXHelperContainer {
+    fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait>;
+}
 
 pub(crate) trait FXHelperTrait {
     fn is_true(&self) -> bool;
     fn rename(&self) -> Option<&str>;
-
-    fn attributes(&self) -> Option<&FXAttributes> {
-        None
-    }
-
-    fn attributes_fn(&self) -> Option<&FXAttributes> {
-        None
-    }
-
-    fn attributes_impl(&self) -> Option<&FXAttributes> {
-        None
-    }
+    fn public_mode(&self) -> Option<FXPubMode>;
+    fn attributes(&self) -> Option<&FXAttributes>;
+    fn attributes_fn(&self) -> Option<&FXAttributes>;
 }
 
 #[derive(Debug, Clone, Getters)]
@@ -48,6 +54,8 @@ pub(crate) struct FXHelperSwitch {
 
 #[derive(FromMeta, Debug, Clone, Default)]
 pub(crate) enum FXPubMode {
+    #[darling(skip)]
+    Private,
     Crate,
     Super,
     InMod(syn::Path),
@@ -75,7 +83,7 @@ impl FromMeta for FXHelperSwitch {
         let err =
             darling::Error::custom(format!("Unsupported expression '{}'", item.to_token_stream())).with_span(item);
         #[cfg(feature = "diagnostics")]
-        err.note("Expected either one of: 'true', 'on', 'yes', 'false', 'off', or 'no'");
+        let err = err.note("Expected either one of: 'true', 'on', 'yes', 'false', 'off', or 'no'");
         Err(err)
     }
 
@@ -127,17 +135,6 @@ impl Deref for FXHelperSwitch {
 
     fn deref(&self) -> &Self::Target {
         &self.flag
-    }
-}
-
-impl FXPubMode {
-    pub(crate) fn vis_tok(&self) -> TokenStream {
-        match self {
-            Self::All => quote![pub],
-            Self::Super => quote![pub(super)],
-            Self::Crate => quote![pub(crate)],
-            Self::InMod(ref path) => quote![pub(in #path)],
-        }
     }
 }
 

@@ -68,5 +68,9 @@ fn empties() {
 
     assert_eq!(foo.real(), 22f32, "when no manual real is built from foo");
 
-    assert_eq!(foo.locked_bar(), "initial", "when no value from builder locked_bar gets its default value");
+    assert_eq!(
+        foo.locked_bar(),
+        "initial",
+        "when no value from builder locked_bar gets its default value"
+    );
 }

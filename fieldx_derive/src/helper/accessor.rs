@@ -1,9 +1,9 @@
-use super::{FXAttributes, FXHelperTrait, FromNestAttr};
-use darling::{FromMeta};
+use super::FromNestAttr;
+use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
+use getset::Getters;
 use quote::ToTokens;
 use syn::Lit;
-use getset::Getters;
 
 #[derive(FromMeta, Debug, Clone, Copy, Default, PartialEq)]
 pub(crate) enum FXAccessorMode {
@@ -15,36 +15,27 @@ pub(crate) enum FXAccessorMode {
 }
 
 #[fxhelper]
-#[derive(FromMeta, Default, Debug, Clone)]
+#[derive(Default, Debug)]
 pub(crate) struct FXAccessorHelper<const BOOL_ONLY: bool = false> {
-    #[darling(flatten, default)]
-    mode:   FXAccessorMode,
+    #[fxhelper(exclusive = "accessor mode")]
+    clone: Flag,
+    #[fxhelper(exclusive = "accessor mode")]
+    copy:  Flag,
 }
 
 impl<const BOOL_ONLY: bool> FXAccessorHelper<BOOL_ONLY> {
-    pub(crate) fn mode(&self) -> Option<&FXAccessorMode> {
-        if self.mode == FXAccessorMode::None {
-            None
+    pub(crate) fn mode(&self) -> Option<FXAccessorMode> {
+        if self.clone.is_present() {
+            Some(FXAccessorMode::Clone)
+        }
+        else if self.copy.is_present() {
+            Some(FXAccessorMode::Copy)
         }
         else {
-            Some(&self.mode)
+            None
         }
     }
 }
-
-// impl<const BOOL_ONLY: bool> FXHelperTrait for FXAccessorHelper<BOOL_ONLY> {
-//     fn is_true(&self) -> bool {
-//         !self.off.is_present()
-//     }
-
-//     fn rename(&self) -> Option<&str> {
-//         self.rename.as_deref()
-//     }
-
-//     fn attributes_fn(&self) -> Option<&FXAttributes> {
-//         self.attributes_fn.as_ref()
-//     }
-// }
 
 impl<const BOOL_ONLY: bool> FromNestAttr for FXAccessorHelper<BOOL_ONLY> {
     fn for_keyword() -> Self {
@@ -67,7 +58,7 @@ impl<const BOOL_ONLY: bool> FromNestAttr for FXAccessorHelper<BOOL_ONLY> {
                 let err =
                     darling::Error::unexpected_type(&literals[0].to_token_stream().to_string()).with_span(&literals[0]);
                 #[cfg(feature = "diagnostics")]
-                err.note("Expected a string with helper name");
+                let err = err.note("Expected a string with helper name");
                 return Err(err);
             }
         }

@@ -1,4 +1,3 @@
-// #![feature(proc_macro_diagnostic)]
 mod codegen;
 mod fields;
 mod helper;

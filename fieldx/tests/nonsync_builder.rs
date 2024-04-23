@@ -12,7 +12,13 @@ struct NonSync {
     pub pi: f32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(clearer, predicate, set, default = "bazzification", builder(attributes_fn(allow(dead_code))))]
+    #[fieldx(
+        clearer,
+        predicate,
+        set,
+        default = "bazzification",
+        builder(attributes_fn(allow(dead_code)))
+    )]
     baz: String,
 
     #[fieldx(clearer, predicate, set, builder(attributes_fn(allow(dead_code))))]

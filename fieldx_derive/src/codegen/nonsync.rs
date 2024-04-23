@@ -10,7 +10,7 @@ use quote::{quote, quote_spanned};
 use std::cell::RefCell;
 use syn::spanned::Spanned;
 
-use super::FXAccessorMode;
+use super::{FXAccessorMode, FXHelperKind};
 
 pub(crate) struct FXCodeGen<'f> {
     ctx:                FXCodeGenCtx,
@@ -62,7 +62,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         let err =
             DError::custom(format!("Can't add an initializer to a non-sync struct {}", ident)).with_span(&initializer);
         #[cfg(feature = "diagnostics")]
-        err.note("This is an internal error, a bug in fxstruct implementation is assumed");
+        let err = err.note("This is an internal error, a bug in fxstruct implementation is assumed");
         ctx.push_error(err)
     }
 
@@ -146,7 +146,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     fn field_accessor(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
         if fctx.needs_accessor() {
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok();
+            let vis_tok = fctx.vis_tok(FXHelperKind::Accessor);
             let ty = fctx.ty();
             let accessor_name = self.accessor_name(fctx)?;
             let attributes_fn = fctx.attributes_fn(fctx.accessor().as_ref());
@@ -190,7 +190,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
         if fctx.needs_accessor_mut() {
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok();
+            let vis_tok = fctx.vis_tok(FXHelperKind::AccesorMut);
             let ty = fctx.ty();
             let accessor_name = self.accessor_mut_name(fctx)?;
             let attributes_fn = fctx.attributes_fn(fctx.accessor_mut().as_ref());
@@ -265,7 +265,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let setter_name = self.setter_name(fctx)?;
             let span = *fctx.span();
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok();
+            let vis_tok = fctx.vis_tok(FXHelperKind::Setter);
             let ty = fctx.ty();
             let attributes_fn = fctx.attributes_fn(fctx.setter().as_ref());
 
@@ -309,7 +309,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         if fctx.needs_clearer() {
             let clearer_name = self.clearer_name(fctx)?;
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok();
+            let vis_tok = fctx.vis_tok(FXHelperKind::Clearer);
             let ty = fctx.ty();
             let attributes_fn = fctx.attributes_fn(fctx.clearer().as_ref());
 
@@ -330,7 +330,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let predicate_name = self.predicate_name(fctx)?;
             let span = *fctx.span();
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok();
+            let vis_tok = fctx.vis_tok(FXHelperKind::Predicate);
             let attributes_fn = fctx.attributes_fn(fctx.predicate().as_ref());
 
             if fctx.is_lazy() {
