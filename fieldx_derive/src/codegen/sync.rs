@@ -171,7 +171,6 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok(FXHelperKind::Accessor);
             let accessor_name = self.accessor_name(fctx)?;
-            let ty = fctx.ty();
             let is_optional = fctx.is_optional();
             let ty = fctx.ty();
             let is_copy = fctx.is_copy();
@@ -482,7 +481,13 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             }
         }
         else if fctx.is_optional() {
-            Ok(quote![ ::fieldx::RwLock::new(Some(#value)) ])
+            let value_tok = if value.is_empty() {
+                quote![::std::option::Option::None]
+            }
+            else {
+                quote![::std::option::Option::Some(#value)]
+            };
+            Ok(quote![ ::fieldx::RwLock::new(#value_tok) ])
         }
         else if fctx.needs_lock() {
             Ok(quote![ ::fieldx::RwLock::new(#value) ])

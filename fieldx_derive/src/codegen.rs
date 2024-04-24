@@ -210,7 +210,7 @@ pub(crate) trait FXCGen<'f> {
                 Ok(quote_spanned! [span=> #val_expr ])
             }
         }
-        else if field_ctx.is_lazy() {
+        else if field_ctx.is_lazy() || field_ctx.is_optional() {
             Ok(quote![])
         }
         else {

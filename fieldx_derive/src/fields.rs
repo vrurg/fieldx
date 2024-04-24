@@ -150,6 +150,7 @@ impl FXFieldReceiver {
         self.accessor_mode().map(|m| m == FXAccessorMode::Copy)
     }
 
+    #[inline]
     pub fn has_default_value(&self) -> bool {
         self.default_value.is_some()
     }
