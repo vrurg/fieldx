@@ -173,13 +173,16 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let accessor_name = self.accessor_name(fctx)?;
             let ty = fctx.ty();
             let is_optional = fctx.is_optional();
+            let ty = fctx.ty();
             let is_copy = fctx.is_copy();
             let attributes_fn = fctx.attributes_fn(fctx.accessor().as_ref());
 
             if fctx.is_lazy() || fctx.needs_lock() || is_optional {
+                let ty = if is_optional { quote![Option<#ty>] } else { quote![#ty] };
+
                 let cmethod = if is_copy {
                     if is_optional {
-                        quote![.as_ref().unwrap().as_ref().copied()]
+                        quote![.as_ref().copied()]
                     }
                     else {
                         quote![]
@@ -187,7 +190,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                 }
                 else {
                     if is_optional {
-                        quote![.as_ref().unwrap().as_ref().cloned()]
+                        quote![.as_ref().cloned()]
                     }
                     else {
                         quote![.clone()]
