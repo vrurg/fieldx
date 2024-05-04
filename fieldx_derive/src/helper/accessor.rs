@@ -38,8 +38,8 @@ impl<const BOOL_ONLY: bool> FXAccessorHelper<BOOL_ONLY> {
 }
 
 impl<const BOOL_ONLY: bool> FromNestAttr for FXAccessorHelper<BOOL_ONLY> {
-    fn for_keyword() -> Self {
-        Self::default()
+    fn for_keyword() -> darling::Result<Self> {
+        Ok(Self::default())
     }
 
     fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {

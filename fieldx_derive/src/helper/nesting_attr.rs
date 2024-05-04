@@ -8,7 +8,7 @@ use syn::{Lit, Meta};
 
 pub(crate) trait FromNestAttr: FromMeta {
     /// A constructor that supposed to create default object for when there is only keyword with no arguments.
-    fn for_keyword() -> Self;
+    fn for_keyword() -> darling::Result<Self>;
     fn set_literals(self, literals: &Vec<Lit>) -> darling::Result<Self>;
 
     fn no_literals(&self, literals: &Vec<Lit>) -> darling::Result<()> {
@@ -47,7 +47,7 @@ impl<T: FromNestAttr> FromMeta for FXNestingAttr<T> {
                 Ok(Self::from_list(&nlist)?.set_orig(item.clone()))
             }
             Meta::Path(ref _path) => Ok(Self {
-                inner: T::for_keyword(),
+                inner: T::for_keyword()?,
                 orig:  Some(item.clone()),
             }),
             _ => Err(darling::Error::custom("Unsupported argument format").with_span(item)),

@@ -21,8 +21,8 @@ impl<const BOOL_ONLY: bool> FXBaseHelper<BOOL_ONLY> {
 impl<const BOOL_ONLY: bool> FromNestAttr for FXBaseHelper<BOOL_ONLY> {
     set_literals! {helper, ..1usize => rename as Lit::Str; pre_validate => allowed_literals}
 
-    fn for_keyword() -> Self {
-        Self::default()
+    fn for_keyword() -> darling::Result<Self> {
+        Ok(Self::default())
     }
 }
 

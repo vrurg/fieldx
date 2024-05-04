@@ -1,3 +1,4 @@
+use super::{FXAccessorMode, FXHelperKind};
 use crate::{
     codegen::{
         context::{FXCodeGenCtx, FXFieldCtx},
@@ -7,32 +8,32 @@ use crate::{
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use std::cell::RefCell;
+use std::{cell::{Ref, RefCell, RefMut}, collections::HashMap};
 use syn::spanned::Spanned;
 
-use super::{FXAccessorMode, FXHelperKind};
-
 pub(crate) struct FXCodeGen<'f> {
-    ctx:                FXCodeGenCtx,
-    field_toks:         RefCell<Vec<TokenStream>>,
-    default_toks:       RefCell<Vec<TokenStream>>,
-    method_toks:        RefCell<Vec<TokenStream>>,
-    builder_field_toks: RefCell<Vec<TokenStream>>,
-    builder_toks:       RefCell<Vec<TokenStream>>,
-    builder_field_ctx:  RefCell<Vec<FXFieldCtx<'f>>>,
+    ctx:                 FXCodeGenCtx,
+    field_ctx_table:     RefCell<HashMap<syn::Ident, FXFieldCtx<'f>>>,
+    field_toks:          RefCell<Vec<TokenStream>>,
+    default_toks:        RefCell<Vec<TokenStream>>,
+    method_toks:         RefCell<Vec<TokenStream>>,
+    builder_field_toks:  RefCell<Vec<TokenStream>>,
+    builder_toks:        RefCell<Vec<TokenStream>>,
+    builder_field_ident: RefCell<Vec<syn::Ident>>,
     // List of types to be verified for implementing Copy trait
-    copyable_types:     RefCell<Vec<syn::Type>>,
+    copyable_types:      RefCell<Vec<syn::Type>>,
 }
 
 impl<'f> FXCodeGen<'f> {
     pub fn new(ctx: FXCodeGenCtx) -> Self {
         Self {
             ctx,
+            field_ctx_table: RefCell::new(HashMap::new()),
             field_toks: RefCell::new(vec![]),
             default_toks: RefCell::new(vec![]),
             method_toks: RefCell::new(vec![]),
             builder_field_toks: RefCell::new(vec![]),
-            builder_field_ctx: RefCell::new(vec![]),
+            builder_field_ident: RefCell::new(vec![]),
             builder_toks: RefCell::new(vec![]),
             copyable_types: RefCell::new(vec![]),
         }
@@ -40,8 +41,24 @@ impl<'f> FXCodeGen<'f> {
 }
 
 impl<'f> FXCGen<'f> for FXCodeGen<'f> {
+    #[inline(always)]
     fn ctx(&self) -> &FXCodeGenCtx {
         &self.ctx
+    }
+
+    #[inline(always)]
+    fn field_ctx_table(&'f self) ->  Ref<HashMap<syn::Ident,FXFieldCtx<'f>>> {
+        self.field_ctx_table.borrow()
+    }
+
+    #[inline(always)]
+    fn field_ctx_table_mut(&'f self) ->  RefMut<HashMap<syn::Ident,FXFieldCtx<'f>>> {
+        self.field_ctx_table.borrow_mut()
+    }
+
+    #[inline(always)]
+    fn builder_field_ident(&self) -> &RefCell<Vec<syn::Ident>> {
+        &self.builder_field_ident
     }
 
     fn copyable_types(&self) -> std::cell::Ref<Vec<syn::Type>> {
@@ -82,8 +99,8 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         }
     }
 
-    fn add_builder_field_ctx(&self, fctx: FXFieldCtx<'f>) {
-        self.builder_field_ctx.borrow_mut().push(fctx);
+    fn add_builder_field_ident(&self, field_ident: syn::Ident) {
+        self.builder_field_ident.borrow_mut().push(field_ident);
     }
 
     fn check_for_impl_copy(&self, field_ctx: &FXFieldCtx) {
@@ -112,10 +129,6 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         quote! [ #( #build_field_toks ),* ]
     }
 
-    fn builder_fields_ctx(&'f self) -> std::cell::Ref<'f, Vec<FXFieldCtx<'f>>> {
-        self.builder_field_ctx.borrow()
-    }
-
     fn defaults_combined(&self) -> TokenStream {
         let default_toks = &*self.default_toks.borrow();
         quote! [ #( #default_toks ),* ]
@@ -141,6 +154,16 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             };
             rc
         })
+    }
+
+    #[cfg(feature = "serde")]
+    fn serde_attribute(&self, _field_ctx: &FXFieldCtx) -> TokenStream {
+        quote![]
+    }
+
+    #[cfg(feature = "serde")]
+    fn serde_struct_attribute(&self) -> TokenStream {
+        quote![]
     }
 
     fn field_accessor(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {

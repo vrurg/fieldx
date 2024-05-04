@@ -26,24 +26,10 @@ impl<const BOOL_ONLY: bool> FXSetterHelper<BOOL_ONLY> {
     }
 }
 
-// impl<const BOOL_ONLY: bool> FXHelperTrait for FXSetterHelper<BOOL_ONLY> {
-//     fn is_true(&self) -> bool {
-//         !self.off.is_present()
-//     }
-
-//     fn rename(&self) -> Option<&str> {
-//         self.rename.as_deref()
-//     }
-
-//     fn attributes_fn(&self) -> Option<&FXAttributes> {
-//         self.attributes_fn.as_ref()
-//     }
-// }
-
 impl<const BOOL_ONLY: bool> FromNestAttr for FXSetterHelper<BOOL_ONLY> {
     set_literals! { setter, ..1 => rename as Lit::Str; pre_validate => allowed_literals }
 
-    fn for_keyword() -> Self {
-        Self::default()
+    fn for_keyword() -> darling::Result<Self> {
+        Ok(Self::default())
     }
 }

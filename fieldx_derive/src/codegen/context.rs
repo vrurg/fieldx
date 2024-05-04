@@ -1,3 +1,5 @@
+#[cfg(feature = "serde")]
+use crate::helper::FXSerde;
 use crate::{
     fields::FXField,
     helper::FXHelper,
@@ -8,7 +10,10 @@ use delegate::delegate;
 use getset::{CopyGetters, Getters};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
-use std::cell::{OnceCell, RefCell};
+use std::{
+    cell::{OnceCell, Ref, RefCell, RefMut},
+    rc::Rc,
+};
 use syn::Meta;
 
 use super::{
@@ -32,21 +37,118 @@ macro_rules! helper_fn_ctx {
     };
 }
 
-#[derive(Getters, CopyGetters)]
-pub(crate) struct FXCodeGenCtx {
-    errors: RefCell<OnceCell<darling::error::Accumulator>>,
-
-    #[getset(get = "pub")]
-    args: FXSArgs,
-
-    #[getset(get = "pub")]
-    input: FXInputReceiver,
-
-    needs_builder_struct: RefCell<Option<bool>>,
-
-    tokens: RefCell<OnceCell<TokenStream>>,
+// --- State Stack ---
+#[derive(Debug, PartialEq)]
+pub(crate) enum FXGenStage {
+    Builder,
+    BuilderImpl,
+    MainDefaultImpl,
+    MainStruct,
+    MainExtras,
+    ShadowStruct,
 }
 
+#[derive(Debug)]
+pub(crate) struct FXStateStack<T>
+where
+    T: Sized + PartialEq,
+{
+    stack: Rc<RefCell<Vec<T>>>,
+}
+
+pub(crate) struct FXSStackGuard<T>
+where
+    T: Sized + PartialEq,
+{
+    stack: Option<Rc<RefCell<Vec<T>>>>,
+    idx:   usize,
+}
+
+impl<T> FXStateStack<T>
+where
+    T: Sized + PartialEq,
+{
+    pub(crate) fn new() -> Self {
+        Self {
+            stack: Rc::new(RefCell::new(vec![])),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn push(&self, val: T) -> FXSStackGuard<T> {
+        FXSStackGuard::new(Rc::clone(&self.stack), val)
+    }
+
+    #[inline]
+    pub(crate) fn in_state(&self, val: &T) -> bool {
+        self.stack.borrow().contains(&val)
+    }
+}
+
+impl<T: Sized> FXSStackGuard<T>
+where
+    T: Sized + PartialEq,
+{
+    pub(crate) fn new(stack: Rc<RefCell<Vec<T>>>, val: T) -> Self {
+        let idx = { stack.borrow().len() };
+        stack.borrow_mut().push(val);
+        Self {
+            stack: Some(stack),
+            idx,
+        }
+    }
+
+    pub(crate) fn pop(&mut self) -> Option<T> {
+        if let Some(stack) = self.stack.take() {
+            let mut stack = stack.borrow_mut();
+            if stack.len() > (self.idx + 1) {
+                panic!(
+                    "Attempt to pop while not being the top of the stack: my index is {} but the stack size is {}",
+                    self.idx,
+                    stack.len()
+                );
+            }
+            else if stack.len() <= self.idx {
+                panic!(
+                    "Stack element with index {} does not exist: stack size is {}. Has it been popped already?",
+                    self.idx,
+                    stack.len()
+                );
+            }
+
+            stack.pop()
+        }
+        else {
+            None
+        }
+    }
+}
+
+impl<T> Drop for FXSStackGuard<T>
+where
+    T: Sized + PartialEq,
+{
+    fn drop(&mut self) {
+        let _ = self.pop();
+    }
+}
+
+// --- Contexts ---
+
+#[derive(Debug, Getters, CopyGetters)]
+pub(crate) struct FXCodeGenCtx {
+    errors:               RefCell<OnceCell<darling::error::Accumulator>>,
+    needs_builder_struct: RefCell<Option<bool>>,
+    tokens:               RefCell<OnceCell<TokenStream>>,
+    #[getset(get = "pub")]
+    args:                 FXSArgs,
+    #[getset(get = "pub")]
+    input:                FXInputReceiver,
+    #[getset(get = "pub")]
+    state_stack:          FXStateStack<FXGenStage>,
+}
+
+#[derive(Debug)]
 pub(crate) struct FXFieldCtx<'f> {
     field:       &'f FXField,
     codegen_ctx: &'f FXCodeGenCtx,
@@ -64,6 +166,7 @@ impl FXCodeGenCtx {
             errors: RefCell::new(OnceCell::new()),
             tokens: RefCell::new(OnceCell::new()),
             needs_builder_struct: RefCell::new(None),
+            state_stack: FXStateStack::new(),
         }
     }
 
@@ -71,6 +174,15 @@ impl FXCodeGenCtx {
         let mut errors = self.errors.borrow_mut();
         errors.get_or_init(|| darling::Error::accumulator());
         errors.get_mut().unwrap().push(err);
+    }
+
+    #[inline]
+    pub fn push_state(&self, state: FXGenStage) -> FXSStackGuard<FXGenStage> {
+        self.state_stack.push(state)
+    }
+
+    pub fn in_state(&self, state: FXGenStage) -> bool {
+        self.state_stack.in_state(&state)
     }
 
     pub fn input_ident(&self) -> &syn::Ident {
@@ -108,6 +220,12 @@ impl FXCodeGenCtx {
             *nb_ref = Some(true);
         }
     }
+
+    #[cfg(feature = "serde")]
+    #[inline]
+    pub fn shadow_ident(&self) -> syn::Ident {
+        quote::format_ident!("__{}Shadow", self.input_ident())
+    }
 }
 
 impl<'f> FXFieldCtx<'f> {
@@ -129,6 +247,8 @@ impl<'f> FXFieldCtx<'f> {
             pub fn writer(&self) -> &Option<FXHelper>;
             pub fn clearer(&self) -> &Option<FXHelper>;
             pub fn predicate(&self) -> &Option<FXHelper>;
+            #[cfg(feature = "serde")]
+            pub fn serde(&self) -> &Option<FXSerde>;
             pub fn default_value(&self) -> &Option<Meta>;
             pub fn builder_attributes(&self) -> Option<&FXAttributes>;
             pub fn builder_fn_attributes(&self) -> Option<&FXAttributes>;
@@ -186,8 +306,25 @@ impl<'f> FXFieldCtx<'f> {
             .unwrap_or_else(|| self.codegen_ctx.args().is_sync() && (self.is_lazy() || self.is_optional()))
     }
 
+    #[inline]
     pub fn needs_lock(&self) -> bool {
         self.needs_reader() || self.needs_writer()
+    }
+
+    #[cfg(feature = "serde")]
+    #[inline]
+    pub fn needs_serialize(&self) -> bool {
+        self.field
+            .needs_serialize()
+            .unwrap_or_else(|| self.codegen_ctx().args().is_serde())
+    }
+
+    #[cfg(feature = "serde")]
+    #[inline]
+    pub fn needs_deserialize(&self) -> bool {
+        self.field
+            .needs_deserialize()
+            .unwrap_or_else(|| self.codegen_ctx().args().is_serde())
     }
 
     pub fn is_copy(&self) -> bool {
@@ -219,6 +356,17 @@ impl<'f> FXFieldCtx<'f> {
 
     pub fn is_optional(&self) -> bool {
         !self.is_lazy() && (self.needs_clearer() || self.needs_predicate())
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn is_serde(&self) -> bool {
+        self.codegen_ctx.args().is_serde() && self.field.is_serde().unwrap_or(true)
+    }
+
+    #[cfg(not(feature = "serde"))]
+    #[inline]
+    pub fn is_serde(&self) -> bool {
+        false
     }
 
     pub fn accessor_mode(&self) -> FXAccessorMode {

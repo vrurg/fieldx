@@ -3,6 +3,8 @@ pub(crate) mod attributes;
 pub(crate) mod base;
 pub(crate) mod builder;
 pub(crate) mod nesting_attr;
+#[cfg(feature = "serde")]
+pub(crate) mod serde;
 pub(crate) mod setter;
 pub(crate) mod with_origin;
 
@@ -16,11 +18,7 @@ pub(crate) use self::{
 };
 use self::{builder::FXFieldBuilderHelper, setter::FXSetterHelper};
 use darling::FromMeta;
-use getset::Getters;
-use proc_macro2::TokenStream;
-use quote::ToTokens;
-use std::ops::Deref;
-use syn::{Lit, Meta};
+use syn::Lit;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum FXHelperKind {
@@ -45,13 +43,6 @@ pub(crate) trait FXHelperTrait {
     fn attributes_fn(&self) -> Option<&FXAttributes>;
 }
 
-#[derive(Debug, Clone, Getters)]
-#[getset(get = "pub(crate)")]
-pub(crate) struct FXHelperSwitch {
-    flag: bool,
-    orig: Option<Meta>,
-}
-
 #[derive(FromMeta, Debug, Clone, Default)]
 pub(crate) enum FXPubMode {
     #[darling(skip)]
@@ -64,83 +55,9 @@ pub(crate) enum FXPubMode {
     All,
 }
 
-impl FromMeta for FXHelperSwitch {
-    fn from_meta(item: &Meta) -> darling::Result<Self> {
-        if let Meta::Path(ref path) = &item {
-            if path.is_ident("true") || path.is_ident("on") || path.is_ident("yes") {
-                return Ok(Self {
-                    flag: true,
-                    orig: Some(item.clone()),
-                });
-            }
-            else if path.is_ident("false") || path.is_ident("off") || path.is_ident("no") {
-                return Ok(Self {
-                    flag: false,
-                    orig: Some(item.clone()),
-                });
-            }
-        }
-        let err =
-            darling::Error::custom(format!("Unsupported expression '{}'", item.to_token_stream())).with_span(item);
-        #[cfg(feature = "diagnostics")]
-        let err = err.note("Expected either one of: 'true', 'on', 'yes', 'false', 'off', or 'no'");
-        Err(err)
-    }
-
-    fn from_none() -> Option<Self> {
-        Some(Self {
-            flag: false,
-            orig: None,
-        })
-    }
-}
-
-impl From<FXHelperSwitch> for bool {
-    fn from(value: FXHelperSwitch) -> Self {
-        value.flag
-    }
-}
-
-impl From<&FXHelperSwitch> for bool {
-    fn from(value: &FXHelperSwitch) -> Self {
-        value.flag
-    }
-}
-
-impl From<bool> for FXHelperSwitch {
-    fn from(value: bool) -> Self {
-        Self {
-            flag: value,
-            orig: None,
-        }
-    }
-}
-
-impl ToTokens for FXHelperSwitch {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        if let Some(ref orig) = self.orig {
-            orig.to_tokens(tokens);
-        }
-    }
-}
-
-impl FXOrig<syn::Meta> for FXHelperSwitch {
-    fn orig(&self) -> Option<&syn::Meta> {
-        self.orig.as_ref()
-    }
-}
-
-impl Deref for FXHelperSwitch {
-    type Target = bool;
-
-    fn deref(&self) -> &Self::Target {
-        &self.flag
-    }
-}
-
 impl FromNestAttr for FXPubMode {
-    fn for_keyword() -> Self {
-        Self::All
+    fn for_keyword() -> darling::Result<Self> {
+        Ok(Self::All)
     }
 
     fn set_literals(self, _literals: &Vec<Lit>) -> darling::Result<Self> {
@@ -153,3 +70,5 @@ pub(crate) type FXAccessor<const BOOL_ONLY: bool = false> = FXNestingAttr<FXAcce
 pub(crate) type FXSetter<const BOOL_ONLY: bool = false> = FXNestingAttr<FXSetterHelper<BOOL_ONLY>>;
 pub(crate) type FXArgsBuilder = FXNestingAttr<FXArgsBuilderHelper>;
 pub(crate) type FXFieldBuilder = FXNestingAttr<FXFieldBuilderHelper>;
+#[cfg(feature = "serde")]
+pub(crate) type FXSerde = FXNestingAttr<serde::FXSerdeHelper>;

@@ -22,8 +22,8 @@ impl FXArgsBuilderHelper {
 impl FromNestAttr for FXArgsBuilderHelper {
     set_literals! {builder}
 
-    fn for_keyword() -> Self {
-        Default::default()
+    fn for_keyword() -> darling::Result<Self> {
+        Ok(Self::default())
     }
 }
 
@@ -45,25 +45,7 @@ impl FXFieldBuilderHelper {
 impl FromNestAttr for FXFieldBuilderHelper {
     set_literals! {builder, ..1 => rename as Lit::Str}
 
-    fn for_keyword() -> Self {
-        Default::default()
+    fn for_keyword() -> darling::Result<Self> {
+        Ok(Self::default())
     }
 }
-
-// impl FXHelperTrait for FXFieldBuilderHelper {
-//     fn is_true(&self) -> bool {
-//         !self.off.is_present()
-//     }
-
-//     fn rename(&self) -> Option<&str> {
-//         self.rename.as_deref()
-//     }
-
-//     fn attributes(&self) -> Option<&FXAttributes> {
-//         self.attributes.as_ref()
-//     }
-
-//     fn attributes_fn(&self) -> Option<&FXAttributes> {
-//         self.attributes_fn.as_ref()
-//     }
-// }

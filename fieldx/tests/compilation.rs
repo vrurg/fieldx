@@ -11,3 +11,11 @@ fn success() {
     let t = trybuild::TestCases::new();
     t.pass("tests/compilable/*.rs");
 }
+
+
+#[cfg(feature = "serde")]
+#[test]
+fn serde_failures() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/uncompilable_serde/*.rs");
+}

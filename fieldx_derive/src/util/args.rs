@@ -1,5 +1,7 @@
 // #[cfg(feature = "diagnostics")]
 // use crate::helper::FXOrig;
+#[cfg(feature = "serde")]
+use crate::helper::FXSerde;
 use crate::{
     helper::{
         FXAccessor, FXAccessorMode, FXArgsBuilder, FXAttributes, FXHelper, FXHelperContainer, FXHelperKind,
@@ -37,6 +39,8 @@ pub(crate) struct FXSArgs {
     private:      Option<FXWithOrig<bool, syn::Meta>>,
     clone:        Option<bool>,
     copy:         Option<bool>,
+    #[cfg(feature = "serde")]
+    serde:        Option<FXSerde>,
 }
 
 impl FXSArgs {
@@ -73,6 +77,11 @@ impl FXSArgs {
 
     pub fn is_builder_into(&self) -> Option<bool> {
         self.builder.as_ref().and_then(|h| h.is_into())
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn is_serde(&self) -> bool {
+        self.serde.as_ref().map_or(false, |sw| sw.is_serde().unwrap_or(true))
     }
 
     pub fn needs_new(&self) -> bool {

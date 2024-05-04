@@ -1,3 +1,5 @@
+#[cfg(feature = "serde")]
+use crate::helper::FXSerde;
 use crate::{
     helper::{
         FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXFieldBuilder, FXHelper, FXHelperContainer,
@@ -45,6 +47,8 @@ pub(crate) struct FXFieldReceiver {
     into:          Option<bool>,
     clone:         Option<bool>,
     copy:          Option<bool>,
+    #[cfg(feature = "serde")]
+    serde:         Option<FXSerde>,
 
     #[darling(skip)]
     #[getset(skip)]
@@ -130,24 +134,47 @@ impl FXFieldReceiver {
         self.into
     }
 
+    #[inline]
     pub fn is_ignorable(&self) -> bool {
         self.ident.to_token_stream().to_string().starts_with("_")
     }
 
+    #[inline]
     pub fn is_setter_into(&self) -> Option<bool> {
         self.setter.as_ref().and_then(|s| s.is_into())
     }
 
+    #[inline]
     pub fn is_builder_into(&self) -> Option<bool> {
         self.builder.as_ref().and_then(|b| b.is_into())
     }
 
+    #[inline]
     pub fn is_copy(&self) -> Option<bool> {
         self.clone.map(|c| !c).or_else(|| self.copy)
     }
 
+    #[inline]
     pub fn is_accessor_copy(&self) -> Option<bool> {
         self.accessor_mode().map(|m| m == FXAccessorMode::Copy)
+    }
+
+    #[cfg(feature = "serde")]
+    #[inline]
+    pub fn is_serde(&self) -> Option<bool> {
+        self.serde.as_ref().and_then(|sw| sw.is_serde())
+    }
+
+    #[cfg(feature = "serde")]
+    #[inline]
+    pub fn needs_serialize(&self) -> Option<bool> {
+        self.serde.as_ref().and_then(|sw| sw.needs_serialize())
+    }
+
+    #[cfg(feature = "serde")]
+    #[inline]
+    pub fn needs_deserialize(&self) -> Option<bool> {
+        self.serde.as_ref().and_then(|sw| sw.needs_deserialize())
     }
 
     #[inline]

@@ -11,6 +11,7 @@ fieldx_derive = { workspace = true, features = ["tracing"] }
 parking_lot = { workspace = true }
 thiserror = { workspace = true }
 getset = { workspace = true }
+serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 trybuild = { workspace = true }
@@ -20,3 +21,6 @@ crossbeam = { workspace = true }
 
 [features]
 diagnostics = ["fieldx_derive/diagnostics"]
+serde = ["fieldx_derive/serde", "parking_lot/serde", "dep:serde"]
+default = ["serde"]
+# default = []

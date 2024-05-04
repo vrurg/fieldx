@@ -1,0 +1,5 @@
+error[E0422]: cannot find struct, variant or union type `__FooShadow` in this scope
+  --> tests/uncompilable_serde/serialize_off.rs:12:13
+   |
+12 |     let f = __FooShadow { v: "whatever" };
+   |             ^^^^^^^^^^^ not found in this scope
