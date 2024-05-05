@@ -8,20 +8,23 @@ use crate::{
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use std::{cell::{Ref, RefCell, RefMut}, collections::HashMap};
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    collections::HashMap,
+};
 use syn::spanned::Spanned;
 
 pub(crate) struct FXCodeGen<'f> {
-    ctx:                 FXCodeGenCtx,
-    field_ctx_table:     RefCell<HashMap<syn::Ident, FXFieldCtx<'f>>>,
-    field_toks:          RefCell<Vec<TokenStream>>,
-    default_toks:        RefCell<Vec<TokenStream>>,
-    method_toks:         RefCell<Vec<TokenStream>>,
-    builder_field_toks:  RefCell<Vec<TokenStream>>,
-    builder_toks:        RefCell<Vec<TokenStream>>,
+    ctx: FXCodeGenCtx,
+    field_ctx_table: RefCell<HashMap<syn::Ident, FXFieldCtx<'f>>>,
+    field_toks: RefCell<Vec<TokenStream>>,
+    default_toks: RefCell<Vec<TokenStream>>,
+    method_toks: RefCell<Vec<TokenStream>>,
+    builder_field_toks: RefCell<Vec<TokenStream>>,
+    builder_toks: RefCell<Vec<TokenStream>>,
     builder_field_ident: RefCell<Vec<syn::Ident>>,
     // List of types to be verified for implementing Copy trait
-    copyable_types:      RefCell<Vec<syn::Type>>,
+    copyable_types: RefCell<Vec<syn::Type>>,
 }
 
 impl<'f> FXCodeGen<'f> {
@@ -47,12 +50,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     }
 
     #[inline(always)]
-    fn field_ctx_table(&'f self) ->  Ref<HashMap<syn::Ident,FXFieldCtx<'f>>> {
+    fn field_ctx_table(&'f self) -> Ref<HashMap<syn::Ident, FXFieldCtx<'f>>> {
         self.field_ctx_table.borrow()
     }
 
     #[inline(always)]
-    fn field_ctx_table_mut(&'f self) ->  RefMut<HashMap<syn::Ident,FXFieldCtx<'f>>> {
+    fn field_ctx_table_mut(&'f self) -> RefMut<HashMap<syn::Ident, FXFieldCtx<'f>>> {
         self.field_ctx_table.borrow_mut()
     }
 
@@ -145,11 +148,9 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let span = ty.span();
             let rc = if field_ctx.is_lazy() {
                 quote_spanned! [span=> ::fieldx::OnceCell<#ty>]
-            }
-            else if field_ctx.is_optional() {
+            } else if field_ctx.is_optional() {
                 quote_spanned! [span=> ::std::option::Option<#ty>]
-            }
-            else {
+            } else {
                 field_ctx.ty_tok().clone()
             };
             rc
@@ -190,22 +191,19 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                         #deref self.#ident.get_or_init( move || self.#lazy_name() ) #meth
                     }
                 ])
-            }
-            else if fctx.is_optional() {
+            } else if fctx.is_optional() {
                 let ty_tok = self.type_tokens(fctx);
                 Ok(quote_spanned![*fctx.span()=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty_tok { #reference self.#ident #meth }
                 ])
-            }
-            else {
+            } else {
                 Ok(quote_spanned![*fctx.span()=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty { #reference self.#ident #meth }
                 ])
             }
-        }
-        else {
+        } else {
             Ok(TokenStream::new())
         }
     }
@@ -228,24 +226,21 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                         self.#ident.get_mut().unwrap()
                     }
                 ])
-            }
-            else if fctx.is_optional() {
+            } else if fctx.is_optional() {
                 let ty_tok = self.type_tokens(fctx);
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
                     #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty_tok { &mut self.#ident }
                 ])
-            }
-            else {
+            } else {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
                     #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty { &mut self.#ident }
                 ])
             }
-        }
-        else {
+        } else {
             Ok(TokenStream::new())
         }
     }
@@ -257,8 +252,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
 
         Ok(if fctx.is_ignorable() || !fctx.needs_builder() {
             quote![]
-        }
-        else if fctx.is_lazy() {
+        } else if fctx.is_lazy() {
             quote_spanned![*span=>
                 #field_ident: if self.#field_ident.is_some() {
                     ::fieldx::OnceCell::from(self.#field_ident.take().unwrap())
@@ -267,8 +261,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     #field_default
                 }
             ]
-        }
-        else if fctx.is_optional() {
+        } else if fctx.is_optional() {
             quote_spanned![*span=>
                 #field_ident: if self.#field_ident.is_some() {
                     self.#field_ident.take()
@@ -277,8 +270,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     #field_default
                 }
             ]
-        }
-        else {
+        } else {
             self.simple_field_build_setter(fctx, field_ident, span)
         })
     }
@@ -303,16 +295,14 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                         old
                     }
                 ])
-            }
-            else if fctx.is_optional() {
+            } else if fctx.is_optional() {
                 Ok(quote_spanned! [span=>
                     #attributes_fn
                     #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> ::std::option::Option<#ty> {
                         self.#ident.replace(value #into_tok)
                     }
                 ])
-            }
-            else {
+            } else {
                 Ok(quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> #ty {
@@ -322,8 +312,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     }
                 ])
             }
-        }
-        else {
+        } else {
             Ok(TokenStream::new())
         }
     }
@@ -342,8 +331,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     self.#ident.take()
                 }
             ])
-        }
-        else {
+        } else {
             Ok(TokenStream::new())
         }
     }
@@ -364,8 +352,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                         self.#ident.get().is_some()
                     }
                 ]);
-            }
-            else if fctx.is_optional() {
+            } else if fctx.is_optional() {
                 return Ok(quote_spanned! [span=>
                     #attributes_fn
                     #vis_tok fn #predicate_name(&self) -> bool {
@@ -382,20 +369,16 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         if fctx.is_lazy() {
             if value.is_empty() {
                 Ok(quote![::fieldx::OnceCell::new()])
-            }
-            else {
+            } else {
                 Ok(quote![::fieldx::OnceCell::from(#value)])
             }
-        }
-        else if fctx.is_optional() {
+        } else if fctx.is_optional() {
             if fctx.has_default_value() {
                 Ok(quote! [ ::std::option::Option::Some(#value) ])
-            }
-            else {
+            } else {
                 Ok(quote![::std::option::Option::None])
             }
-        }
-        else {
+        } else {
             Ok(quote! [ #value ])
         }
     }
@@ -413,10 +396,6 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         Ok(quote![])
     }
 
-    fn builder_trait(&self) -> TokenStream {
-        quote![::fieldx::traits::FXStructBuilder]
-    }
-
     fn struct_extras(&self) {
         let ctx = self.ctx();
         let generics = ctx.input().generics();
@@ -424,13 +403,13 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         let input = ctx.input_ident();
         let where_clause = &generics.where_clause;
         ctx.tokens_extend(quote![
-            impl #generics ::fieldx::traits::FXStructNonSync for #input #generic_params
-            #where_clause
-            {
-                #[inline]
-                fn __fieldx_new() -> Self {
-                    Self::default()
-                }
+            impl #generics ::fieldx::traits::FXStructNonSync for #input #generic_params #where_clause {}
+        ]);
+
+        self.add_method_decl(quote![
+            #[inline]
+            fn __fieldx_new() -> Self {
+                Self::default()
             }
         ]);
 

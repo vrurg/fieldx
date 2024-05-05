@@ -1,50 +1,49 @@
-pub use fieldx_derive::fxstruct;
-pub use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
-#[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
-use std::{any, cell::RefCell, sync::atomic::AtomicBool};
-pub use std::{
-    cell::OnceCell,
-    fmt,
-    sync::{atomic::Ordering, Arc},
-};
-
 pub mod errors;
 pub mod traits;
 
-pub struct FXProxy<T> {
-    value:   RwLock<Option<T>>,
-    is_set:  AtomicBool,
-    builder: RwLock<Option<Box<dyn Fn() -> T + Send + Sync>>>,
-}
+pub use fieldx_derive::fxstruct;
+pub use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use std::{any, cell::RefCell, marker::PhantomData, sync::atomic::AtomicBool};
+pub use std::{cell::OnceCell, fmt, sync::atomic::Ordering};
+use traits::FXStructSync;
 
-#[cfg(feature = "serde")]
-pub struct FXProxySerde<T> {
-    value:   RwLock<Option<T>>,
-    is_set:  AtomicBool,
-    builder: RwLock<Option<Box<dyn Fn() -> T + Send + Sync>>>,
+pub struct FXProxy<O, T>
+where
+    O: FXStructSync,
+{
+    value: RwLock<Option<T>>,
+    is_set: AtomicBool,
+    builder: RwLock<Option<fn(&O) -> T>>,
 }
 
 #[allow(private_bounds)]
-pub struct FXWrLock<'a, T, FX>
+pub struct FXWrLock<'a, O, T, FX>
 where
-    FX: FXProxyCore<T>,
+    O: FXStructSync,
+    FX: FXProxyCore<O, T>,
 {
-    lock:    RefCell<RwLockWriteGuard<'a, Option<T>>>,
+    lock: RefCell<RwLockWriteGuard<'a, Option<T>>>,
     fxproxy: &'a FX,
+    _phantom: PhantomData<O>,
 }
 
-impl<T> Default for FXProxy<T> {
+impl<O, T> Default for FXProxy<O, T>
+where
+    O: FXStructSync,
+{
     fn default() -> Self {
         Self {
-            value:   RwLock::new(None),
-            is_set:  AtomicBool::new(false),
+            value: RwLock::new(None),
+            is_set: AtomicBool::new(false),
             builder: RwLock::new(None),
         }
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for FXProxy<T> {
+impl<O, T: fmt::Debug> fmt::Debug for FXProxy<O, T>
+where
+    O: FXStructSync,
+{
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let vlock = self.value.read();
         formatter
@@ -54,21 +53,26 @@ impl<T: fmt::Debug> fmt::Debug for FXProxy<T> {
     }
 }
 
-impl<T> From<T> for FXProxy<T> {
+impl<O, T> From<T> for FXProxy<O, T>
+where
+    O: FXStructSync,
+    Self: FXProxyCore<O, T>,
+{
     fn from(value: T) -> Self {
         Self {
-            value:   RwLock::new(Some(value)),
-            is_set:  AtomicBool::new(true),
+            value: RwLock::new(Some(value)),
+            is_set: AtomicBool::new(true),
             builder: RwLock::new(None),
         }
     }
 }
 
-pub trait FXProxyCore<T>
+pub trait FXProxyCore<O, T>
 where
+    O: FXStructSync,
     Self: Sized,
 {
-    fn builder(&self) -> &RwLock<Option<Box<dyn Fn() -> T + Send + Sync>>>;
+    fn builder(&self) -> &RwLock<Option<fn(&O) -> T>>;
     fn value(&self) -> &RwLock<Option<T>>;
     fn is_set_raw(&self) -> &AtomicBool;
 
@@ -76,14 +80,14 @@ where
         self.is_set_raw().load(Ordering::SeqCst)
     }
 
-    fn proxy_setup(&self, builder: Box<dyn Fn() -> T + Send + Sync>) {
+    fn proxy_setup(&self, builder: fn(&O) -> T) {
         *self.builder().write() = Some(builder);
         if !self.is_set() && (*self.value().read()).is_some() {
             self.is_set_raw().store(true, Ordering::SeqCst);
         }
     }
 
-    fn read<'a>(&'a self) -> MappedRwLockReadGuard<'a, T> {
+    fn read<'a>(&'a self, owner: &O) -> MappedRwLockReadGuard<'a, T> {
         let guard = self.value().upgradable_read();
         if (*guard).is_none() {
             let mut wguard = RwLockUpgradableReadGuard::upgrade(guard);
@@ -92,7 +96,7 @@ where
                 // No value has been set yet
                 match *self.builder().read() {
                     Some(ref builder_cb) => {
-                        *wguard = Some((*builder_cb)());
+                        *wguard = Some((*builder_cb)(owner));
                         self.is_set_raw().store(true, Ordering::SeqCst);
                     }
                     None => panic!("Builder is not set"),
@@ -107,8 +111,8 @@ where
         })
     }
 
-    fn write<'a>(&'a self) -> FXWrLock<'a, T, Self> {
-        FXWrLock::<'a, T, Self>::new(self.value().write(), self)
+    fn write<'a>(&'a self) -> FXWrLock<'a, O, T, Self> {
+        FXWrLock::<'a, O, T, Self>::new(self.value().write(), self)
     }
 
     fn clear_with_lock(&self, wguard: &mut RwLockWriteGuard<Option<T>>) -> Option<T> {
@@ -122,9 +126,12 @@ where
     }
 }
 
-impl<T> FXProxyCore<T> for FXProxy<T> {
+impl<O, T> FXProxyCore<O, T> for FXProxy<O, T>
+where
+    O: FXStructSync,
+{
     #[inline]
-    fn builder(&self) -> &RwLock<Option<Box<dyn Fn() -> T + Send + Sync>>> {
+    fn builder(&self) -> &RwLock<Option<fn(&O) -> T>> {
         &self.builder
     }
 
@@ -139,19 +146,24 @@ impl<T> FXProxyCore<T> for FXProxy<T> {
     }
 }
 
-impl<T> FXProxy<T> {}
+impl<O, T> FXProxy<O, T> where O: FXStructSync {}
 
 #[allow(private_bounds)]
-impl<'a, T, FX> FXWrLock<'a, T, FX>
+impl<'a, O, T, FX> FXWrLock<'a, O, T, FX>
 where
-    FX: FXProxyCore<T>,
+    O: FXStructSync,
+    FX: FXProxyCore<O, T>,
 {
     pub fn new(lock: RwLockWriteGuard<'a, Option<T>>, fxproxy: &'a FX) -> Self
     where
-        FX: FXProxyCore<T>,
+        FX: FXProxyCore<O, T>,
     {
         let lock = RefCell::new(lock);
-        Self { lock, fxproxy }
+        Self {
+            lock,
+            fxproxy,
+            _phantom: PhantomData,
+        }
     }
 
     pub fn store(&mut self, value: T) -> Option<T> {
@@ -163,78 +175,3 @@ where
         self.fxproxy.clear_with_lock(&mut *self.lock.borrow_mut())
     }
 }
-
-#[cfg(feature = "serde")]
-const _: () = {
-    impl<T> Default for FXProxySerde<T> {
-        fn default() -> Self {
-            Self {
-                value:   RwLock::new(None),
-                is_set:  AtomicBool::new(false),
-                builder: RwLock::new(None),
-            }
-        }
-    }
-    impl<T: fmt::Debug> fmt::Debug for FXProxySerde<T> {
-        fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-            let vlock = self.value.read();
-            formatter
-                .debug_struct(any::type_name::<Self>())
-                .field("value", &*vlock)
-                .finish()
-        }
-    }
-
-    impl<T> From<T> for FXProxySerde<T> {
-        fn from(value: T) -> Self {
-            Self {
-                value:   RwLock::new(Some(value)),
-                is_set:  AtomicBool::new(true),
-                builder: RwLock::new(None),
-            }
-        }
-    }
-
-    impl<T> FXProxyCore<T> for FXProxySerde<T> {
-        #[inline]
-        fn builder(&self) -> &RwLock<Option<Box<dyn Fn() -> T + Send + Sync>>> {
-            &self.builder
-        }
-
-        #[inline]
-        fn value(&self) -> &RwLock<Option<T>> {
-            &self.value
-        }
-
-        #[inline]
-        fn is_set_raw(&self) -> &AtomicBool {
-            &self.is_set
-        }
-    }
-
-    impl<'de, T> Deserialize<'de> for FXProxySerde<T>
-    where
-        T: Deserialize<'de>,
-    {
-        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where
-            D: serde::Deserializer<'de>,
-        {
-            let value = T::deserialize(deserializer)?;
-            Ok(Self::from(value))
-        }
-    }
-
-    impl<T> Serialize for FXProxySerde<T>
-    where
-        T: Serialize,
-    {
-        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: serde::Serializer,
-        {
-            let value = self.read();
-            (*value).serialize(serializer)
-        }
-    }
-};

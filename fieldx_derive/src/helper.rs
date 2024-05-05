@@ -14,7 +14,7 @@ pub(crate) use self::{
     base::FXBaseHelper,
     builder::FXArgsBuilderHelper,
     nesting_attr::{FXNestingAttr, FromNestAttr},
-    with_origin::{FXOrig, FXWithOrig},
+    with_origin::FXWithOrig,
 };
 use self::{builder::FXFieldBuilderHelper, setter::FXSetterHelper};
 use darling::FromMeta;

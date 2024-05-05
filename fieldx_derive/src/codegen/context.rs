@@ -11,7 +11,7 @@ use getset::{CopyGetters, Getters};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use std::{
-    cell::{OnceCell, Ref, RefCell, RefMut},
+    cell::{OnceCell, RefCell},
     rc::Rc,
 };
 use syn::Meta;
@@ -45,6 +45,7 @@ pub(crate) enum FXGenStage {
     MainDefaultImpl,
     MainStruct,
     MainExtras,
+    #[cfg(feature = "serde")]
     ShadowStruct,
 }
 
@@ -79,6 +80,7 @@ where
         FXSStackGuard::new(Rc::clone(&self.stack), val)
     }
 
+    #[cfg(feature = "serde")]
     #[inline]
     pub(crate) fn in_state(&self, val: &T) -> bool {
         self.stack.borrow().contains(&val)
@@ -181,6 +183,8 @@ impl FXCodeGenCtx {
         self.state_stack.push(state)
     }
 
+    #[cfg(feature = "serde")]
+    #[inline]
     pub fn in_state(&self, state: FXGenStage) -> bool {
         self.state_stack.in_state(&state)
     }
@@ -361,12 +365,6 @@ impl<'f> FXFieldCtx<'f> {
     #[cfg(feature = "serde")]
     pub fn is_serde(&self) -> bool {
         self.codegen_ctx.args().is_serde() && self.field.is_serde().unwrap_or(true)
-    }
-
-    #[cfg(not(feature = "serde"))]
-    #[inline]
-    pub fn is_serde(&self) -> bool {
-        false
     }
 
     pub fn accessor_mode(&self) -> FXAccessorMode {

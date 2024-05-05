@@ -3,12 +3,14 @@ use proc_macro2::Span;
 use std::ops::Deref;
 use syn::{self, spanned::Spanned};
 
-pub(crate) trait FXOrig<O>
+pub trait FXOrig<O>
 where
     O: Spanned,
 {
+    #[allow(dead_code)]
     fn orig(&self) -> Option<&O>;
 
+    #[allow(dead_code)]
     fn span(&self) -> Option<Span> {
         self.orig().and_then(|o| Some(o.span()))
     }

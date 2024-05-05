@@ -1,4 +1,4 @@
-use super::FXOrig;
+use crate::helper::with_origin::FXOrig;
 use darling::{ast::NestedMeta, FromMeta};
 use getset::Getters;
 use proc_macro2::TokenStream;

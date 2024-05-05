@@ -1,13 +1,10 @@
 pub use crate::errors::FieldXError;
-use std::sync::Arc;
 
-pub trait FXStruct: Sized {}
+pub trait FXStruct {}
 
 pub trait FXStructNonSync: FXStruct {
-    fn __fieldx_new() -> Self;
 }
 
 pub trait FXStructSync: FXStruct {
-    fn __fieldx_init(self) -> Arc<Self>;
-    fn __fieldx_new() -> Arc<Self>;
+    fn __fieldx_init(&self);
 }

@@ -1,5 +1,4 @@
 use fieldx::fxstruct;
-use std::sync::Arc;
 
 #[allow(dead_code)]
 #[derive(Debug, Default, Clone, Copy)]
@@ -34,15 +33,16 @@ struct Foo {
 }
 
 impl Foo {
-    fn for_test() -> Arc<Self> {
-        Foo {
+    fn for_test() -> Self {
+        let me = Foo {
             bar_copy: BarCopy { x: 15 },
             bar_clone: BarClone {
                 s: "statically set".into(),
             },
             ..Default::default()
-        }
-        .__fieldx_init()
+        };
+        me .__fieldx_init();
+        me
     }
 
     fn build_lazy_bar_copy(&self) -> BarCopy {

@@ -85,7 +85,7 @@ fn non_lazy() {
 fn threaded() {
     thread::scope(|s| {
         let thread_count = num_cpus::get() * 2;
-        let sync = Foo::<Dummy>::new();
+        let sync = Arc::new(Foo::<Dummy>::new());
         let wg = sync::WaitGroup::new();
         let stop = Arc::new(AtomicBool::new(false));
         let next_bar = Arc::new(Mutex::new(100));
