@@ -1,7 +1,7 @@
 use crate::{
     codegen::{
         context::{FXCodeGenCtx, FXFieldCtx, FXGenStage},
-        DResult, FXCGen,
+        FXCGen,
     },
     // util::TODO,
 };
@@ -26,7 +26,6 @@ pub(crate) struct FXCodeGen<'f> {
     #[cfg(feature = "serde")]
     shadow_default_toks: RefCell<Vec<TokenStream>>,
     method_toks: RefCell<Vec<TokenStream>>,
-    initializer_toks: RefCell<Vec<TokenStream>>,
     builder_field_toks: RefCell<Vec<TokenStream>>,
     builder_toks: RefCell<Vec<TokenStream>>,
     builder_field_ident: RefCell<Vec<syn::Ident>>,
@@ -45,7 +44,6 @@ impl<'f> FXCodeGen<'f> {
             #[cfg(feature = "serde")]
             shadow_default_toks: RefCell::new(vec![]),
             method_toks: RefCell::new(vec![]),
-            initializer_toks: RefCell::new(vec![]),
             builder_field_toks: RefCell::new(vec![]),
             builder_field_ident: RefCell::new(vec![]),
             builder_toks: RefCell::new(vec![]),
@@ -55,19 +53,6 @@ impl<'f> FXCodeGen<'f> {
 }
 
 impl<'f> FXCodeGen<'f> {
-    fn field_initializer_toks(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
-        Ok(if fctx.is_lazy() {
-            let ident = fctx.ident_tok();
-            let lazy_name = self.lazy_name(fctx)?;
-
-            quote! [
-                self.#ident.proxy_setup(Self::#lazy_name);
-            ]
-        } else {
-            quote![]
-        })
-    }
-
     #[inline]
     fn field_proxy_type(&self, _fctx: &FXFieldCtx) -> TokenStream {
         quote![FXProxy]
@@ -296,11 +281,11 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         self.default_toks.borrow_mut().push(defaults);
     }
 
-    fn add_initializer_decl(&self, initializer: TokenStream) {
-        if !initializer.is_empty() {
-            self.initializer_toks.borrow_mut().push(initializer)
-        }
-    }
+    // fn add_initializer_decl(&self, initializer: TokenStream) {
+    //     if !initializer.is_empty() {
+    //         self.initializer_toks.borrow_mut().push(initializer)
+    //     }
+    // }
 
     fn add_method_decl(&self, method: TokenStream) {
         if !method.is_empty() {
@@ -341,11 +326,6 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     fn defaults_combined(&self) -> TokenStream {
         let default_toks = self.default_toks.borrow();
         quote! [ #( #default_toks ),* ]
-    }
-
-    fn initializers_combined(&self) -> TokenStream {
-        let initializer_toks = self.initializer_toks.borrow();
-        quote![ #( #initializer_toks )* ]
     }
 
     fn builders_combined(&self) -> TokenStream {
@@ -514,21 +494,15 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     fn field_builder_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let span = fctx.span();
         let field_ident = fctx.ident_tok();
-        let field_default = self.ok_or(self.field_default_wrap(fctx));
+        let input_type = self.input_type_toks();
         let field_type = self.type_tokens(fctx);
+        let lazy_builder_name = self.lazy_name(fctx)?;
 
         Ok(if fctx.is_ignorable() || !fctx.needs_builder() {
             quote![]
         } else if fctx.is_lazy() {
             quote_spanned![*span=>
-                #field_ident: if self.#field_ident.is_some() {
-                    // If builder has a value for the field then wrap the value into FXProxy using From/Into
-                    let new: #field_type = self.#field_ident.take().unwrap().into();
-                    new
-                }
-                else {
-                    #field_default
-                }
+                #field_ident: <#field_type>::new_default(<#input_type>::#lazy_builder_name, self.#field_ident.take())
             ]
         } else if fctx.is_optional() {
             quote_spanned![*span=>
@@ -730,13 +704,18 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     fn field_value_wrap(&self, fctx: &FXFieldCtx, value: TokenStream) -> darling::Result<TokenStream> {
         if fctx.is_lazy() {
             let ty_tok = fctx.ty_tok();
-            let ident = self.ctx().input_ident();
-            let generic_params = self.generic_params();
+            let input_type = self.input_type_toks();
+            let proxy_type = self.field_proxy_type(fctx);
+            let lazy_builder_name = self.lazy_name(fctx)?;
+
             if value.is_empty() {
-                Ok(quote![::std::default::Default::default()])
+                Ok(
+                    quote![ ::fieldx::#proxy_type::<#input_type, #ty_tok>::new_default(<#input_type>::#lazy_builder_name, None) ],
+                )
             } else {
-                let proxy_type = self.field_proxy_type(fctx);
-                Ok(quote![ ::fieldx::#proxy_type::<#ident #generic_params, #ty_tok>::from(#value) ])
+                Ok(
+                    quote![ ::fieldx::#proxy_type::<#input_type, #ty_tok>::new_default(<#input_type>::#lazy_builder_name, #value) ],
+                )
             }
         } else if fctx.is_optional() {
             let value_tok = if value.is_empty() {
@@ -756,18 +735,6 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         self.field_value_wrap(fctx, self.field_default_value(fctx)?)
     }
 
-    fn field_initializer(&self, fctx: &FXFieldCtx) {
-        self.add_initializer_decl(self.ok_or(self.field_initializer_toks(fctx)))
-    }
-
-    fn wrap_construction(&self, construction: TokenStream) -> TokenStream {
-        quote![
-            let me = (#construction);
-            me.__fieldx_init();
-            me
-        ]
-    }
-
     fn builder_return_type(&self) -> TokenStream {
         let builder_ident = self.ctx().input_ident();
         let generic_params = self.generic_params();
@@ -785,7 +752,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     fn struct_extras(&'f self) {
         let ctx = self.ctx();
         let _sg = ctx.push_state(FXGenStage::MainExtras);
-        let initializers = self.initializers_combined(); // self.initializer_toks.borrow_mut();
+        // let initializers = self.initializers_combined(); // self.initializer_toks.borrow_mut();
         let generics = ctx.input().generics();
         let generic_params = self.generic_params();
         let input = ctx.input_ident();
@@ -799,31 +766,22 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
 
         ctx.tokens_extend(quote![
             use ::fieldx::FXProxyCore;
-            impl #generics ::fieldx::traits::FXStructSync for #input #generic_params
-            #where_clause
-            {
-                fn __fieldx_init(&self) {
-                    #initializers
-                }
-            }
+            impl #generics ::fieldx::traits::FXStructSync for #input #generic_params #where_clause {}
         ]);
 
-        let construction = self.wrap_construction(quote![Self::default()]);
+        let construction = quote![Self::default()];
+
+        let new_name = if ctx.args().needs_new() {
+            quote![new]
+        } else {
+            quote![__fieldx_new]
+        };
 
         self.add_method_decl(quote![
             #[inline]
-            fn __fieldx_new() -> Self {
+            pub fn #new_name() -> Self {
                 #construction
             }
         ]);
-
-        if ctx.args().needs_new() {
-            self.add_method_decl(quote![
-                #[inline]
-                pub fn new() -> Self {
-                    #construction
-                }
-            ])
-        }
     }
 }

@@ -27,19 +27,6 @@ where
     _phantom: PhantomData<O>,
 }
 
-impl<O, T> Default for FXProxy<O, T>
-where
-    O: FXStructSync,
-{
-    fn default() -> Self {
-        Self {
-            value: RwLock::new(None),
-            is_set: AtomicBool::new(false),
-            builder: RwLock::new(None),
-        }
-    }
-}
-
 impl<O, T: fmt::Debug> fmt::Debug for FXProxy<O, T>
 where
     O: FXStructSync,
@@ -53,17 +40,12 @@ where
     }
 }
 
-impl<O, T> From<T> for FXProxy<O, T>
+impl<O, T> From<(fn(&O) -> T, Option<T>)> for FXProxy<O, T>
 where
     O: FXStructSync,
-    Self: FXProxyCore<O, T>,
 {
-    fn from(value: T) -> Self {
-        Self {
-            value: RwLock::new(Some(value)),
-            is_set: AtomicBool::new(true),
-            builder: RwLock::new(None),
-        }
+    fn from((builder_method, value): (fn(&O) -> T, Option<T>)) -> Self {
+        Self::new_default(builder_method, value)
     }
 }
 
@@ -78,13 +60,6 @@ where
 
     fn is_set(&self) -> bool {
         self.is_set_raw().load(Ordering::SeqCst)
-    }
-
-    fn proxy_setup(&self, builder: fn(&O) -> T) {
-        *self.builder().write() = Some(builder);
-        if !self.is_set() && (*self.value().read()).is_some() {
-            self.is_set_raw().store(true, Ordering::SeqCst);
-        }
     }
 
     fn read<'a>(&'a self, owner: &O) -> MappedRwLockReadGuard<'a, T> {
@@ -146,7 +121,18 @@ where
     }
 }
 
-impl<O, T> FXProxy<O, T> where O: FXStructSync {}
+impl<O, T> FXProxy<O, T>
+where
+    O: FXStructSync,
+{
+    pub fn new_default(builder_method: fn(&O) -> T, value: Option<T>) -> Self {
+        Self {
+            is_set: AtomicBool::new(value.is_some()),
+            value: RwLock::new(value),
+            builder: RwLock::new(Some(builder_method)),
+        }
+    }
+}
 
 #[allow(private_bounds)]
 impl<'a, O, T, FX> FXWrLock<'a, O, T, FX>

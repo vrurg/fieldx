@@ -2,7 +2,7 @@ use super::{FXAccessorMode, FXHelperKind};
 use crate::{
     codegen::{
         context::{FXCodeGenCtx, FXFieldCtx},
-        DError, DResult, FXCGen,
+        FXCGen,
     },
     // util::fxtrace,
 };
@@ -76,16 +76,6 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         self.default_toks.borrow_mut().push(defaults);
     }
 
-    fn add_initializer_decl(&self, initializer: TokenStream) {
-        let ctx = self.ctx();
-        let ident = ctx.input_ident();
-        let err =
-            DError::custom(format!("Can't add an initializer to a non-sync struct {}", ident)).with_span(&initializer);
-        #[cfg(feature = "diagnostics")]
-        let err = err.note("This is an internal error, a bug in fxstruct implementation is assumed");
-        ctx.push_error(err)
-    }
-
     fn add_method_decl(&self, method: TokenStream) {
         self.method_toks.borrow_mut().push(method);
     }
@@ -137,9 +127,9 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         quote! [ #( #default_toks ),* ]
     }
 
-    fn initializers_combined(&self) -> TokenStream {
-        TokenStream::new()
-    }
+    // fn initializers_combined(&self) -> TokenStream {
+    //     TokenStream::new()
+    // }
 
     fn type_tokens<'s>(&'s self, field_ctx: &'s FXFieldCtx) -> &'s TokenStream {
         field_ctx.ty_wrapped(|| {
@@ -167,7 +157,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         quote![]
     }
 
-    fn field_accessor(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_accessor() {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok(FXHelperKind::Accessor);
@@ -208,7 +198,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         }
     }
 
-    fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_accessor_mut() {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok(FXHelperKind::AccesorMut);
@@ -245,7 +235,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         }
     }
 
-    fn field_builder_setter(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_builder_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let span = fctx.span();
         let field_ident = fctx.ident_tok();
         let field_default = self.ok_or(self.field_default_wrap(fctx));
@@ -275,7 +265,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         })
     }
 
-    fn field_setter(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_setter() {
             let setter_name = self.setter_name(fctx)?;
             let span = *fctx.span();
@@ -317,7 +307,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         }
     }
 
-    fn field_clearer(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_clearer() {
             let clearer_name = self.clearer_name(fctx)?;
             let ident = fctx.ident_tok();
@@ -336,7 +326,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         }
     }
 
-    fn field_predicate(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_predicate() && (fctx.is_lazy() || fctx.is_optional()) {
             let predicate_name = self.predicate_name(fctx)?;
             let span = *fctx.span();
@@ -365,7 +355,7 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         Ok(TokenStream::new())
     }
 
-    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: TokenStream) -> DResult<TokenStream> {
+    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: TokenStream) -> darling::Result<TokenStream> {
         if fctx.is_lazy() {
             if value.is_empty() {
                 Ok(quote![::fieldx::OnceCell::new()])
@@ -383,16 +373,16 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         }
     }
 
-    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.field_value_wrap(fctx, self.field_default_value(fctx)?)
     }
 
     // Reader/writer make no sense for non-sync. Hence do nothing.
-    fn field_reader(&self, _fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_reader(&self, _fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         Ok(quote![])
     }
 
-    fn field_writer(&self, _fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_writer(&self, _fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         Ok(quote![])
     }
 

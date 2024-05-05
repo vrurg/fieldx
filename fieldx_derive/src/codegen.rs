@@ -1,6 +1,6 @@
 use crate::{helper::*, util::args::FXSArgs, FXInputReceiver};
 use context::{FXCodeGenCtx, FXFieldCtx};
-pub use darling::{Error as DError, Result as DResult};
+use darling;
 use enum_dispatch::enum_dispatch;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
@@ -16,23 +16,22 @@ mod sync;
 #[enum_dispatch]
 pub(crate) trait FXCGen<'f> {
     // Actual code producers
-    fn field_accessor(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
-    fn field_accessor_mut(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
-    fn field_builder_setter(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
-    fn field_reader(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
-    fn field_writer(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
-    fn field_setter(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
-    fn field_clearer(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
-    fn field_predicate(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
-    fn field_value_wrap(&self, field_ctx: &FXFieldCtx, value: TokenStream) -> DResult<TokenStream>;
-    fn field_default_wrap(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream>;
+    fn field_accessor(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_accessor_mut(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_builder_setter(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_reader(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_writer(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_setter(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_clearer(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_predicate(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_value_wrap(&self, field_ctx: &FXFieldCtx, value: TokenStream) -> darling::Result<TokenStream>;
+    fn field_default_wrap(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream>;
 
     fn struct_extras(&'f self);
 
     fn add_field_decl(&self, field: TokenStream);
     fn add_defaults_decl(&self, defaults: TokenStream);
     fn add_method_decl(&self, method: TokenStream);
-    fn add_initializer_decl(&self, initializer: TokenStream);
     fn add_builder_decl(&self, builder_method: TokenStream);
     fn add_builder_field_decl(&self, builder_field: TokenStream);
     fn add_builder_field_ident(&self, field_ctx: syn::Ident);
@@ -48,7 +47,6 @@ pub(crate) trait FXCGen<'f> {
     fn methods_combined(&self) -> TokenStream;
     fn fields_combined(&self) -> TokenStream;
     fn defaults_combined(&self) -> TokenStream;
-    fn initializers_combined(&self) -> TokenStream;
     fn builder_fields_combined(&self) -> TokenStream;
     fn builders_combined(&self) -> TokenStream;
 
@@ -67,7 +65,7 @@ pub(crate) trait FXCGen<'f> {
         &self.ctx().input()
     }
 
-    fn ok_or(&self, outcome: DResult<TokenStream>) -> TokenStream {
+    fn ok_or(&self, outcome: darling::Result<TokenStream>) -> TokenStream {
         outcome.unwrap_or_else(|err| {
             self.ctx().push_error(err);
             quote![]
@@ -90,7 +88,7 @@ pub(crate) trait FXCGen<'f> {
         helper_name: &str,
         default_pfx: Option<&str>,
         default_sfx: Option<&str>,
-    ) -> DResult<Ident> {
+    ) -> darling::Result<Ident> {
         if let Some(ref h) = helper {
             if let Some(ref name) = h.rename() {
                 if !name.is_empty() {
@@ -110,15 +108,13 @@ pub(crate) trait FXCGen<'f> {
             "{}{}{}",
             if let Some(pfx) = default_pfx {
                 [pfx, "_"].join("")
-            }
-            else {
+            } else {
                 "".to_string()
             },
             helper_base_name,
             if let Some(sfx) = default_sfx {
                 ["_", sfx].join("")
-            }
-            else {
+            } else {
                 "".to_string()
             }
         ])
@@ -131,7 +127,7 @@ pub(crate) trait FXCGen<'f> {
         helper_name: &str,
         default_pfx: Option<&str>,
         default_sfx: Option<&str>,
-    ) -> DResult<TokenStream> {
+    ) -> darling::Result<TokenStream> {
         Ok(self
             .helper_name(
                 field_ctx,
@@ -143,47 +139,45 @@ pub(crate) trait FXCGen<'f> {
             .to_token_stream())
     }
 
-    // fn field_ctx(&'f self, field_ident: &syn::Ident) -> darling::Result<&'f FXFieldCtx<'f>>;
-
     fn field_ctx(&'f self, field_ident: &syn::Ident) -> darling::Result<Ref<FXFieldCtx<'f>>> {
         let fctx_table = self.field_ctx_table();
         Ref::filter_map(fctx_table, |ft| ft.get(field_ident))
             .map_err(|_| darling::Error::custom(format!("No context found for field `{}`", field_ident)))
     }
 
-    fn accessor_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn accessor_name(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(field_ctx, field_ctx.accessor(), "accessor", None, None)
     }
 
-    fn accessor_mut_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn accessor_mut_name(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(field_ctx, field_ctx.accessor_mut(), "accessor_mut", None, Some("mut"))
     }
 
-    fn builder_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn builder_name(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(field_ctx, field_ctx.builder(), "builder", None, None)
     }
 
-    fn lazy_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn lazy_name(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(field_ctx, field_ctx.lazy(), "lazy builder", Some("build"), None)
     }
 
-    fn setter_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn setter_name(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(field_ctx, field_ctx.setter(), "setter", Some("set"), None)
     }
 
-    fn clearer_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn clearer_name(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(field_ctx, field_ctx.clearer(), "clearer", Some("clear"), None)
     }
 
-    fn predicate_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn predicate_name(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(field_ctx, field_ctx.predicate(), "predicate", Some("has"), None)
     }
 
-    fn reader_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn reader_name(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(field_ctx, field_ctx.reader(), "reader", Some("read"), None)
     }
 
-    fn writer_name(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn writer_name(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(field_ctx, field_ctx.writer(), "writer", Some("write"), None)
     }
 
@@ -192,8 +186,7 @@ pub(crate) trait FXCGen<'f> {
 
         if generic_idents.len() > 0 {
             quote![< #( #generic_idents ),* >]
-        }
-        else {
+        } else {
             quote![]
         }
     }
@@ -206,8 +199,7 @@ pub(crate) trait FXCGen<'f> {
                 quote![FXVALINTO],
                 quote![.into()],
             )
-        }
-        else {
+        } else {
             (quote![], quote![#ty], quote![])
         }
     }
@@ -238,11 +230,18 @@ pub(crate) trait FXCGen<'f> {
         quote![]
     }
 
+    fn input_type_toks(&self) -> TokenStream {
+        let ident = self.ctx().input_ident();
+        let generic_params = self.generic_params();
+        quote::quote! {
+            #ident #generic_params
+        }
+    }
+
     fn derive_toks(&self, traits: &[TokenStream]) -> TokenStream {
         if traits.len() > 0 {
             quote!(#[derive(#( #traits ),*)])
-        }
-        else {
+        } else {
             quote![]
         }
     }
@@ -270,11 +269,11 @@ pub(crate) trait FXCGen<'f> {
         vec![]
     }
 
-    fn field_initializer(&self, _field_ctx: &FXFieldCtx) {}
+    // fn field_initializer(&self, _field_ctx: &FXFieldCtx) {}
 
     fn field_extras(&self, _field_ctx: &FXFieldCtx) {}
 
-    fn field_default_value(&self, field_ctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_default_value(&self, field_ctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let field = field_ctx.field();
 
         if let Some(def_meta) = field_ctx.default_value() {
@@ -290,15 +289,12 @@ pub(crate) trait FXCGen<'f> {
 
             if is_str {
                 Ok(quote_spanned! [span=> ::std::string::String::from(#val_expr) ])
-            }
-            else {
+            } else {
                 Ok(quote_spanned! [span=> #val_expr ])
             }
-        }
-        else if field_ctx.is_lazy() || field_ctx.is_optional() {
+        } else if field_ctx.is_lazy() || field_ctx.is_optional() {
             Ok(quote![])
-        }
-        else {
+        } else {
             Ok(quote_spanned! [field.span()=> ::std::default::Default::default() ])
         }
     }
@@ -326,7 +322,7 @@ pub(crate) trait FXCGen<'f> {
             self.check_for_impl_copy(&field_ctx);
         }
 
-        self.field_initializer(&field_ctx);
+        // self.field_initializer(&field_ctx);
         self.field_default(&field_ctx);
         self.field_extras(&field_ctx);
         self.field_methods(&field_ctx);
@@ -392,8 +388,7 @@ pub(crate) trait FXCGen<'f> {
         let field_name = field_ident.to_string();
         let alternative = if field_ctx.has_default_value() {
             self.ok_or(self.field_default_wrap(field_ctx))
-        }
-        else {
+        } else {
             quote![
                 return ::std::result::Result::Err(
                     ::std::convert::Into::into(
@@ -429,8 +424,7 @@ pub(crate) trait FXCGen<'f> {
                     }
                 }
             ]
-        }
-        else {
+        } else {
             // It's already empty, what sense in allocating another copy?
             defaults
         }
@@ -449,7 +443,7 @@ pub(crate) trait FXCGen<'f> {
             .collect()
     }
 
-    fn field_builder_field(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_builder_field(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_builder() {
             let ident = fctx.ident_tok();
             let span = *fctx.span();
@@ -457,17 +451,15 @@ pub(crate) trait FXCGen<'f> {
             let attributes = fctx.builder_attributes();
             if fctx.is_ignorable() {
                 Ok(quote_spanned![span=> #attributes #ident: #ty])
-            }
-            else {
+            } else {
                 Ok(quote_spanned![span=> #attributes #ident: ::std::option::Option<#ty>])
             }
-        }
-        else {
+        } else {
             Ok(quote![])
         }
     }
 
-    fn field_builder(&self, fctx: &FXFieldCtx) -> DResult<TokenStream> {
+    fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if !fctx.is_ignorable() && fctx.needs_builder() {
             let ident = fctx.ident_tok();
             let builder_name: TokenStream = self
@@ -483,8 +475,7 @@ pub(crate) trait FXCGen<'f> {
                     self
                 }
             ])
-        }
-        else {
+        } else {
             Ok(quote![])
         }
     }
@@ -515,15 +506,9 @@ pub(crate) trait FXCGen<'f> {
 
                 #builder_impl
             ]
-        }
-        else {
+        } else {
             quote![]
         }
-    }
-
-    #[inline]
-    fn wrap_construction(&self, construction: TokenStream) -> TokenStream {
-        construction
     }
 
     #[inline]
@@ -553,29 +538,26 @@ pub(crate) trait FXCGen<'f> {
                 let fsetter = self.ok_or(self.field_builder_setter(&fctx));
                 if fsetter.is_empty() {
                     use_default = true;
-                }
-                else {
+                } else {
                     field_setters.push(fsetter);
                 }
-            }
-            else {
+            } else {
                 self.ctx().push_error(fctx.unwrap_err());
             }
         }
 
         let default_initializer = if use_default {
-            quote![ .. ::std::default::Default::default()]
-        }
-        else {
+            quote![..::std::default::Default::default()]
+        } else {
             quote![]
         };
 
-        let construction = self.wrap_construction(quote![
+        let construction = quote![
             #input_ident {
                 #(#field_setters,)*
                 #default_initializer
             }
-        ]);
+        ];
 
         quote![
             #attributes
@@ -619,8 +601,7 @@ pub(crate) trait FXCGen<'f> {
                     #( field_implements_copy::<#copyables>(); )*
                 };
             ])
-        }
-        else {
+        } else {
             None
         };
 
@@ -674,8 +655,7 @@ impl<'f> FXRewriter<'f> {
 
         let generator: FXCG = if ctx.args().is_sync() {
             sync::FXCodeGen::new(ctx).into()
-        }
-        else {
+        } else {
             nonsync::FXCodeGen::new(ctx).into()
         };
 
