@@ -1,0 +1,8 @@
+error[E0624]: method `read_foo` is private
+  --> tests/uncompilable/1.77/private.rs:19:21
+   |
+7  |         #[fieldx(private, lazy)]
+   |         - private method defined here
+...
+19 |     let foo = inner.read_foo();
+   |                     ^^^^^^^^ private method

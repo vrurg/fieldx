@@ -1,5 +1,5 @@
 error[E0624]: method `foo` is private
-  --> tests/uncompilable/priv_accessor.rs:18:18
+  --> tests/uncompilable/1.78/priv_accessor.rs:18:18
    |
 9  | /         #[fieldx(get(private), predicate(off))]
 10 | |         foo: u32,
