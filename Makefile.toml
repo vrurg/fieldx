@@ -1,0 +1,19 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.test-default]
+description = "Test with only the default features"
+category = "Test"
+command = "cargo"
+args = ["test", "--workspace"]
+
+[tasks.test-serde]
+description = "Test with 'serde' feature"
+category = "Test"
+command = "cargo"
+args = ["test", "--workspace", "--features", "serde"]
+
+[tasks.test]
+description = "Extensive testing"
+category = "Test"
+dependencies = ["test-default", "test-serde"]

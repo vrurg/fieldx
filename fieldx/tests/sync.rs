@@ -50,8 +50,13 @@ fn non_threaded() {
         "manually set bar using write lock"
     );
 
+    assert_eq!(
+        *sync.read_fubar(),
+        String::from("fufubarik!"),
+        "fubar initial values is the default"
+    );
+    assert_eq!(sync.clear_fubar(), Some(String::from("fufubarik!")), "cleared fubar");
     assert_eq!(*sync.read_fubar(), String::from("аби було"), "built fubar");
-    assert_eq!(sync.clear_fubar(), Some(String::from("аби було")), "cleared fubar");
 }
 
 #[test]

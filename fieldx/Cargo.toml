@@ -19,9 +19,9 @@ parking_lot = { workspace = true }
 num_cpus = { workspace = true }
 crossbeam = { workspace = true }
 rustc_version = "0.4"
+serde_json = "1.0"
 
 [features]
 diagnostics = ["fieldx_derive/diagnostics"]
 serde = ["fieldx_derive/serde", "parking_lot/serde", "dep:serde"]
 # default = ["serde"]
-default = []

@@ -151,6 +151,7 @@ dependencies = [
  "parking_lot",
  "rustc_version",
  "serde",
+ "serde_json",
  "thiserror",
  "trybuild",
 ]

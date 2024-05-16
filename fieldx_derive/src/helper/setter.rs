@@ -29,7 +29,7 @@ impl<const BOOL_ONLY: bool> FXSetterHelper<BOOL_ONLY> {
 impl<const BOOL_ONLY: bool> FromNestAttr for FXSetterHelper<BOOL_ONLY> {
     set_literals! { setter, ..1 => rename as Lit::Str; pre_validate => allowed_literals }
 
-    fn for_keyword() -> darling::Result<Self> {
+    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())
     }
 }

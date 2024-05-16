@@ -4,22 +4,13 @@ pub(crate) mod args;
 #[allow(unused)]
 macro_rules! TODO {
     ($message:expr; $dummy:expr) => {
-        compile_error!(concat!(
-            "TODO: Must implement prior to release: ",
-            $message
-        ));
+        compile_error!(concat!("TODO: Must implement prior to release: ", $message));
     };
     ($message:expr;) => {
-        compile_error!(concat!(
-            "TODO: Must implement prior to release: ",
-            $message
-        ));
+        compile_error!(concat!("TODO: Must implement prior to release: ", $message));
     };
     ($message:expr) => {
-        compile_error!(concat!(
-            "TODO: Must implement prior to release: ",
-            $message
-        ));
+        compile_error!(concat!("TODO: Must implement prior to release: ", $message));
     };
 }
 
@@ -69,6 +60,7 @@ macro_rules! needs_helper {
             $(
                 #[inline]
                 pub fn [<needs_ $field>](&self) -> Option<bool> {
+                    use crate::helper::FXTriggerHelper;
                     self.$field.as_ref().map(|h| h.is_true())
                 }
             )+

@@ -4,8 +4,8 @@
 use crate::helper::FXSerde;
 use crate::{
     helper::{
-        FXAccessor, FXAccessorMode, FXArgsBuilder, FXAttributes, FXHelper, FXHelperContainer, FXHelperKind,
-        FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXWithOrig,
+        FXAccessor, FXAccessorMode, FXArgsBuilder, FXAttributes, FXBoolArg, FXHelper, FXHelperContainer, FXHelperKind,
+        FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXTriggerHelper,
     },
     util::{needs_helper, validate_exclusives},
 };
@@ -36,9 +36,9 @@ pub(crate) struct FXSArgs {
     clearer:      Option<FXHelper<true>>,
     predicate:    Option<FXHelper<true>>,
     public:       Option<FXNestingAttr<FXPubMode>>,
-    private:      Option<FXWithOrig<bool, syn::Meta>>,
-    clone:        Option<bool>,
-    copy:         Option<bool>,
+    private:      Option<FXBoolArg>,
+    clone:        Option<FXBoolArg>,
+    copy:         Option<FXBoolArg>,
     #[cfg(feature = "serde")]
     serde:        Option<FXSerde>,
 }
@@ -64,7 +64,10 @@ impl FXSArgs {
     }
 
     pub fn is_copy(&self) -> Option<bool> {
-        self.clone.map(|c| !c).or_else(|| self.copy)
+        self.clone
+            .as_ref()
+            .map(|c| !c.is_true())
+            .or_else(|| self.copy.as_ref().map(|c| c.is_true()))
     }
 
     pub fn is_accessor_copy(&self) -> Option<bool> {
@@ -82,6 +85,20 @@ impl FXSArgs {
     #[cfg(feature = "serde")]
     pub fn is_serde(&self) -> bool {
         self.serde.as_ref().map_or(false, |sw| sw.is_serde().unwrap_or(true))
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn needs_serialize(&self) -> bool {
+        self.serde
+            .as_ref()
+            .map_or(false, |sw| sw.needs_serialize().unwrap_or(true))
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn needs_deserialize(&self) -> bool {
+        self.serde
+            .as_ref()
+            .map_or(false, |sw| sw.needs_deserialize().unwrap_or(true))
     }
 
     pub fn needs_new(&self) -> bool {
@@ -109,7 +126,7 @@ impl FXSArgs {
     }
 
     pub fn public_mode(&self) -> Option<FXPubMode> {
-        if self.private.is_some() {
+        if self.private.as_ref().map_or(false, |p| p.is_true()) {
             Some(FXPubMode::Private)
         }
         else {

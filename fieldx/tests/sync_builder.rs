@@ -10,8 +10,11 @@ mod foo {
         #[fieldx(lazy, clearer, builder(into), get(copy))]
         real: f32,
 
-        #[fieldx(reader, writer, get(clone), set, builder(into), default = "initial")]
+        #[fieldx(reader, writer, get(clone), set, builder(into), default("initial"))]
         locked_bar: String,
+
+        #[fieldx(lazy, clearer, default(Self::default_string()))]
+        lazy_default: String,
     }
 
     impl Foo {
@@ -22,6 +25,14 @@ mod foo {
         fn build_real(&self) -> f32 {
             let l: u16 = (*self.read_foo()).chars().count().try_into().expect("u32 value");
             l.try_into().expect("f32 value")
+        }
+
+        fn build_lazy_default(&self) -> String {
+            "this is a lazy default".into()
+        }
+
+        fn default_string() -> String {
+            "this is default string value".to_string()
         }
     }
 }
@@ -72,5 +83,29 @@ fn empties() {
         foo.locked_bar(),
         "initial",
         "when no value from builder locked_bar gets its default value"
+    );
+
+    assert_eq!(
+        *foo.read_lazy_default(),
+        "this is default string value",
+        "lazy field gets a default if not set"
+    );
+
+    let foo = foo::Foo::builder()
+        .lazy_default("non-lazy, non-default".to_string())
+        .build()
+        .expect("NonSync instance");
+
+    assert_eq!(
+        *foo.read_lazy_default(),
+        "non-lazy, non-default",
+        "lazy field set manually, default is ignored"
+    );
+
+    foo.clear_lazy_default();
+    assert_eq!(
+        *foo.read_lazy_default(),
+        "this is a lazy default",
+        "lazy field gets set by its builder when cleared"
     );
 }

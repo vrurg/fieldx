@@ -190,11 +190,13 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
             #( #fields_tt ),*
         }
 
-        impl #impl_generics crate::helper::FXHelperTrait for #ident #ty_generics #where_clause {
+        impl #impl_generics crate::helper::FXTriggerHelper for #ident #ty_generics #where_clause {
             fn is_true(&self) -> bool {
                 !self.off.is_present()
             }
+        }
 
+        impl #impl_generics crate::helper::FXHelperTrait for #ident #ty_generics #where_clause {
             fn rename(&self) -> Option<&str> {
                 self.rename.as_deref()
             }

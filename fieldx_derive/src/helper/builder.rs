@@ -22,7 +22,7 @@ impl FXArgsBuilderHelper {
 impl FromNestAttr for FXArgsBuilderHelper {
     set_literals! {builder}
 
-    fn for_keyword() -> darling::Result<Self> {
+    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())
     }
 }
@@ -45,7 +45,7 @@ impl FXFieldBuilderHelper {
 impl FromNestAttr for FXFieldBuilderHelper {
     set_literals! {builder, ..1 => rename as Lit::Str}
 
-    fn for_keyword() -> darling::Result<Self> {
+    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())
     }
 }

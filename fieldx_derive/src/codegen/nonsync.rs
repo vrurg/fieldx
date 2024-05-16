@@ -1,9 +1,8 @@
-use super::{FXAccessorMode, FXHelperKind};
+#[cfg(feature = "serde")]
+use super::FXCGenSerde;
+use super::{FXAccessorMode, FXCGen, FXCGenContextual, FXHelperKind};
 use crate::{
-    codegen::{
-        context::{FXCodeGenCtx, FXFieldCtx},
-        FXCGen,
-    },
+    codegen::context::{FXCodeGenCtx, FXFieldCtx},
     // util::fxtrace,
 };
 use proc_macro2::TokenStream;
@@ -15,16 +14,20 @@ use std::{
 use syn::spanned::Spanned;
 
 pub(crate) struct FXCodeGen<'f> {
-    ctx: FXCodeGenCtx,
-    field_ctx_table: RefCell<HashMap<syn::Ident, FXFieldCtx<'f>>>,
-    field_toks: RefCell<Vec<TokenStream>>,
-    default_toks: RefCell<Vec<TokenStream>>,
-    method_toks: RefCell<Vec<TokenStream>>,
-    builder_field_toks: RefCell<Vec<TokenStream>>,
-    builder_toks: RefCell<Vec<TokenStream>>,
+    ctx:                 FXCodeGenCtx,
+    field_ctx_table:     RefCell<HashMap<syn::Ident, FXFieldCtx<'f>>>,
+    field_toks:          RefCell<Vec<TokenStream>>,
+    default_toks:        RefCell<Vec<TokenStream>>,
+    method_toks:         RefCell<Vec<TokenStream>>,
+    builder_field_toks:  RefCell<Vec<TokenStream>>,
+    builder_toks:        RefCell<Vec<TokenStream>>,
     builder_field_ident: RefCell<Vec<syn::Ident>>,
     // List of types to be verified for implementing Copy trait
-    copyable_types: RefCell<Vec<syn::Type>>,
+    copyable_types:      RefCell<Vec<syn::Type>>,
+    #[cfg(feature = "serde")]
+    shadow_field_toks:   RefCell<Vec<TokenStream>>,
+    #[cfg(feature = "serde")]
+    shadow_default_toks: RefCell<Vec<TokenStream>>,
 }
 
 impl<'f> FXCodeGen<'f> {
@@ -39,11 +42,15 @@ impl<'f> FXCodeGen<'f> {
             builder_field_ident: RefCell::new(vec![]),
             builder_toks: RefCell::new(vec![]),
             copyable_types: RefCell::new(vec![]),
+            #[cfg(feature = "serde")]
+            shadow_field_toks: RefCell::new(vec![]),
+            #[cfg(feature = "serde")]
+            shadow_default_toks: RefCell::new(vec![]),
         }
     }
 }
 
-impl<'f> FXCGen<'f> for FXCodeGen<'f> {
+impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     #[inline(always)]
     fn ctx(&self) -> &FXCodeGenCtx {
         &self.ctx
@@ -66,6 +73,16 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
 
     fn copyable_types(&self) -> std::cell::Ref<Vec<syn::Type>> {
         self.copyable_types.borrow()
+    }
+
+    #[cfg(feature = "serde")]
+    fn shadow_fields(&self) -> std::cell::Ref<Vec<TokenStream>> {
+        self.shadow_field_toks.borrow()
+    }
+
+    #[cfg(feature = "serde")]
+    fn shadow_defaults(&self) -> std::cell::Ref<Vec<TokenStream>> {
+        self.shadow_default_toks.borrow()
     }
 
     fn add_field_decl(&self, field: TokenStream) {
@@ -96,8 +113,18 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         self.builder_field_ident.borrow_mut().push(field_ident);
     }
 
-    fn check_for_impl_copy(&self, field_ctx: &FXFieldCtx) {
+    fn add_for_copy_trait_check(&self, field_ctx: &FXFieldCtx) {
         self.copyable_types.borrow_mut().push(field_ctx.ty().clone());
+    }
+
+    #[cfg(feature = "serde")]
+    fn add_shadow_field_decl(&self, field: TokenStream) {
+        self.shadow_field_toks.borrow_mut().push(field);
+    }
+
+    #[cfg(feature = "serde")]
+    fn add_shadow_default_decl(&self, field: TokenStream) {
+        self.shadow_default_toks.borrow_mut().push(field);
     }
 
     fn methods_combined(&self) -> TokenStream {
@@ -105,9 +132,8 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         quote! [ #( #method_toks )* ]
     }
 
-    fn fields_combined(&self) -> TokenStream {
-        let field_toks = &*self.field_toks.borrow();
-        quote! [ #( #field_toks ),* ]
+    fn struct_fields(&self) -> Ref<Vec<TokenStream>> {
+        self.field_toks.borrow()
     }
 
     fn builders_combined(&self) -> TokenStream {
@@ -138,23 +164,26 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
             let span = ty.span();
             let rc = if field_ctx.is_lazy() {
                 quote_spanned! [span=> ::fieldx::OnceCell<#ty>]
-            } else if field_ctx.is_optional() {
+            }
+            else if field_ctx.is_optional() {
                 quote_spanned! [span=> ::std::option::Option<#ty>]
-            } else {
+            }
+            else {
                 field_ctx.ty_tok().clone()
             };
             rc
         })
     }
 
-    #[cfg(feature = "serde")]
-    fn serde_attribute(&self, _field_ctx: &FXFieldCtx) -> TokenStream {
-        quote![]
-    }
-
-    #[cfg(feature = "serde")]
-    fn serde_struct_attribute(&self) -> TokenStream {
-        quote![]
+    fn field_lazy_initializer(
+        &self,
+        fctx: &FXFieldCtx,
+        self_ident: Option<TokenStream>,
+    ) -> darling::Result<TokenStream> {
+        let lazy_name = self.lazy_name(fctx)?;
+        let ident = fctx.ident_tok();
+        let self_var = self_ident.unwrap_or(quote![self]);
+        Ok(quote![#self_var.#ident.get_or_init( || #self_var.#lazy_name() )])
     }
 
     fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
@@ -173,27 +202,30 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
 
             // fxtrace!();
             if fctx.is_lazy() {
-                let lazy_name = self.lazy_name(fctx)?;
+                let lazy_init = self.field_lazy_initializer(fctx, None)?;
 
                 Ok(quote_spanned![*fctx.span()=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty {
-                        #deref self.#ident.get_or_init( move || self.#lazy_name() ) #meth
+                        #deref #lazy_init #meth
                     }
                 ])
-            } else if fctx.is_optional() {
+            }
+            else if fctx.is_optional() {
                 let ty_tok = self.type_tokens(fctx);
                 Ok(quote_spanned![*fctx.span()=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty_tok { #reference self.#ident #meth }
                 ])
-            } else {
+            }
+            else {
                 Ok(quote_spanned![*fctx.span()=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty { #reference self.#ident #meth }
                 ])
             }
-        } else {
+        }
+        else {
             Ok(TokenStream::new())
         }
     }
@@ -216,21 +248,24 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                         self.#ident.get_mut().unwrap()
                     }
                 ])
-            } else if fctx.is_optional() {
+            }
+            else if fctx.is_optional() {
                 let ty_tok = self.type_tokens(fctx);
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
                     #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty_tok { &mut self.#ident }
                 ])
-            } else {
+            }
+            else {
                 Ok(quote_spanned![*fctx.span()=>
                     #[inline]
                     #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty { &mut self.#ident }
                 ])
             }
-        } else {
+        }
+        else {
             Ok(TokenStream::new())
         }
     }
@@ -238,11 +273,12 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
     fn field_builder_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let span = fctx.span();
         let field_ident = fctx.ident_tok();
-        let field_default = self.ok_or(self.field_default_wrap(fctx));
+        let field_default = self.field_default_wrap(fctx)?;
 
         Ok(if fctx.is_ignorable() || !fctx.needs_builder() {
             quote![]
-        } else if fctx.is_lazy() {
+        }
+        else if fctx.is_lazy() {
             quote_spanned![*span=>
                 #field_ident: if self.#field_ident.is_some() {
                     ::fieldx::OnceCell::from(self.#field_ident.take().unwrap())
@@ -251,7 +287,8 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     #field_default
                 }
             ]
-        } else if fctx.is_optional() {
+        }
+        else if fctx.is_optional() {
             quote_spanned![*span=>
                 #field_ident: if self.#field_ident.is_some() {
                     self.#field_ident.take()
@@ -260,7 +297,8 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     #field_default
                 }
             ]
-        } else {
+        }
+        else {
             self.simple_field_build_setter(fctx, field_ident, span)
         })
     }
@@ -285,14 +323,16 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                         old
                     }
                 ])
-            } else if fctx.is_optional() {
+            }
+            else if fctx.is_optional() {
                 Ok(quote_spanned! [span=>
                     #attributes_fn
                     #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> ::std::option::Option<#ty> {
                         self.#ident.replace(value #into_tok)
                     }
                 ])
-            } else {
+            }
+            else {
                 Ok(quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> #ty {
@@ -302,7 +342,8 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     }
                 ])
             }
-        } else {
+        }
+        else {
             Ok(TokenStream::new())
         }
     }
@@ -321,7 +362,8 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                     self.#ident.take()
                 }
             ])
-        } else {
+        }
+        else {
             Ok(TokenStream::new())
         }
     }
@@ -342,7 +384,8 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
                         self.#ident.get().is_some()
                     }
                 ]);
-            } else if fctx.is_optional() {
+            }
+            else if fctx.is_optional() {
                 return Ok(quote_spanned! [span=>
                     #attributes_fn
                     #vis_tok fn #predicate_name(&self) -> bool {
@@ -355,26 +398,28 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
         Ok(TokenStream::new())
     }
 
-    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: TokenStream) -> darling::Result<TokenStream> {
-        if fctx.is_lazy() {
-            if value.is_empty() {
-                Ok(quote![::fieldx::OnceCell::new()])
-            } else {
-                Ok(quote![::fieldx::OnceCell::from(#value)])
-            }
-        } else if fctx.is_optional() {
-            if fctx.has_default_value() {
-                Ok(quote! [ ::std::option::Option::Some(#value) ])
-            } else {
-                Ok(quote![::std::option::Option::None])
-            }
-        } else {
-            Ok(quote! [ #value ])
+    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: Option<TokenStream>) -> darling::Result<TokenStream> {
+        Ok(if fctx.is_lazy() {
+            value.map_or_else(
+                || quote![::fieldx::OnceCell::new()],
+                |value| quote! [ ::fieldx::OnceCell::from(#value) ],
+            )
         }
+        else if fctx.is_optional() {
+            value.map_or_else(
+                || quote![::std::option::Option::None],
+                |value| quote! [ ::std::option::Option::Some(#value) ],
+            )
+        }
+        else {
+            value.map(|value| quote! [ #value ]).ok_or_else(|| {
+                darling::Error::custom(format!("No value was supplied for plain field {}", fctx.ident_str()))
+            })?
+        })
     }
 
     fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.field_value_wrap(fctx, self.field_default_value(fctx)?)
+        self.field_value_wrap(fctx, self.field_default_value(fctx)?.map(|dv| self.fixup_self_type(dv)))
     }
 
     // Reader/writer make no sense for non-sync. Hence do nothing.
@@ -384,6 +429,37 @@ impl<'f> FXCGen<'f> for FXCodeGen<'f> {
 
     fn field_writer(&self, _fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         Ok(quote![])
+    }
+
+    #[cfg(feature = "serde")]
+    fn field_from_shadow(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+        let field_ident = fctx.ident_tok();
+        let shadow_var = self.ctx().shadow_var_ident();
+
+        Ok(if self.is_serde_optional(fctx) {
+            let default_value = self.field_default_wrap(fctx)?;
+            let shadow_value = self.field_value_wrap(fctx, Some(quote![v]))?;
+            quote![ #shadow_var.#field_ident.map_or_else(|| #default_value, |v| #shadow_value) ]
+        }
+        else {
+            quote![ #shadow_var.#field_ident ]
+        })
+    }
+
+    #[cfg(feature = "serde")]
+    fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+        let field_ident = fctx.ident_tok();
+        let me_var = self.ctx().me_var_ident();
+
+        Ok(if fctx.is_lazy() {
+            quote![ #me_var.#field_ident.take() ]
+        }
+        else if fctx.is_optional() {
+            quote![ #me_var.#field_ident ]
+        }
+        else {
+            quote![ #me_var.#field_ident ]
+        })
     }
 
     fn struct_extras(&self) {

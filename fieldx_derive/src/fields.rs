@@ -2,8 +2,9 @@
 use crate::helper::FXSerde;
 use crate::{
     helper::{
-        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXFieldBuilder, FXHelper, FXHelperContainer,
-        FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXWithOrig, FromNestAttr,
+        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXDefault, FXFieldBuilder, FXHelper,
+        FXHelperContainer, FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg,
+        FXTriggerHelper, FromNestAttr,
     },
     util::{needs_helper, validate_exclusives},
 };
@@ -18,6 +19,7 @@ use syn::{spanned::Spanned, Meta};
 #[getset(get = "pub(crate)")]
 #[darling(attributes(fieldx), forward_attrs)]
 pub(crate) struct FXFieldReceiver {
+    #[getset(skip)]
     ident: Option<syn::Ident>,
     vis:   syn::Visibility,
     ty:    syn::Type,
@@ -27,7 +29,8 @@ pub(crate) struct FXFieldReceiver {
     attributes_fn: Option<FXAttributes>,
     lazy:          Option<FXHelper>,
     #[darling(rename = "rename")]
-    base_name:     Option<String>,
+    #[getset(skip)]
+    base_name:     Option<FXStringArg>,
     #[darling(rename = "get")]
     accessor:      Option<FXAccessor>,
     #[darling(rename = "get_mut")]
@@ -40,13 +43,13 @@ pub(crate) struct FXFieldReceiver {
     predicate:     Option<FXHelper>,
 
     public:        Option<FXNestingAttr<FXPubMode>>,
-    private:       Option<FXWithOrig<bool, syn::Meta>>,
+    private:       Option<FXBoolArg>,
     #[darling(rename = "default")]
-    default_value: Option<Meta>,
+    default_value: Option<FXDefault>,
     builder:       Option<FXFieldBuilder>,
-    into:          Option<bool>,
-    clone:         Option<bool>,
-    copy:          Option<bool>,
+    into:          Option<FXBoolArg>,
+    clone:         Option<FXBoolArg>,
+    copy:          Option<FXBoolArg>,
     #[cfg(feature = "serde")]
     serde:         Option<FXSerde>,
 
@@ -108,7 +111,7 @@ impl FXFieldReceiver {
     needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
 
     pub fn validate(&self) -> darling::Result<()> {
-        self.validate_exclusives().map_err(|err| err.with_span(self.ident()))
+        self.validate_exclusives().map_err(|err| err.with_span(self.span()))
     }
 
     fn flag_set(helper: &Option<FXNestingAttr<impl FXHelperTrait + FromNestAttr>>) -> Option<bool> {
@@ -116,11 +119,26 @@ impl FXFieldReceiver {
     }
 
     pub fn public_mode(&self) -> Option<FXPubMode> {
-        if self.private.is_some() {
+        if self.private.as_ref().map_or(false, |p| p.is_true()) {
             Some(FXPubMode::Private)
         }
         else {
             self.public.as_ref().map(|pm| (**pm).clone())
+        }
+    }
+
+    pub fn ident(&self) -> darling::Result<&syn::Ident> {
+        self.ident.as_ref().ok_or_else(|| {
+            darling::Error::custom("This is weird, but the field doesn't have an ident!").with_span(self.span())
+        })
+    }
+
+    pub fn base_name(&self) -> Option<&String> {
+        if let Some(ref bn) = self.base_name {
+            bn.value()
+        }
+        else {
+            None
         }
     }
 
@@ -131,7 +149,7 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn is_into(&self) -> Option<bool> {
-        self.into
+        self.into.as_ref().map(|i| i.is_true())
     }
 
     #[inline]
@@ -151,7 +169,10 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn is_copy(&self) -> Option<bool> {
-        self.clone.map(|c| !c).or_else(|| self.copy)
+        self.clone
+            .as_ref()
+            .map(|c| !c.is_true())
+            .or_else(|| self.copy.as_ref().map(|c| c.is_true()))
     }
 
     #[inline]
@@ -179,7 +200,12 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn has_default_value(&self) -> bool {
-        self.default_value.is_some()
+        if let Some(ref dv) = self.default_value {
+            dv.is_true()
+        }
+        else {
+            false
+        }
     }
 
     pub fn accessor_mode(&self) -> Option<FXAccessorMode> {

@@ -1,4 +1,4 @@
-use super::{FXHelperTrait, FromNestAttr};
+use super::{FXTriggerHelper, FromNestAttr};
 use crate::util::set_literals;
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
@@ -21,7 +21,7 @@ impl<const BOOL_ONLY: bool> FXBaseHelper<BOOL_ONLY> {
 impl<const BOOL_ONLY: bool> FromNestAttr for FXBaseHelper<BOOL_ONLY> {
     set_literals! {helper, ..1usize => rename as Lit::Str; pre_validate => allowed_literals}
 
-    fn for_keyword() -> darling::Result<Self> {
+    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())
     }
 }

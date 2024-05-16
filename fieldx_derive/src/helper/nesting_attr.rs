@@ -8,7 +8,7 @@ use syn::{Lit, Meta};
 
 pub(crate) trait FromNestAttr: FromMeta {
     /// A constructor that supposed to create default object for when there is only keyword with no arguments.
-    fn for_keyword() -> darling::Result<Self>;
+    fn for_keyword(path: &syn::Path) -> darling::Result<Self>;
     fn set_literals(self, literals: &Vec<Lit>) -> darling::Result<Self>;
 
     fn no_literals(&self, literals: &Vec<Lit>) -> darling::Result<()> {
@@ -46,8 +46,8 @@ impl<T: FromNestAttr> FromMeta for FXNestingAttr<T> {
                 let nlist = NestedMeta::parse_meta_list(list.tokens.clone())?;
                 Ok(Self::from_list(&nlist)?.set_orig(item.clone()))
             }
-            Meta::Path(ref _path) => Ok(Self {
-                inner: T::for_keyword()?,
+            Meta::Path(ref path) => Ok(Self {
+                inner: T::for_keyword(path)?,
                 orig:  Some(item.clone()),
             }),
             _ => Err(darling::Error::custom("Unsupported argument format").with_span(item)),
@@ -61,6 +61,7 @@ impl<T: FromNestAttr> FromMeta for FXNestingAttr<T> {
         for item in items {
             match item {
                 NestedMeta::Meta(ref meta) => {
+                    // eprintln!("??? NESTED META: {}\n{:#?}", meta.to_token_stream(), meta);
                     non_lit.push(NestedMeta::Meta(meta.clone()));
                 }
                 NestedMeta::Lit(ref lit) => {

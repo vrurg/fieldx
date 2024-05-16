@@ -1,6 +1,7 @@
-use super::{FXHelper, FXHelperTrait, FXNestingAttr, FromNestAttr};
+use super::{FXDefault, FXHelper, FXTriggerHelper, FXValue, FromNestAttr};
 use crate::util::set_literals;
 use darling::{
+    ast::NestedMeta,
     util::{Flag, PathList},
     FromMeta,
 };
@@ -11,37 +12,41 @@ use syn::Lit;
 #[darling(default)]
 pub(crate) struct FXSerdeDefault {
     off:   Flag,
-    #[getset(get="pub")]
+    #[getset(get = "pub")]
     value: Option<String>,
 }
 
 #[derive(Default, Debug, Getters, FromMeta, Clone)]
 #[getset(get = "pub(crate)")]
-pub(crate) struct FXSerdeHelper<const SHADOW_NAME: bool = false> {
+pub(crate) struct FXSerdeHelper {
     off:           Flag,
     serialize:     Option<FXHelper<true>>,
     deserialize:   Option<FXHelper<true>>,
     // Attributes of the original struct to be used with the shadow struct.
     forward_attrs: Option<PathList>,
     #[darling(rename = "default")]
-    default_value: Option<FXNestingAttr<FXSerdeDefault>>,
+    #[getset(skip)]
+    default_value: Option<FXDefault<true>>,
     // Name of the new type to be used for deserialization. Normally its <ident>Shadow
-    shadow_name:   Option<String>,
+    #[getset(skip)]
+    shadow_name:   Option<FXValue<String>>,
 }
 
 impl FromNestAttr for FXSerdeHelper {
     set_literals! {serde}
 
-    fn for_keyword() -> darling::Result<Self> {
+    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())
     }
 }
 
-impl FXSerdeHelper {
-    pub(crate) fn is_true(&self) -> bool {
+impl FXTriggerHelper for FXSerdeHelper {
+    fn is_true(&self) -> bool {
         !self.off.is_present()
     }
+}
 
+impl FXSerdeHelper {
     pub(crate) fn needs_serialize(&self) -> Option<bool> {
         self.serialize
             .as_ref()
@@ -82,20 +87,33 @@ impl FXSerdeHelper {
         self.default_value.as_ref().map_or(false, |d| d.is_true())
     }
 
-    // pub(crate) fn default_value(&self) -> Option<&String> {
-    //     self.default_value.as_ref().and_then(|d| d.value().as_ref())
-    // }
+    pub(crate) fn default_value(&self) -> Option<&NestedMeta> {
+        if self.has_default() {
+            self.default_value.as_ref().and_then(|d| d.value().as_ref())
+        }
+        else {
+            None
+        }
+    }
+
+    pub(crate) fn default_value_raw(&self) -> Option<&FXDefault<true>> {
+        self.default_value.as_ref()
+    }
+
+    pub(crate) fn shadow_name(&self) -> Option<&String> {
+        self.shadow_name.as_ref().and_then(|sn| sn.value())
+    }
 }
 
 impl FromNestAttr for FXSerdeDefault {
     set_literals! {default, ..1 => value as Lit::Str}
 
-    fn for_keyword() -> darling::Result<Self> {
+    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())
     }
 }
 
-impl FXSerdeDefault {
+impl FXTriggerHelper for FXSerdeDefault {
     fn is_true(&self) -> bool {
         !self.off.is_present()
     }

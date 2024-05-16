@@ -1,3 +1,7 @@
+use super::{
+    FXAccessor, FXAccessorMode, FXAttributes, FXFieldBuilder, FXHelperContainer, FXHelperKind, FXHelperTrait,
+    FXNestingAttr, FXPubMode, FXSetter, FromNestAttr,
+};
 #[cfg(feature = "serde")]
 use crate::helper::FXSerde;
 use crate::{
@@ -6,20 +10,12 @@ use crate::{
     input_receiver::FXInputReceiver,
     util::args::{self, FXSArgs},
 };
+use darling::ast::NestedMeta;
 use delegate::delegate;
 use getset::{CopyGetters, Getters};
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
-use std::{
-    cell::{OnceCell, RefCell},
-    rc::Rc,
-};
-use syn::Meta;
-
-use super::{
-    FXAccessor, FXAccessorMode, FXAttributes, FXFieldBuilder, FXHelperContainer, FXHelperKind, FXHelperTrait,
-    FXNestingAttr, FXPubMode, FXSetter, FromNestAttr,
-};
+use quote::{format_ident, quote, ToTokens};
+use std::cell::{OnceCell, RefCell};
 
 // For FXFieldCtx
 macro_rules! helper_fn_ctx {
@@ -37,104 +33,6 @@ macro_rules! helper_fn_ctx {
     };
 }
 
-// --- State Stack ---
-#[derive(Debug, PartialEq)]
-pub(crate) enum FXGenStage {
-    Builder,
-    BuilderImpl,
-    MainDefaultImpl,
-    MainStruct,
-    MainExtras,
-    #[cfg(feature = "serde")]
-    ShadowStruct,
-}
-
-#[derive(Debug)]
-pub(crate) struct FXStateStack<T>
-where
-    T: Sized + PartialEq,
-{
-    stack: Rc<RefCell<Vec<T>>>,
-}
-
-pub(crate) struct FXSStackGuard<T>
-where
-    T: Sized + PartialEq,
-{
-    stack: Option<Rc<RefCell<Vec<T>>>>,
-    idx:   usize,
-}
-
-impl<T> FXStateStack<T>
-where
-    T: Sized + PartialEq,
-{
-    pub(crate) fn new() -> Self {
-        Self {
-            stack: Rc::new(RefCell::new(vec![])),
-        }
-    }
-
-    #[inline]
-    pub(crate) fn push(&self, val: T) -> FXSStackGuard<T> {
-        FXSStackGuard::new(Rc::clone(&self.stack), val)
-    }
-
-    #[cfg(feature = "serde")]
-    #[inline]
-    pub(crate) fn in_state(&self, val: &T) -> bool {
-        self.stack.borrow().contains(&val)
-    }
-}
-
-impl<T: Sized> FXSStackGuard<T>
-where
-    T: Sized + PartialEq,
-{
-    pub(crate) fn new(stack: Rc<RefCell<Vec<T>>>, val: T) -> Self {
-        let idx = { stack.borrow().len() };
-        stack.borrow_mut().push(val);
-        Self {
-            stack: Some(stack),
-            idx,
-        }
-    }
-
-    pub(crate) fn pop(&mut self) -> Option<T> {
-        if let Some(stack) = self.stack.take() {
-            let mut stack = stack.borrow_mut();
-            if stack.len() > (self.idx + 1) {
-                panic!(
-                    "Attempt to pop while not being the top of the stack: my index is {} but the stack size is {}",
-                    self.idx,
-                    stack.len()
-                );
-            }
-            else if stack.len() <= self.idx {
-                panic!(
-                    "Stack element with index {} does not exist: stack size is {}. Has it been popped already?",
-                    self.idx,
-                    stack.len()
-                );
-            }
-
-            stack.pop()
-        }
-        else {
-            None
-        }
-    }
-}
-
-impl<T> Drop for FXSStackGuard<T>
-where
-    T: Sized + PartialEq,
-{
-    fn drop(&mut self) {
-        let _ = self.pop();
-    }
-}
-
 // --- Contexts ---
 
 #[derive(Debug, Getters, CopyGetters)]
@@ -142,22 +40,29 @@ pub(crate) struct FXCodeGenCtx {
     errors:               RefCell<OnceCell<darling::error::Accumulator>>,
     needs_builder_struct: RefCell<Option<bool>>,
     tokens:               RefCell<OnceCell<TokenStream>>,
+    #[cfg(feature = "serde")]
+    shadow_var_ident:     OnceCell<syn::Ident>,
+    #[cfg(feature = "serde")]
+    me_var_ident:         OnceCell<syn::Ident>,
     #[getset(get = "pub")]
     args:                 FXSArgs,
     #[getset(get = "pub")]
     input:                FXInputReceiver,
-    #[getset(get = "pub")]
-    state_stack:          FXStateStack<FXGenStage>,
+    extra_attrs:          RefCell<Vec<TokenStream>>,
+    unique_id:            RefCell<u32>,
 }
 
 #[derive(Debug)]
 pub(crate) struct FXFieldCtx<'f> {
-    field:       &'f FXField,
-    codegen_ctx: &'f FXCodeGenCtx,
-    ty_tok:      OnceCell<TokenStream>,
-    ty_wrapped:  OnceCell<TokenStream>,
-    ident:       OnceCell<Option<&'f syn::Ident>>,
-    ident_tok:   OnceCell<TokenStream>,
+    field:            &'f FXField,
+    codegen_ctx:      &'f FXCodeGenCtx,
+    ty_tok:           OnceCell<TokenStream>,
+    ty_wrapped:       OnceCell<TokenStream>,
+    ident:            OnceCell<darling::Result<&'f syn::Ident>>,
+    ident_tok:        OnceCell<TokenStream>,
+    #[cfg(feature = "serde")]
+    default_fn_ident: OnceCell<darling::Result<syn::Ident>>,
+    extra_attrs:      RefCell<Vec<TokenStream>>,
 }
 
 impl FXCodeGenCtx {
@@ -167,8 +72,13 @@ impl FXCodeGenCtx {
             args,
             errors: RefCell::new(OnceCell::new()),
             tokens: RefCell::new(OnceCell::new()),
+            #[cfg(feature = "serde")]
+            me_var_ident: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            shadow_var_ident: OnceCell::new(),
             needs_builder_struct: RefCell::new(None),
-            state_stack: FXStateStack::new(),
+            extra_attrs: RefCell::new(vec![]),
+            unique_id: RefCell::new(0),
         }
     }
 
@@ -176,17 +86,6 @@ impl FXCodeGenCtx {
         let mut errors = self.errors.borrow_mut();
         errors.get_or_init(|| darling::Error::accumulator());
         errors.get_mut().unwrap().push(err);
-    }
-
-    #[inline]
-    pub fn push_state(&self, state: FXGenStage) -> FXSStackGuard<FXGenStage> {
-        self.state_stack.push(state)
-    }
-
-    #[cfg(feature = "serde")]
-    #[inline]
-    pub fn in_state(&self, state: FXGenStage) -> bool {
-        self.state_stack.in_state(&state)
     }
 
     pub fn input_ident(&self) -> &syn::Ident {
@@ -228,7 +127,51 @@ impl FXCodeGenCtx {
     #[cfg(feature = "serde")]
     #[inline]
     pub fn shadow_ident(&self) -> syn::Ident {
-        quote::format_ident!("__{}Shadow", self.input_ident())
+        if let Some(custom_name) = self.args.serde().as_ref().and_then(|s| s.shadow_name()) {
+            quote::format_ident!("{}", custom_name)
+        }
+        else {
+            quote::format_ident!("__{}Shadow", self.input_ident())
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    #[inline]
+    // How to reference shadow instance in an associated function
+    pub fn shadow_var_ident(&self) -> &syn::Ident {
+        self.shadow_var_ident.get_or_init(|| format_ident!("__shadow"))
+    }
+
+    // How to reference struct instance in an associated function
+    #[cfg(feature = "serde")]
+    pub fn me_var_ident(&self) -> &syn::Ident {
+        self.me_var_ident.get_or_init(|| format_ident!("__me"))
+    }
+
+    #[allow(dead_code)]
+    pub fn add_attr<ATTR: Into<TokenStream>>(&self, attr: ATTR) {
+        self.extra_attrs.borrow_mut().push(attr.into());
+    }
+
+    pub fn all_attrs(&self) -> Vec<TokenStream> {
+        self.input
+            .attrs()
+            .iter()
+            .map(|a| a.to_token_stream())
+            .chain(self.extra_attrs.borrow().iter().map(|a| a.clone()))
+            .collect()
+    }
+
+    #[allow(dead_code)]
+    pub fn unique_ident_pfx(&self, prefix: &str) -> syn::Ident {
+        let new_count = *self.unique_id.borrow() + 1;
+        let _ = self.unique_id.replace(new_count);
+        format_ident!("{}_{}", prefix, new_count)
+    }
+
+    #[allow(dead_code)]
+    pub fn unique_ident(&self) -> syn::Ident {
+        self.unique_ident_pfx(&format!("__{}_fxsym", self.input_ident()))
     }
 }
 
@@ -242,7 +185,7 @@ impl<'f> FXFieldCtx<'f> {
             pub fn ty(&self) -> &syn::Type;
             pub fn attrs(&self) -> &Vec<syn::Attribute>;
             pub fn lazy(&self) -> &Option<FXHelper>;
-            pub fn base_name(&self) -> &Option<String>;
+            pub fn base_name(&self) -> Option<&String>;
             pub fn accessor(&self) -> &Option<FXAccessor>;
             pub fn accessor_mut(&self) -> &Option<FXHelper>;
             pub fn setter(&self) -> &Option<FXSetter>;
@@ -253,7 +196,6 @@ impl<'f> FXFieldCtx<'f> {
             pub fn predicate(&self) -> &Option<FXHelper>;
             #[cfg(feature = "serde")]
             pub fn serde(&self) -> &Option<FXSerde>;
-            pub fn default_value(&self) -> &Option<Meta>;
             pub fn builder_attributes(&self) -> Option<&FXAttributes>;
             pub fn builder_fn_attributes(&self) -> Option<&FXAttributes>;
             pub fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait>;
@@ -272,6 +214,9 @@ impl<'f> FXFieldCtx<'f> {
             ident: OnceCell::new(),
             ident_tok: OnceCell::new(),
             ty_tok: OnceCell::new(),
+            extra_attrs: RefCell::new(vec![]),
+            #[cfg(feature = "serde")]
+            default_fn_ident: OnceCell::new(),
         }
     }
 
@@ -394,19 +339,20 @@ impl<'f> FXFieldCtx<'f> {
             .unwrap_or(FXAccessorMode::None)
     }
 
-    #[allow(dead_code)]
-    pub fn attributes<'a>(
-        &'a self,
-        helper: Option<&'a FXNestingAttr<impl FXHelperTrait + FromNestAttr>>,
-    ) -> Option<&'a FXAttributes> {
-        helper.and_then(|h| h.attributes())
-    }
-
     pub fn attributes_fn<'a>(
         &'a self,
         helper: Option<&'a FXNestingAttr<impl FXHelperTrait + FromNestAttr>>,
     ) -> Option<&'a FXAttributes> {
         helper.and_then(|h| h.attributes_fn().or_else(|| self.field.attributes_fn().as_ref()))
+    }
+
+    pub fn default_value(&self) -> Option<&NestedMeta> {
+        if self.field.has_default_value() {
+            self.field.default_value().as_ref().and_then(|dv| dv.value().as_ref())
+        }
+        else {
+            None
+        }
     }
 
     #[inline]
@@ -451,15 +397,16 @@ impl<'f> FXFieldCtx<'f> {
     }
 
     #[inline]
-    pub fn ident(&self) -> Option<&'f syn::Ident> {
-        self.ident.get_or_init(|| self.field.ident().as_ref()).clone()
+    pub fn ident(&self) -> darling::Result<&syn::Ident> {
+        self.ident.get_or_init(|| self.field.ident()).clone()
     }
 
     #[inline]
     pub fn ident_tok(&self) -> &TokenStream {
-        self.ident_tok.get_or_init(|| match self.ident() {
-            Some(ident) => ident.to_token_stream(),
-            None => TokenStream::new(),
+        self.ident_tok.get_or_init(|| {
+            self.ident()
+                .as_ref()
+                .map_or_else(|err| err.clone().write_errors(), |i| i.to_token_stream())
         })
     }
 
@@ -475,15 +422,40 @@ impl<'f> FXFieldCtx<'f> {
         }
     }
 
+    #[cfg(feature = "serde")]
+    pub fn default_fn_ident<'s>(&'s self) -> darling::Result<&'s syn::Ident> {
+        self.default_fn_ident
+            .get_or_init(|| {
+                let ctx = self.codegen_ctx();
+                let field_ident = self.ident()?;
+                let struct_ident = ctx.input_ident();
+                Ok(ctx.unique_ident_pfx(&format!("__{}_{}_default", struct_ident, field_ident)))
+            })
+            .as_ref()
+            .map_err(
+                // Normally, cloning of the error would only take place once since the upstream would give up and won't try
+                // requesting the ident again.
+                |e| e.clone(),
+            )
+    }
+
     pub fn helper_base_name(&self) -> Option<String> {
         if let Some(base_name) = self.base_name() {
             Some(base_name.clone())
         }
-        else if let Some(ident) = self.field.ident() {
+        else if let Ok(ident) = self.field.ident() {
             Some(ident.to_string())
         }
         else {
             None
         }
+    }
+
+    pub fn all_attrs(&self) -> Vec<TokenStream> {
+        self.attrs()
+            .iter()
+            .map(|a| a.to_token_stream())
+            .chain(self.extra_attrs.borrow().iter().map(|a| a.clone()))
+            .collect()
     }
 }

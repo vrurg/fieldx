@@ -5,16 +5,16 @@ use fieldx::fxstruct;
 struct NonSync {
     #[fieldx(lazy, clearer, predicate)]
     foo:    String,
-    #[fieldx(lazy, private, predicate, clearer, set, default = 13)]
+    #[fieldx(lazy, private, predicate, clearer, set, default(13))]
     bar:    i32,
-    #[fieldx(default = 3.1415926)]
+    #[fieldx(default(3.1415926))]
     pub pi: f32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(clearer, predicate, set, default = "bazzification")]
+    #[fieldx(clearer, predicate, set, default("bazzification"))]
     baz: String,
 
-    #[fieldx(lazy, clearer, rename = "piquant")]
+    #[fieldx(lazy, clearer, rename("piquant"), default(off, "this won't be used"))]
     fubar: String,
 }
 

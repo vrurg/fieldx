@@ -38,7 +38,7 @@ impl<const BOOL_ONLY: bool> FXAccessorHelper<BOOL_ONLY> {
 }
 
 impl<const BOOL_ONLY: bool> FromNestAttr for FXAccessorHelper<BOOL_ONLY> {
-    fn for_keyword() -> darling::Result<Self> {
+    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())
     }
 

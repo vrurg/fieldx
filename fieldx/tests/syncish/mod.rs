@@ -5,17 +5,15 @@ use parking_lot::Mutex;
 #[derive(Debug)]
 pub struct Foo {
     #[fieldx(lazy, writer, clearer, predicate)]
-    foo:    String,
+    foo: String,
     #[fieldx(lazy, writer, predicate, clearer, set)]
-    bar:    i32,
-    #[fieldx(default = 3.1415926)]
-    pub pi: f32,
+    bar: i32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(writer, clearer, predicate, set, default = "bazzification")]
+    #[fieldx(writer, clearer, predicate, set, default("bazzification"))]
     baz: String,
 
-    #[fieldx(lazy, clearer)]
+    #[fieldx(lazy, clearer, default("fufubarik!"))]
     fubar: String,
 
     bar_builds: Mutex<i32>,
