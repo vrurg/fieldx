@@ -8,7 +8,7 @@ use crate::{
     },
     util::{needs_helper, validate_exclusives},
 };
-use darling::FromField;
+use darling::{util::Flag, FromField};
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote_spanned, ToTokens};
@@ -24,6 +24,8 @@ pub(crate) struct FXFieldReceiver {
     vis:   syn::Visibility,
     ty:    syn::Type,
     attrs: Vec<syn::Attribute>,
+
+    skip: Flag,
 
     // Default method attributes for this field.
     attributes_fn: Option<FXAttributes>,
@@ -114,8 +116,19 @@ impl FXFieldReceiver {
         self.validate_exclusives().map_err(|err| err.with_span(self.span()))
     }
 
-    fn flag_set(helper: &Option<FXNestingAttr<impl FXHelperTrait + FromNestAttr>>) -> Option<bool> {
-        helper.as_ref().map(|h| h.is_true())
+    // #[inline]
+    // fn flag_set(helper: &Option<FXNestingAttr<impl FXHelperTrait + FromNestAttr>>) -> Option<bool> {
+    //     helper.as_ref().map(|h| h.is_true())
+    // }
+
+    #[inline]
+    fn unless_skip(&self, helper: &Option<FXNestingAttr<impl FXHelperTrait + FromNestAttr>>) -> Option<bool> {
+        if self.is_skipped() {
+            Some(false)
+        }
+        else {
+            helper.as_ref().map(|h| h.is_true())
+        }
     }
 
     pub fn public_mode(&self) -> Option<FXPubMode> {
@@ -144,7 +157,7 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn is_lazy(&self) -> Option<bool> {
-        Self::flag_set(&self.lazy)
+        self.unless_skip(&self.lazy)
     }
 
     #[inline]
@@ -178,6 +191,11 @@ impl FXFieldReceiver {
     #[inline]
     pub fn is_accessor_copy(&self) -> Option<bool> {
         self.accessor_mode().map(|m| m == FXAccessorMode::Copy)
+    }
+
+    #[inline]
+    pub fn is_skipped(&self) -> bool {
+        self.skip.is_present()
     }
 
     #[cfg(feature = "serde")]

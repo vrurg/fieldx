@@ -179,6 +179,7 @@ impl<'f> FXFieldCtx<'f> {
     delegate! {
         to self.field {
             pub fn is_ignorable(&self) -> bool;
+            pub fn is_skipped(&self) -> bool;
             pub fn has_default_value(&self) -> bool;
             pub fn span(&self) -> &Span;
             pub fn vis(&self) -> &syn::Visibility;
@@ -304,12 +305,12 @@ impl<'f> FXFieldCtx<'f> {
     }
 
     pub fn is_optional(&self) -> bool {
-        !self.is_lazy() && (self.needs_clearer() || self.needs_predicate())
+        !self.is_skipped() && (!self.is_lazy() && (self.needs_clearer() || self.needs_predicate()))
     }
 
     #[cfg(feature = "serde")]
     pub fn is_serde(&self) -> bool {
-        self.codegen_ctx.args().is_serde() && self.field.is_serde().unwrap_or(true)
+        !self.is_skipped() && (self.codegen_ctx.args().is_serde() && self.field.is_serde().unwrap_or(true))
     }
 
     pub fn accessor_mode(&self) -> FXAccessorMode {
@@ -343,7 +344,9 @@ impl<'f> FXFieldCtx<'f> {
         &'a self,
         helper: Option<&'a FXNestingAttr<impl FXHelperTrait + FromNestAttr>>,
     ) -> Option<&'a FXAttributes> {
-        helper.and_then(|h| h.attributes_fn().or_else(|| self.field.attributes_fn().as_ref()))
+        helper
+            .and_then(|h| h.attributes_fn())
+            .or_else(|| self.field.attributes_fn().as_ref())
     }
 
     pub fn default_value(&self) -> Option<&NestedMeta> {

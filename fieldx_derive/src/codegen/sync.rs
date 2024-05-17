@@ -166,20 +166,21 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let span = fctx.ty().span();
             let ident = self.ctx().input_ident();
             let generic_params = self.generic_params();
+            let mut ty_toks = ty_tok.clone();
 
-            if fctx.is_lazy() {
-                let proxy_type = self.field_proxy_type(fctx);
-                quote_spanned! [span=> ::fieldx::#proxy_type<#ident #generic_params, #ty_tok>]
+            if !fctx.is_skipped() {
+                if fctx.is_lazy() {
+                    let proxy_type = self.field_proxy_type(fctx);
+                    ty_toks = quote_spanned! [span=> ::fieldx::#proxy_type<#ident #generic_params, #ty_tok>];
+                }
+                else if fctx.is_optional() {
+                    ty_toks = quote_spanned! [span=> ::fieldx::FXRwLock<Option<#ty_tok>>];
+                }
+                else if fctx.needs_reader() || fctx.needs_writer() {
+                    ty_toks = quote_spanned! [span=> ::fieldx::FXRwLock<#ty_tok>]
+                }
             }
-            else if fctx.is_optional() {
-                quote_spanned! [span=> ::fieldx::FXRwLock<Option<#ty_tok>>]
-            }
-            else if fctx.needs_reader() || fctx.needs_writer() {
-                quote_spanned! [span=> ::fieldx::FXRwLock<#ty_tok>]
-            }
-            else {
-                ty_tok.clone()
-            }
+            ty_toks
         })
     }
 
@@ -565,20 +566,6 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             }),
         )
     }
-
-    // fn builder_return_type(&self) -> TokenStream {
-    //     let builder_ident = self.ctx().input_ident();
-    //     let generic_params = self.generic_params();
-    //     quote![#builder_ident #generic_params]
-    // }
-
-    // #[cfg(feature = "serde")]
-    // fn field_extras(&self, fctx: &FXFieldCtx) {
-    //     if fctx.is_serde() {
-    //         self.shadow_field(fctx);
-    //         self.shadow_field_default(fctx);
-    //     }
-    // }
 
     fn struct_extras(&'f self) {
         let ctx = self.ctx();

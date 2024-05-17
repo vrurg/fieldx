@@ -333,17 +333,19 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
     }
 
     fn field_methods(&self, fctx: &FXFieldCtx<'f>) -> darling::Result<()> {
-        self.add_method_decl(self.field_accessor(&fctx)?);
-        self.add_method_decl(self.field_accessor_mut(&fctx)?);
-        self.add_method_decl(self.field_reader(&fctx)?);
-        self.add_method_decl(self.field_writer(&fctx)?);
-        self.add_method_decl(self.field_setter(&fctx)?);
-        self.add_method_decl(self.field_clearer(&fctx)?);
-        self.add_method_decl(self.field_predicate(&fctx)?);
-        if self.needs_builder_struct() {
-            self.add_builder_decl(self.field_builder(&fctx)?);
-            self.add_builder_field_decl(self.field_builder_field(&fctx)?);
-            self.add_builder_field_ident(fctx.ident()?.clone());
+        if !fctx.is_skipped() {
+            self.add_method_decl(self.field_accessor(&fctx)?);
+            self.add_method_decl(self.field_accessor_mut(&fctx)?);
+            self.add_method_decl(self.field_reader(&fctx)?);
+            self.add_method_decl(self.field_writer(&fctx)?);
+            self.add_method_decl(self.field_setter(&fctx)?);
+            self.add_method_decl(self.field_clearer(&fctx)?);
+            self.add_method_decl(self.field_predicate(&fctx)?);
+            if self.needs_builder_struct() {
+                self.add_builder_decl(self.field_builder(&fctx)?);
+                self.add_builder_field_decl(self.field_builder_field(&fctx)?);
+                self.add_builder_field_ident(fctx.ident()?.clone());
+            }
         }
 
         Ok(())

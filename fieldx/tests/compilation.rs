@@ -65,6 +65,7 @@ impl UncompEnv {
 
     fn version_group() -> String {
         let version = rustc_version::version().expect("Rust Compiler Version");
+        let version = Version::new(version.major, version.minor, version.patch);
         eprintln!("Rust Compiler Version: {}", version);
         (if version < Version::new(1, 78, 0) {
             "1.77"
