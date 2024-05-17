@@ -13,12 +13,14 @@ run_task = { name = ["test_1_77", "test_1_78", "test_1_79", "test_nightly"] }
 
 [tasks.test-default]
 description = "Test with only the default features"
+toolchain = "${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN}"
 category = "Test"
 command = "cargo"
 args = ["test", "--workspace"]
 
 [tasks.test-serde]
 description = "Test with 'serde' feature"
+toolchain = "${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN}"
 category = "Test"
 command = "cargo"
 args = ["test", "--workspace", "--features", "serde"]
@@ -41,4 +43,4 @@ run_task = "test"
 [tasks.test_nightly]
 description = "TOOLCHAIN nightly"
 env = { CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN = "nightly" }
-run_task = "test-default"
+run_task = "test"
