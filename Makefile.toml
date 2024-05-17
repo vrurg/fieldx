@@ -1,6 +1,16 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
+[tasks.test]
+clear = true
+description = "Extensive testing"
+category = "Test"
+dependencies = ["test-default", "test-serde"]
+
+[tasks.test-versions]
+description = "TESTING SUPPORTED Rust VERSIONS"
+run_task = { name = ["test_1_77", "test_1_78", "test_1_79", "test_nightly"] }
+
 [tasks.test-default]
 description = "Test with only the default features"
 category = "Test"
@@ -13,7 +23,22 @@ category = "Test"
 command = "cargo"
 args = ["test", "--workspace", "--features", "serde"]
 
-[tasks.test]
-description = "Extensive testing"
-category = "Test"
-dependencies = ["test-default", "test-serde"]
+[tasks.test_1_77]
+description = "TOOLCHAIN 1.77"
+env = { CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN = "1.77" }
+run_task = "test"
+
+[tasks.test_1_78]
+description = "TOOLCHAIN 1.78"
+env = { CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN = "1.78" }
+run_task = "test"
+
+[tasks.test_1_79]
+description = "TOOLCHAIN beta"
+env = { CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN = "beta" }
+run_task = "test"
+
+[tasks.test_nightly]
+description = "TOOLCHAIN nightly"
+env = { CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN = "nightly" }
+run_task = "test-default"

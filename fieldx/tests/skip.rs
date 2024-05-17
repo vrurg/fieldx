@@ -3,7 +3,7 @@ use fieldx::fxstruct;
 #[fxstruct(sync, lazy, get)]
 struct FooS {
     #[fieldx(attributes_fn(allow(dead_code)))]
-    bar: String,
+    bar:        String,
     #[fieldx(skip, default(3.1415926))]
     bare_field: f64,
 }
@@ -11,18 +11,22 @@ struct FooS {
 #[fxstruct(lazy, get)]
 struct FooN {
     #[fieldx(attributes_fn(allow(dead_code)))]
-    bar: String,
+    bar:        String,
     // Only the `default` to be respected here
     #[fieldx(skip, default(321.654), lazy, get, set, predicate, clearer)]
     bare_field: f64,
 }
 
 impl FooS {
-    fn build_bar(&self) -> String { "test sync".to_string() }
+    fn build_bar(&self) -> String {
+        "test sync".to_string()
+    }
 }
 
 impl FooN {
-    fn build_bar(&self) -> String { "test nonsync".to_string() }
+    fn build_bar(&self) -> String {
+        "test nonsync".to_string()
+    }
 }
 
 #[test]

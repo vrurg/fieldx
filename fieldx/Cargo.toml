@@ -18,8 +18,8 @@ trybuild = { workspace = true }
 parking_lot = { workspace = true }
 num_cpus = { workspace = true }
 crossbeam = { workspace = true }
-rustc_version = "0.4"
-serde_json = "1.0"
+serde_json = { workspace = true }
+rustc_version = { workspace = true }
 
 [features]
 diagnostics = ["fieldx_derive/diagnostics"]
