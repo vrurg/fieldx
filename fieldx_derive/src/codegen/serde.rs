@@ -112,24 +112,30 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
                 if serde_helper.has_default() {
                     // Safe because of has_default()
                     let default_value = serde_helper.default_value_raw().unwrap();
+                    let span = default_value.orig().span();
 
-                    let serde_default_str: String = if default_value.is_str() {
-                        default_value.try_into()?
+                    if default_value.has_value() {
+                        let serde_default_str: String = if default_value.is_str() {
+                            default_value.try_into()?
+                        }
+                        else {
+                            let struct_ident = ctx.input_ident();
+                            let (_, generics, _) = ctx.input().generics().split_for_impl();
+                            let default_fn_ident = self.serde_field_default_fn(fctx)?;
+
+                            format!(
+                                "{}{}::{}",
+                                struct_ident,
+                                generics.as_turbofish().to_token_stream(),
+                                default_fn_ident
+                            )
+                        };
+
+                        default_arg = Some(quote_spanned![span=> default = #serde_default_str]);
                     }
                     else {
-                        let struct_ident = ctx.input_ident();
-                        let (_, generics, _) = ctx.input().generics().split_for_impl();
-                        let default_fn_ident = self.serde_field_default_fn(fctx)?;
-
-                        format!(
-                            "{}{}::{}",
-                            struct_ident,
-                            generics.as_turbofish().to_token_stream(),
-                            default_fn_ident
-                        )
-                    };
-
-                    default_arg = Some(quote![default = #serde_default_str]);
+                        default_arg = Some(quote_spanned![span=> default]);
+                    }
                 }
             }
 
@@ -219,19 +225,24 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
                 if serde_helper.has_default() {
                     // Safe because of has_default()
                     let default_value = serde_helper.default_value_raw().unwrap();
+                    let span = default_value.span().unwrap_or_else(|| Span::call_site());
 
-                    let serde_default_str: String = if default_value.is_str() {
-                        default_value.try_into()?
+                    if default_value.has_value() {
+                        let serde_default_str: String = if default_value.is_str() {
+                            default_value.try_into()?
+                        }
+                        else {
+                            let struct_ident = ctx.input_ident();
+                            let default_fn_ident = self.serde_struct_default_fn()?;
+
+                            format!("{}::{}", struct_ident, default_fn_ident)
+                        };
+
+                        attrs.push(quote_spanned![span=> #[serde(default = #serde_default_str)] ]);
                     }
                     else {
-                        let struct_ident = ctx.input_ident();
-                        let default_fn_ident = self.serde_struct_default_fn()?;
-
-                        format!("{}::{}", struct_ident, default_fn_ident)
-                    };
-
-                    let span = default_value.span().unwrap_or_else(|| Span::call_site());
-                    attrs.push(quote_spanned![span=> #[serde(default = #serde_default_str)] ]);
+                        attrs.push(quote_spanned![span=> #[serde(default)] ]);
+                    }
                 }
             }
 

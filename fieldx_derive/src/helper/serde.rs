@@ -87,6 +87,12 @@ impl FXSerdeHelper {
         self.default_value.as_ref().map_or(false, |d| d.is_true())
     }
 
+    // pub(crate) fn has_default_value(&self) -> bool {
+    //     self.default_value
+    //         .as_ref()
+    //         .map_or(false, |d| d.is_true() && d.value().is_some())
+    // }
+
     pub(crate) fn default_value(&self) -> Option<&NestedMeta> {
         if self.has_default() {
             self.default_value.as_ref().and_then(|d| d.value().as_ref())

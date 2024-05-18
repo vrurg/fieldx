@@ -15,7 +15,7 @@ struct Baz {
 
 #[fxstruct(
     builder(attributes_impl(allow(dead_code))),
-    serde(default(Self::serde_default()), shadow_name("FooDup"))
+    serde(default("FooDup::default"), shadow_name("FooDup"))
 )]
 #[derive(Clone, Debug)]
 struct Foo {
@@ -69,13 +69,6 @@ impl Foo {
 
     fn init_count() -> i32 {
         13
-    }
-
-    fn serde_default() -> FooDup {
-        FooDup {
-            pi: Some(-3.14),
-            ..Default::default()
-        }
     }
 }
 
@@ -135,11 +128,7 @@ fn basics() {
     // eprintln!("{:#?}", foo_de);
 
     assert_eq!(foo_de.opt(), Some(31415926), "an optional u64 field - deserialized");
-    assert_eq!(
-        foo_de.pi(),
-        -3.14,
-        "non-deserializable field is set from custom shadow struct defaults"
-    );
+    assert_eq!(foo_de.pi(), 0f64);
     assert_eq!(
         foo_de.simple, -1122.3344,
         "a plain field gets its default after deserialization if missing from JSON"

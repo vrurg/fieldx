@@ -16,7 +16,7 @@ struct Baz {
 #[fxstruct(
     sync,
     builder(attributes_impl(allow(dead_code))),
-    serde(default("FooDup::default"), shadow_name("FooDup"))
+    serde(default, shadow_name("FooDup"))
 )]
 #[derive(Clone, Debug)]
 struct Foo {

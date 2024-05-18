@@ -24,6 +24,11 @@ impl<const OPTIONAL: bool> FXDefault<OPTIONAL> {
             false
         }
     }
+
+    #[allow(dead_code)]
+    pub fn has_value(&self) -> bool {
+        self.value.is_some()
+    }
 }
 
 impl<const OPTIONAL: bool> FromMeta for FXDefault<OPTIONAL> {
