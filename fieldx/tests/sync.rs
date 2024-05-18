@@ -136,9 +136,13 @@ fn threaded() {
             thandle.join().expect("thread join failed");
         }
         // There is a chance for two or more consecutive clears to take place before a build is invoked.
+        let clear_count = cleared.load(Ordering::SeqCst);
+        let build_count = sync.bar_builds();
         assert!(
-            cleared.load(Ordering::SeqCst) >= sync.bar_builds(),
-            "there were no more builds than clears"
+            clear_count >= build_count,
+            "there were no more builds than clears ({} vs. {})",
+            clear_count,
+            build_count
         );
     })
     .unwrap();
