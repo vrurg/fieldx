@@ -1,4 +1,4 @@
-use super::{FXTriggerHelper, FromNestAttr};
+use super::{FXFrom, FXTriggerHelper, FromNestAttr};
 use darling::{util::Flag, FromMeta};
 use syn::Lit;
 
@@ -50,6 +50,15 @@ impl<T, const BOOL_ONLY: bool> FXTriggerHelper for FXValueArg<T, BOOL_ONLY> {
     }
 }
 
+impl<T, const BOOL_ONLY: bool> From<T> for FXValueArg<T, BOOL_ONLY> {
+    fn from(value: T) -> Self {
+        Self {
+            off:   Flag::default(),
+            value: Some(value),
+        }
+    }
+}
+
 macro_rules! from_nest_attr_num {
     ($from:path => $ty:ty) => {
         impl crate::helper::FromNestAttr for FXValueArg<$ty, false> {
@@ -79,6 +88,24 @@ impl FromNestAttr for FXValueArg<(), true> {
 
     fn for_keyword(path: &syn::Path) -> darling::Result<Self> {
         Self::as_keyword(path)
+    }
+}
+
+impl<T, const BOOL_ONLY: bool> FXFrom<T> for FXValueArg<T, BOOL_ONLY> {
+    fn fx_from(value: T) -> Self {
+        Self {
+            value: Some(value),
+            off:   Flag::default(),
+        }
+    }
+}
+
+impl<T, const BOOL_ONLY: bool> FXFrom<Option<T>> for FXValueArg<T, BOOL_ONLY> {
+    fn fx_from(value: Option<T>) -> Self {
+        Self {
+            value,
+            off: Flag::default(),
+        }
     }
 }
 

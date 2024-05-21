@@ -1,4 +1,4 @@
-use crate::helper::with_origin::FXOrig;
+use crate::helper::{with_origin::FXOrig, FXFrom};
 use darling::{ast::NestedMeta, FromMeta};
 use getset::Getters;
 use proc_macro2::TokenStream;
@@ -22,20 +22,23 @@ pub(crate) struct FXNestingAttr<T: FromNestAttr> {
     orig:  Option<Meta>,
 }
 
-impl<T: FromNestAttr> FXOrig<syn::Meta> for FXNestingAttr<T> {
-    fn orig(&self) -> Option<&syn::Meta> {
-        self.orig.as_ref()
-    }
-}
-
 impl<T: FromNestAttr> FXNestingAttr<T> {
+    #[inline]
     pub(crate) fn new(inner: T, orig: Option<Meta>) -> Self {
         Self { inner, orig }
     }
 
+    #[inline]
     pub(crate) fn set_orig(mut self, orig: Meta) -> Self {
         self.orig = Some(orig);
         self
+    }
+}
+
+impl<T: FromNestAttr> FXOrig<syn::Meta> for FXNestingAttr<T> {
+    #[inline]
+    fn orig(&self) -> Option<&syn::Meta> {
+        self.orig.as_ref()
     }
 }
 
@@ -86,12 +89,14 @@ impl<T: FromNestAttr> FromMeta for FXNestingAttr<T> {
 impl<T: FromNestAttr> Deref for FXNestingAttr<T> {
     type Target = T;
 
+    #[inline]
     fn deref(&self) -> &T {
         &self.inner
     }
 }
 
 impl<T: FromNestAttr> DerefMut for FXNestingAttr<T> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
@@ -101,21 +106,50 @@ impl<T: FromNestAttr> AsRef<T> for FXNestingAttr<T>
 where
     <FXNestingAttr<T> as Deref>::Target: AsRef<T>,
 {
+    #[inline]
     fn as_ref(&self) -> &T {
         &self.inner
     }
 }
 
 impl<T: FromNestAttr> AsMut<T> for FXNestingAttr<T> {
+    #[inline]
     fn as_mut(&mut self) -> &mut T {
         &mut self.inner
     }
 }
 
 impl<T: FromNestAttr> ToTokens for FXNestingAttr<T> {
+    #[inline]
     fn to_tokens(&self, tokens: &mut TokenStream) {
         if let Some(ref orig) = self.orig {
             orig.to_tokens(tokens);
         }
+    }
+}
+
+impl<T, U> FXFrom<U> for FXNestingAttr<T>
+where
+    T: FXFrom<U> + FromNestAttr,
+{
+    #[inline]
+    fn fx_from(value: U) -> Self {
+        Self {
+            inner: T::fx_from(value),
+            orig:  None,
+        }
+    }
+}
+
+impl<T, U> FXFrom<U> for Option<FXNestingAttr<T>>
+where
+    T: FXFrom<U> + FromNestAttr,
+{
+    #[inline]
+    fn fx_from(value: U) -> Self {
+        Some(FXNestingAttr {
+            inner: T::fx_from(value),
+            orig:  None,
+        })
     }
 }

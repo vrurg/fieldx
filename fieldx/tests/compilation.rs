@@ -1,14 +1,15 @@
 use rustc_version::Version;
-use std::{fs, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 use trybuild;
 
 struct UncompEnv {
-    stderrs: Vec<PathBuf>,
+    // .0 is a path of .stderr under the version subdir, .1 is the one used for testing
+    stderrs: Vec<(PathBuf, PathBuf)>,
 }
 
 impl UncompEnv {
     fn new() -> Self {
-        let mut stderrs: Vec<PathBuf> = vec![];
+        let mut stderrs: Vec<(PathBuf, PathBuf)> = vec![];
         // let test_path = PathBuf::from(format!("{}/", env!("CARGO_MANIFEST_DIR")));
         let base_dir = env!("CARGO_MANIFEST_DIR");
         stderrs.append(&mut Self::collect_stderrs(format!("{}/tests/uncompilable", base_dir)));
@@ -21,7 +22,7 @@ impl UncompEnv {
         Self { stderrs }
     }
 
-    fn collect_stderrs(from: String) -> Vec<PathBuf> {
+    fn collect_stderrs(from: String) -> Vec<(PathBuf, PathBuf)> {
         let dest_dir = PathBuf::from(&from);
         let from_dir = PathBuf::from(format!("{}/{}", from, Self::version_group()));
 
@@ -33,7 +34,7 @@ impl UncompEnv {
             panic!("'{}' is not a directory", from_dir.display());
         }
 
-        let mut stderrs: Vec<PathBuf> = vec![];
+        let mut stderrs: Vec<(PathBuf, PathBuf)> = vec![];
         for entry in std::fs::read_dir(&from_dir).expect(&format!("Failed to read '{}' directory", from_dir.display()))
         {
             let fname = entry
@@ -56,7 +57,7 @@ impl UncompEnv {
                     src_stderr.display(),
                     dest_stderr.display()
                 ));
-                stderrs.push(dest_stderr);
+                stderrs.push((src_stderr, dest_stderr));
             }
         }
 
@@ -86,15 +87,30 @@ impl UncompEnv {
 impl Drop for UncompEnv {
     fn drop(&mut self) {
         let mut with_failures = false;
-        for stderr in self.stderrs.iter() {
-            eprintln!("- {}", stderr.display());
+        for (ref ver_stderr, ref stderr) in self.stderrs.iter() {
+            if let Ok(try_build) = env::var("TRYBUILD") {
+                if try_build == "overwrite" {
+                    eprintln!("* Updating {}", ver_stderr.display());
+                    if let Err(io_err) = fs::copy(stderr, ver_stderr) {
+                        eprintln!(
+                            "!!! Failed to copy '{}' to '{}': {}",
+                            stderr.display(),
+                            ver_stderr.display(),
+                            io_err
+                        );
+                        with_failures = true;
+                    }
+                }
+            }
+
+            eprintln!("- Removing {}", stderr.display());
             if fs::remove_file(stderr).is_err() {
                 eprintln!("!!! Failed to remove '{}'", stderr.display());
                 with_failures = true;
             }
         }
         if with_failures {
-            panic!("Failed to remove some stderr files");
+            panic!("Failed to update or remove some stderr files");
         }
     }
 }

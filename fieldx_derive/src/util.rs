@@ -86,7 +86,7 @@ macro_rules! set_literals {
                 if let Some(lit) = iter.next() {
                     if let $ty(lit_value) = lit {
                         // XXX Well, this only works for a single literal...
-                        self.$field = lit_value.value().into();
+                        self.$field = lit_value.value().fx_into();
                     }
                     else {
                         return Err(

@@ -6,15 +6,6 @@ use darling::{
     FromMeta,
 };
 use getset::Getters;
-use syn::Lit;
-
-#[derive(FromMeta, Clone, Default, Debug, Getters)]
-#[darling(default)]
-pub(crate) struct FXSerdeDefault {
-    off:   Flag,
-    #[getset(get = "pub")]
-    value: Option<String>,
-}
 
 #[derive(Default, Debug, Getters, FromMeta, Clone)]
 #[getset(get = "pub(crate)")]
@@ -108,19 +99,5 @@ impl FXSerdeHelper {
 
     pub(crate) fn shadow_name(&self) -> Option<&String> {
         self.shadow_name.as_ref().and_then(|sn| sn.value())
-    }
-}
-
-impl FromNestAttr for FXSerdeDefault {
-    set_literals! {default, ..1 => value as Lit::Str}
-
-    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
-        Ok(Self::default())
-    }
-}
-
-impl FXTriggerHelper for FXSerdeDefault {
-    fn is_true(&self) -> bool {
-        !self.off.is_present()
     }
 }

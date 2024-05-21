@@ -4,8 +4,8 @@
 use crate::helper::FXSerde;
 use crate::{
     helper::{
-        FXAccessor, FXAccessorMode, FXArgsBuilder, FXAttributes, FXBoolArg, FXHelper, FXHelperContainer, FXHelperKind,
-        FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXTriggerHelper,
+        with_origin::FXOrig, FXAccessor, FXAccessorMode, FXAttributes, FXBoolArg, FXBuilder, FXHelper,
+        FXHelperContainer, FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXTriggerHelper,
     },
     util::{needs_helper, validate_exclusives},
 };
@@ -18,7 +18,7 @@ use proc_macro2::Span;
 #[getset(get = "pub")]
 pub(crate) struct FXSArgs {
     sync:    Flag,
-    builder: Option<FXArgsBuilder>,
+    builder: Option<FXBuilder>,
     into:    Option<bool>,
     // Only plays for sync-safe structs
     no_new:  Flag,
@@ -26,9 +26,9 @@ pub(crate) struct FXSArgs {
     // Field defaults
     lazy:         Option<FXHelper<true>>,
     #[darling(rename = "get")]
-    accessor:     Option<FXAccessor<true>>,
+    accessor:     Option<FXAccessor>,
     #[darling(rename = "get_mut")]
-    accessor_mut: Option<FXHelper<true>>,
+    accessor_mut: Option<FXHelper>,
     #[darling(rename = "set")]
     setter:       Option<FXSetter<true>>,
     reader:       Option<FXHelper<true>>,
@@ -106,7 +106,7 @@ impl FXSArgs {
     }
 
     pub fn needs_builder(&self) -> Option<bool> {
-        self.builder.as_ref().and(Some(true))
+        self.builder.as_ref().map(|b| b.is_true())
     }
 
     pub fn is_lazy(&self) -> Option<bool> {
@@ -118,11 +118,11 @@ impl FXSArgs {
     }
 
     pub fn builder_attributes(&self) -> Option<&FXAttributes> {
-        self.builder.as_ref().and_then(|b| b.attributes().as_ref())
+        self.builder.as_ref().and_then(|b| b.attributes())
     }
 
     pub fn builder_impl_attributes(&self) -> Option<&FXAttributes> {
-        self.builder.as_ref().and_then(|b| b.attributes_impl().as_ref())
+        self.builder.as_ref().and_then(|b| b.attributes_impl())
     }
 
     pub fn public_mode(&self) -> Option<FXPubMode> {
@@ -138,14 +138,29 @@ impl FXSArgs {
 impl FXHelperContainer for FXSArgs {
     fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait> {
         match kind {
-            // FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Accessor => self.accessor().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::AccesorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Builder => self.builder().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Clearer => self.clearer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Predicate => self.predicate().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Reader => self.reader().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Setter => self.setter().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Writer => self.writer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+        }
+    }
+
+    fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span> {
+        match kind {
+            FXHelperKind::Accessor => self.accessor().as_ref().and_then(|h| h.span()),
+            FXHelperKind::AccessorMut => self.accessor_mut().as_ref().and_then(|h| h.span()),
+            FXHelperKind::Builder => self.builder().as_ref().and_then(|h| h.span()),
+            FXHelperKind::Clearer => self.clearer().as_ref().and_then(|h| h.span()),
+            FXHelperKind::Lazy => self.lazy().as_ref().and_then(|h| h.span()),
+            FXHelperKind::Predicate => self.predicate().as_ref().and_then(|h| h.span()),
+            FXHelperKind::Reader => self.reader().as_ref().and_then(|h| h.span()),
+            FXHelperKind::Setter => self.setter().as_ref().and_then(|h| h.span()),
+            FXHelperKind::Writer => self.writer().as_ref().and_then(|h| h.span()),
         }
     }
 }

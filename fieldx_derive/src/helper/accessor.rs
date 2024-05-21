@@ -1,4 +1,4 @@
-use super::FromNestAttr;
+use super::{FXInto, FromNestAttr};
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
@@ -52,7 +52,7 @@ impl<const BOOL_ONLY: bool> FromNestAttr for FXAccessorHelper<BOOL_ONLY> {
         }
         else if literals.len() == 1 {
             if let Lit::Str(ref str) = literals[0] {
-                self.rename = Some(str.value());
+                self.name = Some(str.value().fx_into());
             }
             else {
                 let err =

@@ -177,7 +177,7 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
         #getters_derive
         #vis struct #ident #generics #where_clause {
             #[getset(skip)]
-            rename:        Option<String>,
+            name:        Option<crate::helper::FXStringArg>,
             #[getset(get = #getset_vis)]
             off:           Flag,
             #[getset(skip)]
@@ -197,14 +197,22 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
         }
 
         impl #impl_generics crate::helper::FXHelperTrait for #ident #ty_generics #where_clause {
-            fn rename(&self) -> Option<&str> {
-                self.rename.as_deref()
+            #[inline]
+            fn name(&self) -> Option<&str> {
+                if let Some(ref name) = self.name {
+                    name.value().map(|v| v.as_str())
+                }
+                else {
+                    None
+                }
             }
 
+            #[inline]
             fn attributes_fn(&self) -> Option<&crate::helper::FXAttributes> {
                 self.attributes_fn.as_ref()
             }
 
+            #[inline]
             fn public_mode(&self) -> Option<crate::helper::FXPubMode> {
                 if self.private.is_some() {
                     Some(crate::helper::FXPubMode::Private)

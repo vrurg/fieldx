@@ -2,7 +2,7 @@
 use crate::helper::FXSerde;
 use crate::{
     helper::{
-        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXDefault, FXFieldBuilder, FXHelper,
+        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXBuilder, FXDefault, FXHelper,
         FXHelperContainer, FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg,
         FXTriggerHelper, FromNestAttr,
     },
@@ -48,7 +48,7 @@ pub(crate) struct FXFieldReceiver {
     private:       Option<FXBoolArg>,
     #[darling(rename = "default")]
     default_value: Option<FXDefault>,
-    builder:       Option<FXFieldBuilder>,
+    builder:       Option<FXBuilder>,
     into:          Option<FXBoolArg>,
     clone:         Option<FXBoolArg>,
     copy:          Option<FXBoolArg>,
@@ -58,6 +58,9 @@ pub(crate) struct FXFieldReceiver {
     #[darling(skip)]
     #[getset(skip)]
     span: OnceCell<Span>,
+
+    #[darling(skip)]
+    fieldx_attr_span: Option<Span>,
 }
 
 #[derive(Debug)]
@@ -69,10 +72,14 @@ impl FromField for FXField {
         let mut fxfield = FXFieldReceiver::from_field(field)?;
         for attr in (&field.attrs).into_iter() {
             // Intercept #[fieldx] form of the attribute and mark the field manually
-            if attr.path().is_ident("fieldx") && attr.meta.require_path_only().is_ok() {
-                fxfield
-                    .mark_implicitly(attr.meta.clone())
-                    .map_err(|err| darling::Error::custom(format!("Can't use bare word '{}'", err)).with_span(attr))?;
+            if attr.path().is_ident("fieldx") {
+                fxfield.set_attr_span(attr.span());
+
+                if attr.meta.require_path_only().is_ok() {
+                    fxfield.mark_implicitly(attr.meta.clone()).map_err(|err| {
+                        darling::Error::custom(format!("Can't use bare word '{}'", err)).with_span(attr)
+                    })?;
+                }
             }
         }
         if let Err(_) = fxfield.set_span((field as &dyn Spanned).span()) {
@@ -146,9 +153,9 @@ impl FXFieldReceiver {
         })
     }
 
-    pub fn base_name(&self) -> Option<&String> {
+    pub fn base_name(&self) -> Option<syn::Ident> {
         if let Some(ref bn) = self.base_name {
-            bn.value()
+            bn.value().map(|name| syn::Ident::new(name, bn.span()))
         }
         else {
             None
@@ -230,14 +237,6 @@ impl FXFieldReceiver {
         self.accessor.as_ref().and_then(|a| a.mode())
     }
 
-    pub fn builder_attributes(&self) -> Option<&FXAttributes> {
-        self.builder.as_ref().and_then(|b| b.attributes())
-    }
-
-    pub fn builder_fn_attributes(&self) -> Option<&FXAttributes> {
-        self.builder.as_ref().and_then(|b| b.attributes_fn())
-    }
-
     fn mark_implicitly(&mut self, orig: Meta) -> Result<(), &str> {
         match self.lazy {
             None => {
@@ -256,6 +255,11 @@ impl FXFieldReceiver {
     }
 
     #[inline]
+    pub fn set_attr_span(&mut self, span: Span) {
+        self.fieldx_attr_span = Some(span);
+    }
+
+    #[inline]
     pub fn span(&self) -> &Span {
         self.span.get_or_init(|| Span::call_site())
     }
@@ -264,14 +268,29 @@ impl FXFieldReceiver {
 impl FXHelperContainer for FXFieldReceiver {
     fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait> {
         match kind {
-            // FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Accessor => self.accessor().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::AccesorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Builder => self.builder().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Clearer => self.clearer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Predicate => self.predicate().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Reader => self.reader().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Setter => self.setter().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Writer => self.writer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+        }
+    }
+
+    fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span> {
+        match kind {
+            FXHelperKind::Accessor => self.accessor().as_ref().map(|h| h.span()),
+            FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| h.span()),
+            FXHelperKind::Builder => self.builder().as_ref().map(|h| h.span()),
+            FXHelperKind::Clearer => self.clearer().as_ref().map(|h| h.span()),
+            FXHelperKind::Lazy => self.lazy().as_ref().map(|h| h.span()),
+            FXHelperKind::Predicate => self.predicate().as_ref().map(|h| h.span()),
+            FXHelperKind::Reader => self.reader().as_ref().map(|h| h.span()),
+            FXHelperKind::Setter => self.setter().as_ref().map(|h| h.span()),
+            FXHelperKind::Writer => self.writer().as_ref().map(|h| h.span()),
         }
     }
 }

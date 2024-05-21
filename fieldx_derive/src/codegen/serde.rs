@@ -144,7 +144,9 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
             }
 
             if let Some(base_name) = fctx.base_name() {
-                serde_attr_args.push(quote![rename = #base_name]);
+                let span = base_name.span();
+                let base_name = base_name.to_string();
+                serde_attr_args.push(quote_spanned![span=> rename = #base_name]);
             }
 
             if serde_attr_args.is_empty() {

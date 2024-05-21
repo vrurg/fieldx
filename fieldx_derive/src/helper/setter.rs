@@ -1,5 +1,5 @@
 use super::FromNestAttr;
-use crate::util::set_literals;
+use crate::{helper::FXInto, util::set_literals};
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
@@ -27,7 +27,7 @@ impl<const BOOL_ONLY: bool> FXSetterHelper<BOOL_ONLY> {
 }
 
 impl<const BOOL_ONLY: bool> FromNestAttr for FXSetterHelper<BOOL_ONLY> {
-    set_literals! { setter, ..1 => rename as Lit::Str; pre_validate => allowed_literals }
+    set_literals! { setter, ..1 => name as Lit::Str; pre_validate => allowed_literals }
 
     fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())

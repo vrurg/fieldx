@@ -22,9 +22,9 @@ error[E0507]: cannot move out of `self.foo` which is behind a shared reference
   |
 5 | /     #[fieldx(copy, clearer)]
 6 | |     foo: String,
-  | |_______________^ move occurs because `self.foo` has type `Option<String>`, which does not implement the `Copy` trait
+  | |_______^ move occurs because `self.foo` has type `Option<String>`, which does not implement the `Copy` trait
   |
 help: consider cloning the value if the performance cost is acceptable
   |
-6 |     foo: String.clone(),
-  |                ++++++++
+6 |     foo.clone(): String,
+  |        ++++++++

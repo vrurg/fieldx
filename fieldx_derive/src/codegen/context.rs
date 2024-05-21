@@ -1,12 +1,8 @@
-use super::{
-    FXAccessor, FXAccessorMode, FXAttributes, FXFieldBuilder, FXHelperContainer, FXHelperKind, FXHelperTrait,
-    FXNestingAttr, FXPubMode, FXSetter, FromNestAttr,
-};
+use super::{FXAccessorMode, FXAttributes, FXBuilder, FXHelperContainer, FXHelperKind, FXHelperTrait, FXPubMode};
 #[cfg(feature = "serde")]
 use crate::helper::FXSerde;
 use crate::{
     fields::FXField,
-    helper::FXHelper,
     input_receiver::FXInputReceiver,
     util::args::{self, FXSArgs},
 };
@@ -98,6 +94,7 @@ impl FXCodeGenCtx {
         tokens.get_mut().unwrap().extend(toks);
     }
 
+    #[inline]
     pub fn finalize(&self) -> TokenStream {
         let mut errors = self.errors.borrow_mut();
         match errors.take() {
@@ -113,10 +110,12 @@ impl FXCodeGenCtx {
         self.tokens.borrow_mut().take().unwrap_or_else(|| TokenStream::new())
     }
 
+    #[inline]
     pub fn needs_builder_struct(&self) -> Option<bool> {
         (*self.needs_builder_struct.borrow()).or(self.args.needs_builder())
     }
 
+    #[inline]
     pub fn require_builder(&self) {
         let mut nb_ref = self.needs_builder_struct.borrow_mut();
         if nb_ref.is_none() {
@@ -144,15 +143,18 @@ impl FXCodeGenCtx {
 
     // How to reference struct instance in an associated function
     #[cfg(feature = "serde")]
+    #[inline]
     pub fn me_var_ident(&self) -> &syn::Ident {
         self.me_var_ident.get_or_init(|| format_ident!("__me"))
     }
 
     #[allow(dead_code)]
+    #[inline]
     pub fn add_attr<ATTR: Into<TokenStream>>(&self, attr: ATTR) {
         self.extra_attrs.borrow_mut().push(attr.into());
     }
 
+    #[inline]
     pub fn all_attrs(&self) -> Vec<TokenStream> {
         self.input
             .attrs()
@@ -163,6 +165,7 @@ impl FXCodeGenCtx {
     }
 
     #[allow(dead_code)]
+    #[inline]
     pub fn unique_ident_pfx(&self, prefix: &str) -> syn::Ident {
         let new_count = *self.unique_id.borrow() + 1;
         let _ = self.unique_id.replace(new_count);
@@ -170,36 +173,37 @@ impl FXCodeGenCtx {
     }
 
     #[allow(dead_code)]
+    #[inline]
     pub fn unique_ident(&self) -> syn::Ident {
         self.unique_ident_pfx(&format!("__{}_fxsym", self.input_ident()))
+    }
+
+    #[inline]
+    pub fn helper_span(&self, helper_kind: FXHelperKind) -> Span {
+        self.args()
+            .get_helper_span(helper_kind)
+            .unwrap_or_else(|| Span::call_site())
     }
 }
 
 impl<'f> FXFieldCtx<'f> {
     delegate! {
         to self.field {
+            pub fn attributes_fn(&self) -> &Option<FXAttributes>;
+            pub fn attrs(&self) -> &Vec<syn::Attribute>;
+            pub fn base_name(&self) -> Option<syn::Ident>;
+            pub fn builder(&self) -> &Option<FXBuilder>;
+            pub fn fieldx_attr_span(&self) -> &Option<Span>;
+            pub fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait>;
+            pub fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span>;
+            pub fn has_default_value(&self) -> bool;
             pub fn is_ignorable(&self) -> bool;
             pub fn is_skipped(&self) -> bool;
-            pub fn has_default_value(&self) -> bool;
             pub fn span(&self) -> &Span;
-            pub fn vis(&self) -> &syn::Visibility;
             pub fn ty(&self) -> &syn::Type;
-            pub fn attrs(&self) -> &Vec<syn::Attribute>;
-            pub fn lazy(&self) -> &Option<FXHelper>;
-            pub fn base_name(&self) -> Option<&String>;
-            pub fn accessor(&self) -> &Option<FXAccessor>;
-            pub fn accessor_mut(&self) -> &Option<FXHelper>;
-            pub fn setter(&self) -> &Option<FXSetter>;
-            pub fn builder(&self) -> &Option<FXFieldBuilder>;
-            pub fn reader(&self) -> &Option<FXHelper>;
-            pub fn writer(&self) -> &Option<FXHelper>;
-            pub fn clearer(&self) -> &Option<FXHelper>;
-            pub fn predicate(&self) -> &Option<FXHelper>;
+            pub fn vis(&self) -> &syn::Visibility;
             #[cfg(feature = "serde")]
             pub fn serde(&self) -> &Option<FXSerde>;
-            pub fn builder_attributes(&self) -> Option<&FXAttributes>;
-            pub fn builder_fn_attributes(&self) -> Option<&FXAttributes>;
-            pub fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait>;
         }
     }
 
@@ -340,15 +344,6 @@ impl<'f> FXFieldCtx<'f> {
             .unwrap_or(FXAccessorMode::None)
     }
 
-    pub fn attributes_fn<'a>(
-        &'a self,
-        helper: Option<&'a FXNestingAttr<impl FXHelperTrait + FromNestAttr>>,
-    ) -> Option<&'a FXAttributes> {
-        helper
-            .and_then(|h| h.attributes_fn())
-            .or_else(|| self.field.attributes_fn().as_ref())
-    }
-
     pub fn default_value(&self) -> Option<&NestedMeta> {
         if self.field.has_default_value() {
             self.field.default_value().as_ref().and_then(|dv| dv.value().as_ref())
@@ -442,16 +437,17 @@ impl<'f> FXFieldCtx<'f> {
             )
     }
 
-    pub fn helper_base_name(&self) -> Option<String> {
-        if let Some(base_name) = self.base_name() {
-            Some(base_name.clone())
-        }
-        else if let Ok(ident) = self.field.ident() {
-            Some(ident.to_string())
+    pub fn helper_base_name(&self) -> darling::Result<syn::Ident> {
+        if let Some(bn) = self.base_name() {
+            Ok(bn.clone())
         }
         else {
-            None
+            Ok(self.field.ident()?.clone())
         }
+    }
+
+    pub fn helper_span(&self, helper_kind: FXHelperKind) -> Span {
+        self.get_helper_span(helper_kind).unwrap_or_else(|| Span::call_site())
     }
 
     pub fn all_attrs(&self) -> Vec<TokenStream> {

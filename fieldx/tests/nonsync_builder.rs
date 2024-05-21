@@ -1,6 +1,6 @@
 use fieldx::fxstruct;
 
-#[fxstruct(builder(attributes(derive(Debug))))]
+#[fxstruct(builder(public(crate), attributes(derive(Debug))))]
 #[derive(Debug)]
 #[allow(dead_code)]
 struct NonSync {
