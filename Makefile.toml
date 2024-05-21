@@ -1,15 +1,31 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+__FIELDX_TASK__ = "test"
+__FIELDX_TOOLCHAINS__ = "1.77 1.78 beta nightly"
 
 [tasks.test]
 clear = true
 description = "Extensive testing"
 category = "Test"
-dependencies = ["test-default", "test-serde"]
+dependencies = ["test-default", "test-serde", "test-diagnostics"]
 
 [tasks.test-versions]
 description = "TESTING SUPPORTED Rust VERSIONS"
-run_task = { name = ["test_1_77", "test_1_78", "test_1_79", "test_nightly"] }
+script_runner = "@duckscript"
+script = '''
+toolchain_list = array %{__FIELDX_TOOLCHAINS__}
+
+for toolchain in ${toolchain_list}
+    echo Testing toolchain ${CARGO_MAKE_RUST_CHANNEL} ${toolchain}
+    set_env CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN ${toolchain}
+    cm_run_task ${__FIELDX_TASK__}
+end
+'''
+
+[tasks.update-versions]
+env = { TRYBUILD = "overwrite", __FIELDX_TASK__ = "test-compilation" }
+description = "Updating .stderr for all versions"
+run_task = { name = ["test-versions"] }
 
 [tasks.test-default]
 description = "Test with only the default features"
@@ -25,22 +41,24 @@ category = "Test"
 command = "cargo"
 args = ["test", "--workspace", "--features", "serde"]
 
-[tasks.test_1_77]
-description = "TOOLCHAIN 1.77"
-env = { CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN = "1.77" }
-run_task = "test"
+[tasks.test-diagnostics]
+description = "Test with 'diagnostics' feature"
+toolchain = "${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN}"
+category = "Test"
+condition_script = ["""
+#!@duckscript
+if eq ${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN} "nightly"
+    exit 0
+end
+echo Skipping diagnostics test on a non-nightly toolchain
+exit 1
+"""]
+command = "cargo"
+args = ["test", "--workspace", "--features", "diagnostics"]
 
-[tasks.test_1_78]
-description = "TOOLCHAIN 1.78"
-env = { CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN = "1.78" }
-run_task = "test"
-
-[tasks.test_1_79]
-description = "TOOLCHAIN beta"
-env = { CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN = "beta" }
-run_task = "test"
-
-[tasks.test_nightly]
-description = "TOOLCHAIN nightly"
-env = { CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN = "nightly" }
-run_task = "test"
+[tasks.test-compilation]
+description = "Run only the compilation test"
+script_runner = "@duckscript"
+script = '''
+echo Skipping compilation test for ${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN} in ${CARGO_MAKE_WORKING_DIRECTORY}
+'''

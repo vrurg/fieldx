@@ -1,0 +1,24 @@
+
+[tasks.test-compilation]
+description = "Test code compilability"
+category = "Test"
+script_runner = "@duckscript"
+script = '''
+echo Testing compilability with toolchain ${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN}
+cm_run_task compile-default-features
+cm_run_task compile-serde-enabled
+'''
+
+[tasks.compile-default-features]
+description = "Test code compilability with default feature set"
+toolchain = "${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN}"
+category = "Test"
+command = "cargo"
+args = ["test", "--test", "compilation"]
+
+[tasks.compile-serde-enabled]
+description = "Test code compilability with 'serde' feature"
+toolchain = "${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN}"
+category = "Test"
+command = "cargo"
+args = ["test", "--test", "compilation", "--features", "serde"]
