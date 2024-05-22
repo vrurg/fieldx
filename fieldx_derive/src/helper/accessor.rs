@@ -9,6 +9,7 @@ use syn::Lit;
 pub(crate) enum FXAccessorMode {
     Copy,
     Clone,
+    AsRef,
     #[default]
     #[darling(skip)]
     None,
@@ -17,10 +18,14 @@ pub(crate) enum FXAccessorMode {
 #[fxhelper]
 #[derive(Default, Debug)]
 pub(crate) struct FXAccessorHelper<const BOOL_ONLY: bool = false> {
+    // Unfortunately, darling(flatten) over a FXAccessorMode field will break support for arguments that are implicitly
+    // added by `fxhelper` attribute. Therefore we fall back to separate fields here.
     #[fxhelper(exclusive = "accessor mode")]
     clone: Flag,
     #[fxhelper(exclusive = "accessor mode")]
     copy:  Flag,
+    #[fxhelper(exclusive = "accessor mode")]
+    as_ref:  Flag,
 }
 
 impl<const BOOL_ONLY: bool> FXAccessorHelper<BOOL_ONLY> {
@@ -30,6 +35,9 @@ impl<const BOOL_ONLY: bool> FXAccessorHelper<BOOL_ONLY> {
         }
         else if self.copy.is_present() {
             Some(FXAccessorMode::Copy)
+        }
+        else if self.as_ref.is_present() {
+            Some(FXAccessorMode::AsRef)
         }
         else {
             None

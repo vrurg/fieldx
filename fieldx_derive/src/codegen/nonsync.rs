@@ -203,6 +203,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let (reference, deref, meth) = match fctx.accessor_mode() {
                 FXAccessorMode::Copy => (quote![], quote![*], quote![]),
                 FXAccessorMode::Clone => (quote![], quote![], quote![.clone()]),
+                FXAccessorMode::AsRef => (quote![], quote![], quote![.as_ref()]),
                 FXAccessorMode::None => (quote![&], quote![], quote![]),
             };
 
@@ -218,7 +219,12 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 ])
             }
             else if fctx.is_optional() {
-                let ty_tok = self.type_tokens(fctx);
+                let ty_tok = if fctx.accessor_mode() == FXAccessorMode::AsRef {
+                    quote![ ::std::option::Option<& #ty> ]
+                }
+                else {
+                    self.type_tokens(fctx).clone()
+                };
                 Ok(quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty_tok { #reference self.#ident #meth }
