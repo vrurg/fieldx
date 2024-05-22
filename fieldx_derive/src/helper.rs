@@ -47,6 +47,17 @@ pub(crate) trait FXTriggerHelper {
     fn is_true(&self) -> bool;
 }
 
+pub(crate) trait FXBoolHelper {
+    fn is_true(&self) -> bool;
+    fn is_true_opt(&self) -> Option<bool>;
+    fn not_true(&self) -> bool {
+        !self.is_true()
+    }
+    // fn not_true_opt(&self) -> Option<bool> {
+    //     self.is_true_opt().map(|b| !b)
+    // }
+}
+
 pub(crate) trait FXHelperTrait: FXTriggerHelper {
     fn name(&self) -> Option<&str>;
     fn public_mode(&self) -> Option<FXPubMode>;
@@ -153,6 +164,18 @@ impl FXHelperKind {
             FXHelperKind::Setter => None,
             FXHelperKind::Writer => None,
         }
+    }
+}
+
+impl<H: FXTriggerHelper> FXBoolHelper for Option<H> {
+    #[inline]
+    fn is_true(&self) -> bool {
+        self.as_ref().map_or(false, |h| h.is_true())
+    }
+
+    #[inline]
+    fn is_true_opt(&self) -> Option<bool> {
+        self.as_ref().map(|h| h.is_true())
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::helper::{with_origin::FXOrig, FXFrom};
+use crate::helper::{with_origin::FXOrig, FXFrom, FXTriggerHelper};
 use darling::{ast::NestedMeta, FromMeta};
 use getset::Getters;
 use proc_macro2::TokenStream;
@@ -151,5 +151,15 @@ where
             inner: T::fx_from(value),
             orig:  None,
         })
+    }
+}
+
+impl<T> FXTriggerHelper for FXNestingAttr<T>
+where
+    T: FXTriggerHelper + FromNestAttr,
+{
+    #[inline(always)]
+    fn is_true(&self) -> bool {
+        self.inner.is_true()
     }
 }

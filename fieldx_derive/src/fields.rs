@@ -2,8 +2,8 @@
 use crate::helper::FXSerde;
 use crate::{
     helper::{
-        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXBuilder, FXDefault, FXHelper,
-        FXHelperContainer, FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg,
+        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXBoolHelper, FXBuilder, FXDefault,
+        FXHelper, FXHelperContainer, FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg,
         FXTriggerHelper, FromNestAttr,
     },
     util::{needs_helper, validate_exclusives},
@@ -123,23 +123,18 @@ impl FXFieldReceiver {
         self.validate_exclusives().map_err(|err| err.with_span(self.span()))
     }
 
-    // #[inline]
-    // fn flag_set(helper: &Option<FXNestingAttr<impl FXHelperTrait + FromNestAttr>>) -> Option<bool> {
-    //     helper.as_ref().map(|h| h.is_true())
-    // }
-
     #[inline]
     fn unless_skip(&self, helper: &Option<FXNestingAttr<impl FXHelperTrait + FromNestAttr>>) -> Option<bool> {
         if self.is_skipped() {
             Some(false)
         }
         else {
-            helper.as_ref().map(|h| h.is_true())
+            helper.is_true_opt()
         }
     }
 
     pub fn public_mode(&self) -> Option<FXPubMode> {
-        if self.private.as_ref().map_or(false, |p| p.is_true()) {
+        if self.private.is_true() {
             Some(FXPubMode::Private)
         }
         else {
@@ -169,7 +164,7 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn is_into(&self) -> Option<bool> {
-        self.into.as_ref().map(|i| i.is_true())
+        self.into.is_true_opt()
     }
 
     #[inline]
@@ -189,10 +184,12 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn is_copy(&self) -> Option<bool> {
-        self.clone
-            .as_ref()
-            .map(|c| !c.is_true())
-            .or_else(|| self.copy.as_ref().map(|c| c.is_true()))
+        if self.clone.is_true() {
+            Some(false)
+        }
+        else {
+            self.copy.is_true_opt()
+        }
     }
 
     #[inline]

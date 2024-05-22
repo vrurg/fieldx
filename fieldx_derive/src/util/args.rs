@@ -4,12 +4,12 @@
 use crate::helper::FXSerde;
 use crate::{
     helper::{
-        with_origin::FXOrig, FXAccessor, FXAccessorMode, FXAttributes, FXBoolArg, FXBuilder, FXHelper,
-        FXHelperContainer, FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXTriggerHelper,
+        with_origin::FXOrig, FXAccessor, FXAccessorMode, FXAttributes, FXBoolArg, FXBoolHelper, FXBuilder, FXHelper,
+        FXHelperContainer, FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter,
     },
     util::{needs_helper, validate_exclusives},
 };
-use darling::{util::Flag, FromMeta};
+use darling::FromMeta;
 use getset::Getters;
 use proc_macro2::Span;
 
@@ -17,11 +17,11 @@ use proc_macro2::Span;
 #[darling(and_then = Self::validate)]
 #[getset(get = "pub")]
 pub(crate) struct FXSArgs {
-    sync:    Flag,
+    sync:    Option<FXBoolArg>,
     builder: Option<FXBuilder>,
-    into:    Option<bool>,
+    into:    Option<FXBoolArg>,
 
-    no_new:  Flag,
+    no_new:  Option<FXBoolArg>,
     default: Option<FXBoolArg>,
 
     // Field defaults
@@ -59,20 +59,23 @@ impl FXSArgs {
 
     #[inline]
     pub fn is_sync(&self) -> bool {
-        self.sync.is_present()
+        self.sync.is_true()
     }
 
     #[inline]
     pub fn is_into(&self) -> Option<bool> {
-        self.into
+        self.into.is_true_opt()
     }
 
     #[inline]
     pub fn is_copy(&self) -> Option<bool> {
-        self.clone
-            .as_ref()
-            .map(|c| !c.is_true())
-            .or_else(|| self.copy.as_ref().map(|c| c.is_true()))
+        if self.clone.is_true() {
+            // Explicitly set `clone` means "not copy"
+            Some(false)
+        }
+        else {
+            self.copy.is_true_opt()
+        }
     }
 
     #[inline]
@@ -115,22 +118,22 @@ impl FXSArgs {
     #[inline]
     pub fn needs_new(&self) -> bool {
         // new() is not possible without Default implementation
-        !self.no_new.is_present() && self.needs_default().unwrap_or(true)
+        self.no_new.not_true() && self.needs_default().unwrap_or(true)
     }
 
     #[inline]
     pub fn needs_default(&self) -> Option<bool> {
-        self.default.as_ref().map(|d| d.is_true())
+        self.default.is_true_opt()
     }
 
     #[inline]
     pub fn needs_builder(&self) -> Option<bool> {
-        self.builder.as_ref().map(|b| b.is_true())
+        self.builder.is_true_opt()
     }
 
     #[inline]
     pub fn is_lazy(&self) -> Option<bool> {
-        self.lazy.as_ref().map(|h| h.is_true())
+        self.lazy.is_true_opt()
     }
 
     #[inline]
@@ -150,7 +153,7 @@ impl FXSArgs {
 
     #[inline]
     pub fn public_mode(&self) -> Option<FXPubMode> {
-        if self.private.as_ref().map_or(false, |p| p.is_true()) {
+        if self.private.is_true() {
             Some(FXPubMode::Private)
         }
         else {
