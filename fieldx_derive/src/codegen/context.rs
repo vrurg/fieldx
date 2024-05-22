@@ -191,8 +191,8 @@ impl FXCodeGenCtx {
         let args = self.args();
 
         *self.needs_default.borrow_mut().get_or_init(|| {
-            if !args.needs_default() {
-                return false;
+            if let Some(needs_default) = args.needs_default() {
+                return needs_default;
             }
 
             if args.needs_new() {

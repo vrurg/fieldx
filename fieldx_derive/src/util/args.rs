@@ -115,12 +115,12 @@ impl FXSArgs {
     #[inline]
     pub fn needs_new(&self) -> bool {
         // new() is not possible without Default implementation
-        !self.no_new.is_present() && self.needs_default()
+        !self.no_new.is_present() && self.needs_default().unwrap_or(true)
     }
 
     #[inline]
-    pub fn needs_default(&self) -> bool {
-        self.default.as_ref().map_or(true, |d| d.is_true())
+    pub fn needs_default(&self) -> Option<bool> {
+        self.default.as_ref().map(|d| d.is_true())
     }
 
     #[inline]
