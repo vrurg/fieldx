@@ -2,8 +2,7 @@ pub mod errors;
 pub mod traits;
 
 pub use fieldx_derive::fxstruct;
-use parking_lot::RwLock;
-pub use parking_lot::{MappedRwLockReadGuard, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
+pub use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use std::{any, borrow::Borrow, cell::RefCell, fmt::Debug, marker::PhantomData, ops::Deref, sync::atomic::AtomicBool};
 pub use std::{cell::OnceCell, fmt, sync::atomic::Ordering};
 use traits::FXStructSync;
@@ -17,6 +16,8 @@ where
     builder: RwLock<Option<fn(&O) -> T>>,
 }
 
+// We need FXRwLock because RwLock doesn't implement Clone
+#[derive(Default)]
 pub struct FXRwLock<T>(RwLock<T>);
 
 #[allow(private_bounds)]
@@ -164,6 +165,12 @@ impl<T> FXRwLock<T> {
 
     pub fn into_inner(self) -> T {
         self.0.into_inner()
+    }
+}
+
+impl<T> From<T> for FXRwLock<T> {
+    fn from(value: T) -> Self {
+        Self(RwLock::new(value.into()))
     }
 }
 

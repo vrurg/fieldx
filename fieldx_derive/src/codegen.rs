@@ -46,7 +46,7 @@ pub(crate) trait FXCGenContextual<'f> {
     // How to move field from the struct itself
     fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
 
-    fn struct_extras(&'f self);
+    fn fxstruct_trait(&self) -> TokenStream;
 
     fn add_field_decl(&self, field: TokenStream);
     fn add_defaults_decl(&self, defaults: TokenStream);
@@ -447,6 +447,11 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
 
     fn default_impl(&self) -> TokenStream {
         let ctx = self.ctx();
+
+        if !ctx.needs_default() {
+            return quote![];
+        }
+
         let defaults = self.defaults_combined();
         let ident = ctx.input().ident();
         let generics = ctx.input().generics();
@@ -622,6 +627,36 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
                 }
             }
         ]
+    }
+
+    fn struct_extras(&'f self) {
+        let ctx = self.ctx();
+        // let initializers = self.initializers_combined(); // self.initializer_toks.borrow_mut();
+        let generics = ctx.input().generics();
+        let generic_params = self.generic_params();
+        let input = ctx.input_ident();
+        let where_clause = &generics.where_clause;
+        let struct_trait = self.fxstruct_trait();
+
+        ctx.tokens_extend(quote![
+            impl #generics #struct_trait for #input #generic_params #where_clause {}
+        ]);
+
+        if ctx.needs_default() {
+            let new_name = if ctx.args().needs_new() {
+                quote![new]
+            }
+            else {
+                quote![__fieldx_new]
+            };
+
+            self.add_method_decl(quote![
+                #[inline]
+                pub fn #new_name() -> Self {
+                    Self::default()
+                }
+            ]);
+        }
     }
 
     fn finalize(&'f self) -> TokenStream {

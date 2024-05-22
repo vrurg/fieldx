@@ -46,6 +46,7 @@ pub(crate) struct FXCodeGenCtx {
     input:                FXInputReceiver,
     extra_attrs:          RefCell<Vec<TokenStream>>,
     unique_id:            RefCell<u32>,
+    needs_default:        RefCell<OnceCell<bool>>,
 }
 
 #[derive(Debug)]
@@ -75,6 +76,7 @@ impl FXCodeGenCtx {
             needs_builder_struct: RefCell::new(None),
             extra_attrs: RefCell::new(vec![]),
             unique_id: RefCell::new(0),
+            needs_default: RefCell::new(OnceCell::new()),
         }
     }
 
@@ -183,6 +185,37 @@ impl FXCodeGenCtx {
         self.args()
             .get_helper_span(helper_kind)
             .unwrap_or_else(|| Span::call_site())
+    }
+
+    pub fn needs_default(&self) -> bool {
+        let args = self.args();
+
+        *self.needs_default.borrow_mut().get_or_init(|| {
+            if !args.needs_default() {
+                return false;
+            }
+
+            if args.needs_new() {
+                return true;
+            }
+
+            let is_sync = args.is_sync();
+
+            if is_sync && args.is_lazy().unwrap_or(false) {
+                return true;
+            }
+
+            if self
+                .input()
+                .fields()
+                .iter()
+                .any(|f| f.has_default_value() || (is_sync && f.is_lazy().unwrap_or(false)))
+            {
+                return true;
+            }
+
+            false
+        })
     }
 }
 

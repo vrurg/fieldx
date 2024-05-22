@@ -20,8 +20,9 @@ pub(crate) struct FXSArgs {
     sync:    Flag,
     builder: Option<FXBuilder>,
     into:    Option<bool>,
-    // Only plays for sync-safe structs
+
     no_new:  Flag,
+    no_default: Flag,
 
     // Field defaults
     lazy:         Option<FXHelper<true>>,
@@ -49,20 +50,24 @@ impl FXSArgs {
     // Generate needs_<helper> methods
     needs_helper! {accessor, accessor_mut, setter, reader, writer, clearer, predicate}
 
+    #[inline]
     pub fn validate(self) -> Result<Self, darling::Error> {
         self.validate_exclusives()
             .map_err(|err| err.with_span(&Span::call_site()))?;
         Ok(self)
     }
 
+    #[inline]
     pub fn is_sync(&self) -> bool {
         self.sync.is_present()
     }
 
+    #[inline]
     pub fn is_into(&self) -> Option<bool> {
         self.into
     }
 
+    #[inline]
     pub fn is_copy(&self) -> Option<bool> {
         self.clone
             .as_ref()
@@ -70,24 +75,29 @@ impl FXSArgs {
             .or_else(|| self.copy.as_ref().map(|c| c.is_true()))
     }
 
+    #[inline]
     pub fn is_accessor_copy(&self) -> Option<bool> {
         self.accessor_mode().map(|m| m == FXAccessorMode::Copy)
     }
 
+    #[inline]
     pub fn is_setter_into(&self) -> Option<bool> {
         self.setter.as_ref().and_then(|h| h.is_into())
     }
 
+    #[inline]
     pub fn is_builder_into(&self) -> Option<bool> {
         self.builder.as_ref().and_then(|h| h.is_into())
     }
 
     #[cfg(feature = "serde")]
+    #[inline]
     pub fn is_serde(&self) -> bool {
         self.serde.as_ref().map_or(false, |sw| sw.is_serde().unwrap_or(true))
     }
 
     #[cfg(feature = "serde")]
+    #[inline]
     pub fn needs_serialize(&self) -> bool {
         self.serde
             .as_ref()
@@ -95,36 +105,50 @@ impl FXSArgs {
     }
 
     #[cfg(feature = "serde")]
+    #[inline]
     pub fn needs_deserialize(&self) -> bool {
         self.serde
             .as_ref()
             .map_or(false, |sw| sw.needs_deserialize().unwrap_or(true))
     }
 
+    #[inline]
     pub fn needs_new(&self) -> bool {
-        !self.no_new.is_present()
+        // new() is not possible without Default implementation
+        !self.no_new.is_present() && self.needs_default()
     }
 
+    #[inline]
+    pub fn needs_default(&self) -> bool {
+        !self.no_default.is_present()
+    }
+
+    #[inline]
     pub fn needs_builder(&self) -> Option<bool> {
         self.builder.as_ref().map(|b| b.is_true())
     }
 
+    #[inline]
     pub fn is_lazy(&self) -> Option<bool> {
         self.lazy.as_ref().map(|h| h.is_true())
     }
 
+    #[inline]
     pub fn accessor_mode(&self) -> Option<FXAccessorMode> {
         self.accessor.as_ref().and_then(|h| h.mode())
     }
 
+    #[inline]
     pub fn builder_attributes(&self) -> Option<&FXAttributes> {
         self.builder.as_ref().and_then(|b| b.attributes())
     }
 
+    #[inline]
     pub fn builder_impl_attributes(&self) -> Option<&FXAttributes> {
         self.builder.as_ref().and_then(|b| b.attributes_impl())
     }
 
+    #[inline]
     pub fn public_mode(&self) -> Option<FXPubMode> {
         if self.private.as_ref().map_or(false, |p| p.is_true()) {
             Some(FXPubMode::Private)

@@ -62,6 +62,11 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     }
 
     #[inline(always)]
+    fn fxstruct_trait(&self) -> TokenStream {
+        quote![::fieldx::traits::FXStructSync]
+    }
+
+    #[inline(always)]
     fn field_ctx_table(&'f self) -> Ref<HashMap<syn::Ident, FXFieldCtx<'f>>> {
         self.field_ctx_table.borrow()
     }
@@ -448,9 +453,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 Ok(quote_spanned! [span=>
                     #attributes_fn
                     #vis_tok fn #set_name(&mut self, value: #ty) -> #ty {
-                        let old = self.#ident;
-                        self.#ident = value;
-                        old
+                        ::std::mem::replace(&mut self.#ident, value)
                     }
                 ])
             }
@@ -571,34 +574,5 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 }
             }),
         )
-    }
-
-    fn struct_extras(&'f self) {
-        let ctx = self.ctx();
-        // let initializers = self.initializers_combined(); // self.initializer_toks.borrow_mut();
-        let generics = ctx.input().generics();
-        let generic_params = self.generic_params();
-        let input = ctx.input_ident();
-        let where_clause = &generics.where_clause;
-
-        ctx.tokens_extend(quote![
-            impl #generics ::fieldx::traits::FXStructSync for #input #generic_params #where_clause {}
-        ]);
-
-        let construction = quote![Self::default()];
-
-        let new_name = if ctx.args().needs_new() {
-            quote![new]
-        }
-        else {
-            quote![__fieldx_new]
-        };
-
-        self.add_method_decl(quote![
-            #[inline]
-            pub fn #new_name() -> Self {
-                #construction
-            }
-        ]);
     }
 }

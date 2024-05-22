@@ -57,6 +57,11 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     }
 
     #[inline(always)]
+    fn fxstruct_trait(&self) -> TokenStream {
+        quote![::fieldx::traits::FXStructNonSync]
+    }
+
+    #[inline(always)]
     fn field_ctx_table(&'f self) -> Ref<HashMap<syn::Ident, FXFieldCtx<'f>>> {
         self.field_ctx_table.borrow()
     }
@@ -338,9 +343,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 Ok(quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> #ty {
-                        let old = self.#ident;
-                        self.#ident = value #into_tok;
-                        old
+                        ::std::mem::replace(&mut self.#ident, value #into_tok)
                     }
                 ])
             }
@@ -463,32 +466,5 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         else {
             quote![ #me_var.#field_ident ]
         })
-    }
-
-    fn struct_extras(&self) {
-        let ctx = self.ctx();
-        let generics = ctx.input().generics();
-        let generic_params = self.generic_params();
-        let input = ctx.input_ident();
-        let where_clause = &generics.where_clause;
-        ctx.tokens_extend(quote![
-            impl #generics ::fieldx::traits::FXStructNonSync for #input #generic_params #where_clause {}
-        ]);
-
-        self.add_method_decl(quote![
-            #[inline]
-            fn __fieldx_new() -> Self {
-                Self::default()
-            }
-        ]);
-
-        if ctx.args().needs_new() {
-            self.add_method_decl(quote![
-                #[inline]
-                pub fn new() -> Self {
-                    Self::default()
-                }
-            ])
-        }
     }
 }
