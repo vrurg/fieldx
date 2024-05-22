@@ -11,7 +11,7 @@ impl From<&str> for Bar {
     }
 }
 
-#[fxstruct(get(public), builder, no_new)]
+#[fxstruct(get(public), builder, default(off))]
 struct NonSync {
     #[fieldx(set)]
     bar: Bar,

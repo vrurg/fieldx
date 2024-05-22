@@ -22,7 +22,7 @@ pub(crate) struct FXSArgs {
     into:    Option<bool>,
 
     no_new:  Flag,
-    no_default: Flag,
+    default: Option<FXBoolArg>,
 
     // Field defaults
     lazy:         Option<FXHelper<true>>,
@@ -120,7 +120,7 @@ impl FXSArgs {
 
     #[inline]
     pub fn needs_default(&self) -> bool {
-        !self.no_default.is_present()
+        self.default.as_ref().map_or(true, |d| d.is_true())
     }
 
     #[inline]
