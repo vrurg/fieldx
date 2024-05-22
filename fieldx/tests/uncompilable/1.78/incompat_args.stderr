@@ -1,0 +1,7 @@
+error: The following options from group 'lazy/optional' cannot be used together: `lazy`, `optional`
+ --> tests/uncompilable/incompat_args.rs
+  |
+  | #[fxstruct(lazy, optional)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `fxstruct` (in Nightly builds, run with -Z macro-backtrace for more info)

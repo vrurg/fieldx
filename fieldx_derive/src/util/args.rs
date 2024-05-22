@@ -36,6 +36,7 @@ pub(crate) struct FXSArgs {
     writer:       Option<FXHelper<true>>,
     clearer:      Option<FXHelper<true>>,
     predicate:    Option<FXHelper<true>>,
+    optional:     Option<FXBoolArg>,
     public:       Option<FXNestingAttr<FXPubMode>>,
     private:      Option<FXBoolArg>,
     clone:        Option<FXBoolArg>,
@@ -45,7 +46,7 @@ pub(crate) struct FXSArgs {
 }
 
 impl FXSArgs {
-    validate_exclusives!("visibility" => public, private; "accessor mode" => copy, clone);
+    validate_exclusives!("visibility" => public, private; "accessor mode" => copy, clone; "lazy/optional" => lazy, optional);
 
     // Generate needs_<helper> methods
     needs_helper! {accessor, accessor_mut, setter, reader, writer, clearer, predicate}
@@ -97,6 +98,11 @@ impl FXSArgs {
     #[inline]
     pub fn is_serde(&self) -> bool {
         self.serde.as_ref().map_or(false, |sw| sw.is_serde().unwrap_or(true))
+    }
+
+    #[inline]
+    pub fn is_optional(&self) -> Option<bool> {
+        self.optional.is_true_opt()
     }
 
     #[cfg(feature = "serde")]

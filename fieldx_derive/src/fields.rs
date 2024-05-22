@@ -43,6 +43,7 @@ pub(crate) struct FXFieldReceiver {
     writer:        Option<FXHelper>,
     clearer:       Option<FXHelper>,
     predicate:     Option<FXHelper>,
+    optional:      Option<FXBoolArg>,
 
     public:        Option<FXNestingAttr<FXPubMode>>,
     private:       Option<FXBoolArg>,
@@ -113,7 +114,7 @@ impl ToTokens for FXField {
 }
 
 impl FXFieldReceiver {
-    validate_exclusives! {"visibility" => public, private; "accessor mode" => copy, clone}
+    validate_exclusives! {"visibility" => public, private; "accessor mode" => copy, clone; "field mode" => lazy, optional}
 
     // Generate field-level needs_<helper> methods. The final decision of what's needed and what's not is done by
     // FXFieldCtx.
@@ -206,6 +207,11 @@ impl FXFieldReceiver {
     #[inline]
     pub fn is_serde(&self) -> Option<bool> {
         self.serde.as_ref().and_then(|sw| sw.is_serde())
+    }
+
+    #[inline]
+    pub fn is_optional(&self) -> Option<bool> {
+        self.optional.is_true_opt()
     }
 
     #[cfg(feature = "serde")]

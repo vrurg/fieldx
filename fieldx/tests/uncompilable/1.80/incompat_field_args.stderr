@@ -1,0 +1,6 @@
+error: The following options from group 'field mode' cannot be used together: `lazy`, `optional`
+ --> tests/uncompilable/incompat_field_args.rs
+  |
+  | /     #[fieldx(lazy, optional)]
+  | |     foo: i32,
+  | |____________^

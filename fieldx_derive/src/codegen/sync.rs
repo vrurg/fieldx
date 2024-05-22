@@ -420,13 +420,14 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let vis_tok = fctx.vis_tok(FXHelperKind::Setter);
             let ty = fctx.ty();
             let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Setter);
+            let (gen_params, val_type, into_tok) = self.into_toks(fctx, fctx.is_setter_into());
 
             if fctx.is_lazy() {
                 Ok(quote_spanned! [span=>
                     #[inline]
                     #attributes_fn
-                    #vis_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
-                        self.#ident.write().store(value)
+                    #vis_tok fn #set_name #gen_params(&self, value: #val_type) -> ::std::option::Option<#ty> {
+                        self.#ident.write().store(value #into_tok)
                     }
                 ])
             }
@@ -434,8 +435,8 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 Ok(quote_spanned![span=>
                     #[inline]
                     #attributes_fn
-                    #vis_tok fn #set_name(&self, value: #ty) -> ::std::option::Option<#ty> {
-                        self.#ident.write().replace(value)
+                    #vis_tok fn #set_name #gen_params(&self, value: #val_type) -> ::std::option::Option<#ty> {
+                        self.#ident.write().replace(value #into_tok)
                     }
                 ])
             }
@@ -443,17 +444,17 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 Ok(quote_spanned![span=>
                     #[inline]
                     #attributes_fn
-                    #vis_tok fn #set_name(&self, value: #ty) -> #ty {
+                    #vis_tok fn #set_name #gen_params(&self, value: #val_type) -> #ty {
                         let mut wlock = self.#ident.write();
-                        ::std::mem::replace(&mut *wlock, value)
+                        ::std::mem::replace(&mut *wlock, value #into_tok)
                     }
                 ])
             }
             else {
                 Ok(quote_spanned! [span=>
                     #attributes_fn
-                    #vis_tok fn #set_name(&mut self, value: #ty) -> #ty {
-                        ::std::mem::replace(&mut self.#ident, value)
+                    #vis_tok fn #set_name #gen_params(&mut self, value: #val_type) -> #ty {
+                        ::std::mem::replace(&mut self.#ident, value #into_tok)
                     }
                 ])
             }

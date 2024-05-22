@@ -342,7 +342,12 @@ impl<'f> FXFieldCtx<'f> {
     }
 
     pub fn is_optional(&self) -> bool {
-        !self.is_skipped() && (!self.is_lazy() && (self.needs_clearer() || self.needs_predicate()))
+        !self.is_skipped()
+            && self
+                .field
+                .is_optional()
+                .or_else(|| self.codegen_ctx.args.is_optional())
+                .unwrap_or_else(|| (!self.is_lazy() && (self.needs_clearer() || self.needs_predicate())))
     }
 
     #[cfg(feature = "serde")]

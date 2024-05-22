@@ -1,28 +1,59 @@
 use rustc_version::Version;
-use std::{env, fs, path::PathBuf};
+use std::{
+    env,
+    fs::{self, DirEntry},
+    io,
+    path::PathBuf,
+};
 use trybuild;
 
 struct UncompEnv {
     // .0 is a path of .stderr under the version subdir, .1 is the one used for testing
-    stderrs: Vec<(PathBuf, PathBuf)>,
+    stderrs:  Vec<(PathBuf, PathBuf)>,
+    base_dir: String,
 }
 
 impl UncompEnv {
-    fn new() -> Self {
+    fn new(subdir: &str) -> Self {
         let mut stderrs: Vec<(PathBuf, PathBuf)> = vec![];
-        // let test_path = PathBuf::from(format!("{}/", env!("CARGO_MANIFEST_DIR")));
-        let base_dir = env!("CARGO_MANIFEST_DIR");
-        stderrs.append(&mut Self::collect_stderrs(format!("{}/tests/uncompilable", base_dir)));
-        #[cfg(feature = "serde")]
-        stderrs.append(&mut Self::collect_stderrs(format!(
-            "{}/tests/uncompilable_serde",
-            base_dir
-        )));
-
-        Self { stderrs }
+        let manifest_dir = env!("CARGO_MANIFEST_DIR").to_string();
+        let base_dir = format!("{}/tests/{}", manifest_dir, subdir);
+        stderrs.append(&mut Self::collect_stderrs(&base_dir));
+        Self { stderrs, base_dir }
     }
 
-    fn collect_stderrs(from: String) -> Vec<(PathBuf, PathBuf)> {
+    fn stringify_fname(entry: Result<DirEntry, io::Error>, from_dir: &PathBuf) -> String {
+        entry
+            .expect(&format!(
+                "Failed to fetch an entry from directory '{}'",
+                from_dir.display()
+            ))
+            .file_name()
+            .into_string()
+            .unwrap_or_else(|e| format!("Badly formed file name '{}'", e.to_string_lossy()))
+    }
+
+    fn copy_ok(from: &PathBuf, to: &PathBuf) -> bool {
+        fs::copy(&from, &to).map_or_else(
+            |err| {
+                eprintln!("!!! Failed to copy '{}' to '{}': {}", from.display(), to.display(), err);
+                false
+            },
+            |_| true,
+        )
+    }
+
+    fn remove_ok(file: &PathBuf) -> bool {
+        fs::remove_file(file).map_or_else(
+            |err| {
+                eprintln!("!!! Failed to remove '{}': {}", file.display(), err);
+                false
+            },
+            |_| true,
+        )
+    }
+
+    fn collect_stderrs(from: &String) -> Vec<(PathBuf, PathBuf)> {
         let dest_dir = PathBuf::from(&from);
         let from_dir = PathBuf::from(format!("{}/{}", from, Self::version_group()));
 
@@ -37,26 +68,13 @@ impl UncompEnv {
         let mut stderrs: Vec<(PathBuf, PathBuf)> = vec![];
         for entry in std::fs::read_dir(&from_dir).expect(&format!("Failed to read '{}' directory", from_dir.display()))
         {
-            let fname = entry
-                .expect(&format!(
-                    "Failed to fetch an entry from directory '{}'",
-                    from_dir.display()
-                ))
-                .file_name();
-            let Ok(fname) = fname.clone().into_string()
-            else {
-                panic!("Badly formed file name '{}'", fname.to_string_lossy())
-            };
+            let fname = Self::stringify_fname(entry, &from_dir);
 
             if fname.ends_with(".stderr") {
                 let dest_stderr = dest_dir.join(&fname);
                 let src_stderr = from_dir.join(&fname);
                 eprintln!("+ {} -> {}", src_stderr.display(), dest_stderr.display());
-                fs::copy(&src_stderr, &dest_stderr).expect(&format!(
-                    "Failed to copy '{}' to '{}'",
-                    src_stderr.display(),
-                    dest_stderr.display()
-                ));
+                let _ = Self::copy_ok(&src_stderr, &dest_stderr);
                 stderrs.push((src_stderr, dest_stderr));
             }
         }
@@ -67,7 +85,6 @@ impl UncompEnv {
     fn version_group() -> String {
         let version = rustc_version::version().expect("Rust Compiler Version");
         let version = Version::new(version.major, version.minor, version.patch);
-        eprintln!("Rust Compiler Version: {}", version);
         (if version < Version::new(1, 78, 0) {
             "1.77"
         }
@@ -82,33 +99,46 @@ impl UncompEnv {
         })
         .to_string()
     }
+
+    fn check_for_new(&self) {
+        let test_dir = PathBuf::from(&self.base_dir);
+        for entry in std::fs::read_dir(&test_dir).expect(&format!("Failed to read '{}' directory", test_dir.display()))
+        {
+            let fname = Self::stringify_fname(entry, &test_dir);
+
+            if fname.ends_with(".stderr") {
+                let version_dir = PathBuf::from(&self.base_dir).join(Self::version_group());
+                let src_stderr = test_dir.join(&fname);
+                let dest_stderr = version_dir.join(&fname);
+                eprintln!("> {} -> {}", fname, dest_stderr.display());
+                let _ = Self::copy_ok(&src_stderr, &dest_stderr);
+                let _ = Self::remove_ok(&src_stderr);
+            }
+        }
+    }
 }
 
 impl Drop for UncompEnv {
     fn drop(&mut self) {
         let mut with_failures = false;
+        let try_build = env::var("TRYBUILD").map_or(false, |v| v == "overwrite");
         for (ref ver_stderr, ref stderr) in self.stderrs.iter() {
-            if let Ok(try_build) = env::var("TRYBUILD") {
-                if try_build == "overwrite" {
+            if try_build {
+                if try_build {
                     eprintln!("* Updating {}", ver_stderr.display());
-                    if let Err(io_err) = fs::copy(stderr, ver_stderr) {
-                        eprintln!(
-                            "!!! Failed to copy '{}' to '{}': {}",
-                            stderr.display(),
-                            ver_stderr.display(),
-                            io_err
-                        );
-                        with_failures = true;
-                    }
+                    with_failures = with_failures || !Self::copy_ok(stderr, ver_stderr);
                 }
             }
 
             eprintln!("- Removing {}", stderr.display());
-            if fs::remove_file(stderr).is_err() {
-                eprintln!("!!! Failed to remove '{}'", stderr.display());
-                with_failures = true;
-            }
+            with_failures = with_failures || !Self::remove_ok(stderr);
         }
+
+        if try_build {
+            // Pick up any new .stderrs
+            self.check_for_new();
+        }
+
         if with_failures {
             panic!("Failed to update or remove some stderr files");
         }
@@ -117,11 +147,17 @@ impl Drop for UncompEnv {
 
 #[test]
 fn failures() {
-    let _test_env = UncompEnv::new();
+    let test_env = UncompEnv::new("uncompilable");
     let t = trybuild::TestCases::new();
-    t.compile_fail(format!("tests/uncompilable/*.rs"));
-    #[cfg(feature = "serde")]
-    t.compile_fail("tests/uncompilable_serde/*.rs");
+    t.compile_fail(format!("{}/*.rs", test_env.base_dir));
+}
+
+#[test]
+#[cfg(feature = "serde")]
+fn failures_serde() {
+    let test_env = UncompEnv::new("uncompilable_serde");
+    let t = trybuild::TestCases::new();
+    t.compile_fail(format!("{}/*.rs", test_env.base_dir));
 }
 
 #[test]
