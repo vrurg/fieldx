@@ -25,17 +25,17 @@ pub(crate) struct FXSArgs {
     default: Option<FXBoolArg>,
 
     // Field defaults
-    lazy:         Option<FXHelper<true>>,
+    lazy:         Option<FXHelper>,
     #[darling(rename = "get")]
     accessor:     Option<FXAccessor>,
     #[darling(rename = "get_mut")]
     accessor_mut: Option<FXHelper>,
     #[darling(rename = "set")]
-    setter:       Option<FXSetter<true>>,
-    reader:       Option<FXHelper<true>>,
-    writer:       Option<FXHelper<true>>,
-    clearer:      Option<FXHelper<true>>,
-    predicate:    Option<FXHelper<true>>,
+    setter:       Option<FXSetter>,
+    reader:       Option<FXHelper>,
+    writer:       Option<FXHelper>,
+    clearer:      Option<FXHelper>,
+    predicate:    Option<FXHelper>,
     optional:     Option<FXBoolArg>,
     public:       Option<FXNestingAttr<FXPubMode>>,
     private:      Option<FXBoolArg>,
