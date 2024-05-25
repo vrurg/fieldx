@@ -13,7 +13,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
 
     fn filter_shadow_attributes<'a>(&'a self, fctx: &'a FXFieldCtx) -> impl Iterator<Item = &'a syn::Attribute> {
         // Only use `serde` attribute and those listed in forward_attrs
-        let serde_helper = fctx.serde().as_ref();
+        let serde_helper = fctx.serde().as_ref().or_else(|| self.ctx().args().serde().as_ref());
         fctx.attrs()
             .iter()
             .filter(move |a| a.path().is_ident("serde") || serde_helper.map_or(false, |sh| sh.accepts_attr(a)))
