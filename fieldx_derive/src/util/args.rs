@@ -157,14 +157,9 @@ impl FXSArgs {
         self.builder.as_ref().and_then(|b| b.attributes_impl())
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn public_mode(&self) -> Option<FXPubMode> {
-        if self.private.is_true() {
-            Some(FXPubMode::Private)
-        }
-        else {
-            self.public.as_ref().map(|pm| (**pm).clone())
-        }
+        crate::util::public_mode(&self.public, &self.private)
     }
 }
 

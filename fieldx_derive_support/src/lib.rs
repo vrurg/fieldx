@@ -212,7 +212,7 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
                 self.attributes_fn.as_ref()
             }
 
-            #[inline]
+            #[inline(always)]
             fn public_mode(&self) -> Option<crate::helper::FXPubMode> {
                 crate::util::public_mode(&self.public, &self.private)
             }
