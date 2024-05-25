@@ -185,7 +185,7 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
             #[getset(skip)]
             public: Option<crate::helper::FXNestingAttr<crate::helper::FXPubMode>>,
             #[getset(skip)]
-            private: Option<crate::helper::FXWithOrig<bool, ::syn::Meta>>,
+            private: Option<crate::helper::FXBoolArg>,
 
             #( #fields_tt ),*
         }
@@ -214,12 +214,7 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
 
             #[inline]
             fn public_mode(&self) -> Option<crate::helper::FXPubMode> {
-                if self.private.is_some() {
-                    Some(crate::helper::FXPubMode::Private)
-                }
-                else {
-                    self.public.as_ref().map(|pm| (**pm).clone())
-                }
+                crate::util::public_mode(&self.public, &self.private)
             }
 
             #attributes_method

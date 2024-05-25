@@ -1,4 +1,5 @@
 pub(crate) mod args;
+use crate::helper::{FXBoolArg, FXNestingAttr, FXPubMode, FXTriggerHelper};
 
 #[cfg(not(debug_assertions))]
 #[allow(unused)]
@@ -127,6 +128,19 @@ macro_rules! fxtrace {
 #[allow(unused_macros)]
 macro_rules! fxtrace {
     () => {};
+}
+
+#[inline]
+pub(crate) fn public_mode(
+    public: &Option<FXNestingAttr<FXPubMode>>,
+    private: &Option<FXBoolArg>,
+) -> Option<crate::helper::FXPubMode> {
+    if private.as_ref().map_or(false, |p| p.is_true()) {
+        Some(crate::helper::FXPubMode::Private)
+    }
+    else {
+        public.as_ref().map(|pm| (**pm).clone())
+    }
 }
 
 #[allow(unused_imports)]
