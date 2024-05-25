@@ -209,6 +209,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
         let ctx = self.ctx();
         let args = ctx.args();
         if args.is_serde() {
+            let serde_helper = args.serde().as_ref().unwrap();
             let shadow_ident = ctx.shadow_ident();
             let fields = self.shadow_fields();
             let mut attrs = vec![];
@@ -216,6 +217,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
             let shadow_defaults = self.shadow_defaults();
             let generics = ctx.input().generics();
             let where_clause = &generics.where_clause;
+            let vis = serde_helper.public_mode().map(|pm| pm.to_token_stream());
 
             attrs.push(derive_attr);
 
@@ -225,7 +227,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
 
             ctx.tokens_extend(quote![
                 #( #attrs )*
-                struct #shadow_ident #generics #where_clause {
+                #vis struct #shadow_ident #generics #where_clause {
                     #( #fields ),*
                 }
 

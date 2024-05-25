@@ -1,17 +1,21 @@
-use super::{FXBoolArg, FXDefault, FXInto, FXStringArg, FXTriggerHelper, FromNestAttr};
-use crate::util::set_literals;
+use super::{FXBoolArg, FXDefault, FXInto, FXNestingAttr, FXPubMode, FXStringArg, FXTriggerHelper, FromNestAttr};
+use crate::util::{set_literals, validate_exclusives};
 use darling::{
     ast::NestedMeta,
     util::{Flag, PathList},
     FromMeta,
 };
 use getset::Getters;
+use proc_macro2::Span;
 use syn::Lit;
 
 #[derive(Default, Debug, Getters, FromMeta, Clone)]
 #[getset(get = "pub(crate)")]
+#[darling(and_then = Self::validate)]
 pub(crate) struct FXSerdeHelper {
     off:           Flag,
+    public:        Option<FXNestingAttr<FXPubMode>>,
+    private:       Option<FXBoolArg>,
     serialize:     Option<FXBoolArg>,
     deserialize:   Option<FXBoolArg>,
     // Attributes of the original struct to be used with the shadow struct.
@@ -39,6 +43,14 @@ impl FXTriggerHelper for FXSerdeHelper {
 }
 
 impl FXSerdeHelper {
+    validate_exclusives! {"visibility" => public, private}
+
+    fn validate(self) -> darling::Result<Self> {
+        self.validate_exclusives()
+            .map_err(|err| err.with_span(&Span::call_site()))?;
+        Ok(self)
+    }
+
     pub(crate) fn needs_serialize(&self) -> Option<bool> {
         self.serialize
             .as_ref()
@@ -69,6 +81,11 @@ impl FXSerdeHelper {
         else {
             Some(false)
         }
+    }
+
+    #[inline(always)]
+    pub(crate) fn public_mode(&self) -> Option<FXPubMode> {
+        crate::util::public_mode(&self.public, &self.private)
     }
 
     pub(crate) fn accepts_attr(&self, attr: &syn::Attribute) -> bool {
