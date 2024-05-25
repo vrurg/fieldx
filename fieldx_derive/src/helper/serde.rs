@@ -1,4 +1,4 @@
-use super::{FXDefault, FXHelper, FXTriggerHelper, FXValue, FromNestAttr};
+use super::{FXBoolArg, FXDefault, FXInto, FXStringArg, FXTriggerHelper, FromNestAttr};
 use crate::util::set_literals;
 use darling::{
     ast::NestedMeta,
@@ -6,25 +6,26 @@ use darling::{
     FromMeta,
 };
 use getset::Getters;
+use syn::Lit;
 
 #[derive(Default, Debug, Getters, FromMeta, Clone)]
 #[getset(get = "pub(crate)")]
 pub(crate) struct FXSerdeHelper {
     off:           Flag,
-    serialize:     Option<FXHelper<true>>,
-    deserialize:   Option<FXHelper<true>>,
+    serialize:     Option<FXBoolArg>,
+    deserialize:   Option<FXBoolArg>,
     // Attributes of the original struct to be used with the shadow struct.
     forward_attrs: Option<PathList>,
     #[darling(rename = "default")]
     #[getset(skip)]
     default_value: Option<FXDefault<true>>,
-    // Name of the new type to be used for deserialization. Normally its <ident>Shadow
+    // Name of the new type to be used for deserialization. By default it's __<ident>Shadow
     #[getset(skip)]
-    shadow_name:   Option<FXValue<String>>,
+    shadow_name:   Option<FXStringArg>,
 }
 
 impl FromNestAttr for FXSerdeHelper {
-    set_literals! {serde}
+    set_literals! {serde, .. 1 => shadow_name as Lit::Str}
 
     fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())
