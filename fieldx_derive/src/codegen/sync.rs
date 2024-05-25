@@ -319,7 +319,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let field_ident = fctx.ident_tok();
         let me_var = self.ctx().me_var_ident();
-        Ok(if self.is_serde_optional(fctx) {
+        Ok(if self.is_serde_optional(fctx) || fctx.needs_lock() {
             quote![ #me_var.#field_ident.into_inner() ]
         }
         else {
