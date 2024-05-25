@@ -2,7 +2,7 @@ use fieldx::fxstruct;
 
 #[fxstruct(optional)]
 struct Foo {
-    #[fieldx(get(as_ref),set(into))]
+    #[fieldx(get(as_ref), set(into))]
     foo: String,
 }
 

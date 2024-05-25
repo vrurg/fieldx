@@ -12,8 +12,7 @@ pub struct Foo {
     b1: Bar,
 }
 
-impl Foo {
-}
+impl Foo {}
 
 #[test]
 fn accessors() {

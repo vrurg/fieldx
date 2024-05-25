@@ -13,11 +13,7 @@ struct Baz {
     cnt: u32,
 }
 
-#[fxstruct(
-    sync,
-    builder(attributes_impl(allow(dead_code))),
-    serde(default, shadow_name("FooDup"))
-)]
+#[fxstruct(sync, builder(attributes_impl(allow(dead_code))), serde("FooDup", default))]
 #[derive(Clone, Debug)]
 struct Foo {
     #[fieldx(lazy, serde(off))]

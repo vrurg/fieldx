@@ -15,7 +15,12 @@ struct Foo {
 #[derive(Clone)]
 struct Bar {
     // Similar to Foo, but on the field level literal values are used as actual methods names.
-    #[fieldx(rename("match"), get("match_constraint"), builder("set_match_constraint"))]
+    #[fieldx(
+        rename("match"),
+        get("match_constraint"),
+        builder("set_match_constraint"),
+        serde("__mmm", shadow_name("__match"))
+    )]
     ma: String,
 }
 
