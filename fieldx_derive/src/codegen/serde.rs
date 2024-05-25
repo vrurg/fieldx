@@ -5,10 +5,6 @@ use quote::{quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
 
 pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
-    // fn has_default_value(fctx: &FXFieldCtx) -> bool {
-    //     fctx.has_default_value() || fctx.serde().as_ref().map_or(false, |sh| sh.has_default())
-    // }
-
     // Field is an Option in the shadow struct if it is optional or lazy and has no default value
     fn is_serde_optional(&self, fctx: &FXFieldCtx) -> bool {
         fctx.is_optional() || fctx.is_lazy()
@@ -212,7 +208,6 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
         let ctx = self.ctx();
         let args = ctx.args();
         if args.is_serde() {
-            let serde_helper = args.serde().as_ref().unwrap();
             let shadow_ident = ctx.shadow_ident();
             let fields = self.shadow_fields();
             let mut attrs = vec![];
@@ -223,29 +218,8 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
 
             attrs.push(derive_attr);
 
-            if serde_helper.has_default() {
-                if serde_helper.has_default() {
-                    // Safe because of has_default()
-                    let default_value = serde_helper.default_value_raw().unwrap();
-                    let span = default_value.span().unwrap_or_else(|| Span::call_site());
-
-                    if default_value.has_value() {
-                        let serde_default_str: String = if default_value.is_str() {
-                            default_value.try_into()?
-                        }
-                        else {
-                            let struct_ident = ctx.input_ident();
-                            let default_fn_ident = self.serde_struct_default_fn()?;
-
-                            format!("{}::{}", struct_ident, default_fn_ident)
-                        };
-
-                        attrs.push(quote_spanned![span=> #[serde(default = #serde_default_str)] ]);
-                    }
-                    else {
-                        attrs.push(quote_spanned![span=> #[serde(default)] ]);
-                    }
-                }
+            if let Some(default_attr_arg) = self.serde_shadow_default_fn()? {
+                attrs.push(quote![#[serde(#default_attr_arg)]]);
             }
 
             ctx.tokens_extend(quote![
@@ -352,14 +326,6 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
                 }
             }
 
-            // let shadow_ident_value =
-            // if generics.is_empty() {
-            //     shadow_ident
-            // }
-            // else {
-            //     quote![ #shadow_ident::#generics]
-            // };
-
             ctx.tokens_extend(quote![
                 impl #generics ::std::convert::From<#struct_ident #generics> for #shadow_ident #generics #where_clause {
                     fn from(mut #me_var: #struct_ident #generics) -> Self {
@@ -397,34 +363,50 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
         self.serde_struct_into_shadow();
     }
 
-    fn serde_struct_default_fn(&self) -> darling::Result<syn::Ident> {
+    fn serde_shadow_default_fn(&self) -> darling::Result<Option<TokenStream>> {
         let ctx = self.ctx();
-        let fn_ident = ctx.unique_ident();
+
         let Some(serde_helper) = ctx.args().serde()
         else {
-            return Err(darling::Error::custom(format!(
-                "Can't generate default function for non-serde struct {}",
-                ctx.input_ident()
-            )));
-        };
-        let Some(serde_default) = serde_helper.default_value()
-        else {
-            return Err(darling::Error::custom(format!(
-                "There is no serde 'default' for field {}",
-                ctx.input_ident()
-            )));
+            return Ok(None);
         };
 
-        let shadow_ident = ctx.shadow_ident();
-        let generics = ctx.input().generics();
+        if serde_helper.has_default() {
+            let default_value = serde_helper.default_value_raw().unwrap();
+            let span = default_value.orig().span();
 
-        self.add_method_decl(quote![
-            fn #fn_ident() -> #shadow_ident #generics {
-                #serde_default
+            if default_value.has_value() {
+                let serde_default: TokenStream = if default_value.is_str() {
+                    let default_str: String = default_value.try_into()?;
+                    let expr: syn::ExprPath = syn::parse_str(&default_str).map_err(|err| {
+                        darling::Error::custom(format!("Invalid default string: {}", err)).with_span(&span)
+                    })?;
+                    quote![#expr()]
+                }
+                else {
+                    let default_code = default_value.value().as_ref().unwrap();
+                    quote![#default_code]
+                };
+
+                let generics = ctx.input().generics();
+                let shadow_ident = ctx.shadow_ident();
+                let fn_ident = ctx.unique_ident_pfx(&format!("{}_default", shadow_ident.to_string()));
+                self.add_method_decl(quote![
+                    fn #fn_ident() -> #shadow_ident #generics {
+                        #serde_default.into()
+                    }
+                ]);
+
+                let default_str = format!("{}::{}", ctx.input_ident(), fn_ident);
+
+                return Ok(Some(quote_spanned![span=> default = #default_str]));
             }
-        ]);
+            else {
+                return Ok(Some(quote_spanned![span=> default]));
+            }
+        }
 
-        Ok(fn_ident)
+        Ok(None)
     }
 
     fn serde_field_default_fn(&self, fctx: &FXFieldCtx) -> darling::Result<syn::Ident> {
