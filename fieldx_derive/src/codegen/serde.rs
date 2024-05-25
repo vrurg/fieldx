@@ -1,8 +1,9 @@
 use super::{FXCGenContextual, FXFieldCtx};
 use crate::helper::with_origin::FXOrig;
+use darling::ast::NestedMeta;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
-use syn::spanned::Spanned;
+use syn::{spanned::Spanned, Meta};
 
 pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
     // Field is an Option in the shadow struct if it is optional or lazy and has no default value
@@ -385,6 +386,17 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
                 }
                 else {
                     let default_code = default_value.value().as_ref().unwrap();
+                    if let NestedMeta::Meta(Meta::NameValue(_)) = default_code {
+                        let err = darling::Error::custom(format!("Unexpected kind of argument")).with_span(&span);
+                        #[cfg(feature = "diagnostics")]
+                        let err = err.note(format!(
+                            "{}\n{}\n{}",
+                            "Consider using a string, as with serde `default`: \"Type::function\"`",
+                            "                                       or a path: `Type::static_or_constant`",
+                            "                       or a call-like expression: `Type::function()`"
+                        ));
+                        return Err(err);
+                    }
                     quote![#default_code]
                 };
 
