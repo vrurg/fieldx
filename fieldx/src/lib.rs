@@ -638,7 +638,7 @@ impl<T> FXRwLock<T> {
 
 impl<T> From<T> for FXRwLock<T> {
     fn from(value: T) -> Self {
-        Self(RwLock::new(value.into()))
+        Self(RwLock::new(value))
     }
 }
 
