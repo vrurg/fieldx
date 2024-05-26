@@ -1,4 +1,6 @@
-use super::{FXBoolArg, FXDefault, FXInto, FXNestingAttr, FXPubMode, FXStringArg, FXTriggerHelper, FromNestAttr};
+use super::{
+    FXAttributes, FXBoolArg, FXDefault, FXInto, FXNestingAttr, FXPubMode, FXStringArg, FXTriggerHelper, FromNestAttr,
+};
 use crate::util::{set_literals, validate_exclusives};
 use darling::{
     ast::NestedMeta,
@@ -16,6 +18,7 @@ pub(crate) struct FXSerdeHelper {
     off:           Flag,
     public:        Option<FXNestingAttr<FXPubMode>>,
     private:       Option<FXBoolArg>,
+    attributes:    Option<FXAttributes>,
     serialize:     Option<FXBoolArg>,
     deserialize:   Option<FXBoolArg>,
     // Attributes of the original struct to be used with the shadow struct.
