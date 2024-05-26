@@ -8,7 +8,7 @@ mod sync;
 pub(crate) use self::serde::FXCGenSerde;
 use crate::{fields::FXField, helper::*, util::args::FXSArgs, FXInputReceiver};
 use context::{FXCodeGenCtx, FXFieldCtx};
-use darling::{self, ast::NestedMeta};
+use darling::ast::NestedMeta;
 use enum_dispatch::enum_dispatch;
 use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned, ToTokens};

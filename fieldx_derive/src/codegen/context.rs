@@ -29,6 +29,29 @@ macro_rules! helper_fn_ctx {
     };
 }
 
+struct Attributizer(Option<syn::Attribute>);
+
+impl Attributizer {
+    fn into_inner(self) -> Option<syn::Attribute> {
+        self.0
+    }
+}
+
+impl<T> From<T> for Attributizer
+where
+    T: ToTokens,
+{
+    fn from(attr: T) -> Self {
+        let toks = attr.to_token_stream();
+        if toks.is_empty() {
+            Self(None)
+        }
+        else {
+            Self(Some(syn::parse_quote!(#attr)))
+        }
+    }
+}
+
 // --- Contexts ---
 
 #[derive(Debug, Getters, CopyGetters)]
@@ -44,7 +67,7 @@ pub(crate) struct FXCodeGenCtx {
     args:                 FXSArgs,
     #[getset(get = "pub")]
     input:                FXInputReceiver,
-    extra_attrs:          RefCell<Vec<TokenStream>>,
+    extra_attrs:          RefCell<Vec<syn::Attribute>>,
     unique_id:            RefCell<u32>,
     needs_default:        RefCell<OnceCell<bool>>,
 }
@@ -59,7 +82,6 @@ pub(crate) struct FXFieldCtx<'f> {
     ident_tok:        OnceCell<TokenStream>,
     #[cfg(feature = "serde")]
     default_fn_ident: OnceCell<darling::Result<syn::Ident>>,
-    extra_attrs:      RefCell<Vec<TokenStream>>,
 }
 
 impl FXCodeGenCtx {
@@ -152,18 +174,41 @@ impl FXCodeGenCtx {
 
     #[allow(dead_code)]
     #[inline]
-    pub fn add_attr<ATTR: Into<TokenStream>>(&self, attr: ATTR) {
-        self.extra_attrs.borrow_mut().push(attr.into());
+    pub fn add_attr_from<ATTR: ToTokens>(&self, attr: ATTR) {
+        let Some(attr) = Attributizer::from(attr).into_inner()
+        else {
+            return;
+        };
+        self.extra_attrs.borrow_mut().push(attr);
+    }
+
+    #[allow(dead_code)]
+    #[inline]
+    pub fn add_attr(&self, attr: syn::Attribute) {
+        self.extra_attrs.borrow_mut().push(attr);
     }
 
     #[inline]
-    pub fn all_attrs(&self) -> Vec<TokenStream> {
-        self.input
-            .attrs()
+    pub fn all_attrs(&self) -> Vec<syn::Attribute> {
+        let mut attrs: Vec<syn::Attribute> = self
+            .extra_attrs
+            .borrow()
             .iter()
-            .map(|a| a.to_token_stream())
-            .chain(self.extra_attrs.borrow().iter().map(|a| a.clone()))
-            .collect()
+            .chain(self.input().attrs().iter())
+            .cloned()
+            .collect();
+        attrs.sort_by(|a, b| {
+            if a.path().is_ident("derive") && !b.path().is_ident("derive") {
+                std::cmp::Ordering::Less
+            }
+            else if !a.path().is_ident("derive") && b.path().is_ident("derive") {
+                std::cmp::Ordering::Greater
+            }
+            else {
+                std::cmp::Ordering::Equal
+            }
+        });
+        attrs
     }
 
     #[allow(dead_code)]
@@ -252,7 +297,6 @@ impl<'f> FXFieldCtx<'f> {
             ident: OnceCell::new(),
             ident_tok: OnceCell::new(),
             ty_tok: OnceCell::new(),
-            extra_attrs: RefCell::new(vec![]),
             #[cfg(feature = "serde")]
             default_fn_ident: OnceCell::new(),
         }
@@ -488,11 +532,7 @@ impl<'f> FXFieldCtx<'f> {
         self.get_helper_span(helper_kind).unwrap_or_else(|| Span::call_site())
     }
 
-    pub fn all_attrs(&self) -> Vec<TokenStream> {
-        self.attrs()
-            .iter()
-            .map(|a| a.to_token_stream())
-            .chain(self.extra_attrs.borrow().iter().map(|a| a.clone()))
-            .collect()
+    pub fn all_attrs(&self) -> Vec<syn::Attribute> {
+        self.attrs().iter().cloned().collect()
     }
 }

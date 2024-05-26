@@ -65,7 +65,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
         let ctx = self.ctx();
         let args = ctx.args();
 
-        ctx.add_attr(if args.is_serde() {
+        ctx.add_attr_from(if args.is_serde() {
             let mut serde_args: Vec<TokenStream> = vec![];
 
             let serde_helper = args.serde().as_ref().unwrap();
@@ -355,7 +355,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
             }
         }
 
-        self.ctx().add_attr(self.derive_toks(&self.serde_derive_traits()));
+        self.ctx().add_attr_from(self.derive_toks(&self.serde_derive_traits()));
 
         self.ok_or_record(self.serde_struct_attribute());
     }
