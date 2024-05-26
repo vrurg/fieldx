@@ -179,6 +179,7 @@
 //!
 //! - argument **Type** determines what subarguments can be received:
 //!   * _keyword_ – boolean-like, only accepts `off`: `keyword(off)`
+//!   * _flag_ – similar to the _keyword_ above but takes no arguments; as a matter of fact, the `off` above is a _flag_
 //!   * _helper_ - introduce functionality that is bound to a helper method (see below)
 //!   * _list_ or _function_ – can take multiple subarguments
 //!   * _meta_ - can take some syntax constructs
@@ -188,7 +189,7 @@
 //!   user.
 //! - **For** specifies if argument is specific to an attribute
 //!
-//! ## Sub-arguments of Helper Arguments <a id="sub_args"></a>
+//! ## Sub-Arguments of Helper Arguments <a id="sub_args"></a>
 //!
 //! Helper arguments share a bunch of common sub-arguments. We will describe them here, but if their meaning is unclear
 //! it'd be better to skip this section and get back to it later.
@@ -198,7 +199,7 @@
 //! | **`off`** | disable helper | disable helper |
 //! | a non-empty string literal (**"foo"**) | method name prefix | explicit method name (prefix not used) |
 //! | **`attributes_fn`** | default attributes for corresponding kind of helper methods | attributes for field's helper method |
-//! | **`public`, `public(crate)`, `public(super)`, `public(some::module)`, `private`** | default visibility | visibility for field helper |
+//! | <a id="visibility"></a> **`public`, `public(crate)`, `public(super)`, `public(some::module)`, `private`** | default visibility | visibility for field helper |
 //!
 //! For example:
 //!
@@ -230,8 +231,9 @@
 //! Sometimes it might be necessary to specify attributes for various generated syntax elements like methods, or
 //! auxiliary structs. Where applicable, this functionality is supported by `attributes*` (sub)arguments. Their syntax
 //! is `attributes(<attr1>, <attr2>, ...)` where an `<attr>` is specified exactly, as it would be specified in the code,
-//! but with starting `#[` and finishing `]` being omitted. For example, `attributes_fn(allow(dead_code), cfg(feature =
-//! "myfeature"))` will expand into something like:
+//! but with starting `#[` and finishing `]` being omitted.
+//!
+//! For example, `attributes_fn(allow(dead_code), cfg(feature = "myfeature"))` will expand into something like:
 //!
 //! ```ignore
 //! #[allow(dead_code)]
@@ -297,7 +299,7 @@
 //! With this option the macro may avoid generating `Default` implementation for the struct. More details in [a section
 //! below](#about_default).
 //!
-//! ### **`default`***
+//! ### **`default`**
 //!
 //! **Type**: keyword
 //!
@@ -321,7 +323,7 @@
 //! **Type**: helper
 //!
 //! Request for a mutable accessor. Since neither of additional options of `get` are applicable here[^no_copy_for_mut]
-//! only basic helper sub-arguments are accepted.
+//! only basic [helper sub-arguments](#sub_args) are accepted.
 //!
 //! Normally mutable accessors have the same name, as immutable ones, but with `_mut` suffix:
 //!
@@ -422,8 +424,7 @@
 //!
 //! **Type**: keyword
 //!
-//! Explicitly declares a field as optional. Useful when neither predicate nor clearer helpers are needed and yet we'd
-//! like to make the field optional.
+//! Explicitly make all fields optional. Useful when neither predicate nor clearer helpers are needed.
 //!
 //! ### **`public(...)`**, **`private`**
 //!
@@ -441,26 +442,175 @@
 //!
 //! Support for de/serialization will be discussed in more details in a section below. What is important to know at this
 //! point is that due to use of container types direct serialization of a struct is hardly possible. Therefore `fieldx`
-//! utilizes serde's `into` and `from` by creating a special shadow struct. The shadow is named after the original by
-//! prepending the name with double underscore and appending *Shadow* suffix: `__FooShadow`.
+//! utilizes `serde`'s `into` and `from` by creating a special shadow struct. The shadow, by default, is named after the
+//! original by prepending the name with double underscore and appending *Shadow* suffix: `__FooShadow`.
 //!
 //! The following sub-arguments are supported:
 //!
-//! - a string literal is used to give shadow struct a non-default name
+//! - a string literal is used to give the shadow struct a user-specified name
 //! - **`off`** disables de/serialization support altogether
+//! - **`attributes(...)`** - custom [attributes](#attrs_family) to be applied to the shadow struct
+//! - **`public(...)`**, **`private`** – specify [visibility](#visibility) of the shadow struct
 //! - **`serialize`** - enable or disable (`serialize(off)`) serialization support for the struct
 //! - **`deserialize`** - enable or disable (`deserialize(off)`) deserialization support for the struct
-//! - **`forward_attrs`** - a list of field attributes that are to be forwarded to the corresponding field of the shadow struct
-//! - **`default`** - wether `serde` must use defaults for missing fields and, perhaps, where to take the defaults from
+//! - **`default`** - wether `serde` must use defaults for missing fields and, perhaps, where to take the defaults from\
+//! - **`forward_attrs`** - a list of field attributes that are to be forwarded to the corresponding field of the shadow
+//!   struct
+//!
+//! ##### _Notes about `default`_
+//!
+//! Valid arguments for the sub-argument are:
+//!
+//! * a string literal that has the same meaning as for
+//!   [the container-level `serde` attribute `default`](https://serde.rs/container-attrs.html#default--path)
+//! * a path to a symbol that is bound to an instance of our type: `my_crate::FOO_DEFAULT`
+//! * a call-like path that'd be used literally: `Self::serde_default()`
+//!
+//! The last option is preferable because `fieldx` will parse it and replace any found `Self` reference with the
+//! actual structure name making possible future renaming of it much easier.
+//!
+//! There is a potentially useful "trick" in how `default` works. Internally, whatever type is returned by the
+//! sub-argument it gets converted into the shadow type with trait [`Into`]. This allows you to use the original struct
+//! as the trait implementation is automatically generated for it. See this example from a test:
+//!
+//! ```
+//! #[cfg(feature = "serde")]
+//! # mod inner {
+//! # use fieldx::fxstruct;
+//! # use serde::{Serialize, Deserialize};
+//! #[fxstruct(sync, get, serde("BazDup", default(Self::serde_default())))]
+//! #[derive(Clone)]
+//! pub(super) struct Baz {
+//!     #[fieldx(reader)]
+//!     f1: String,
+//!     f2: String,
+//! }
+//!
+//! impl Baz {
+//!     fn serde_default() -> Fubar {
+//!         Fubar {
+//!             postfix: "from fubar".into()
+//!         }
+//!     }
+//! }
+//!
+//! struct Fubar {
+//!     postfix: String,
+//! }
+//!
+//! impl From<Fubar> for BazDup {
+//!     fn from(value: Fubar) -> Self {
+//!         Self {
+//!             f1: format!("f1 {}", value.postfix),
+//!             f2: format!("f2 {}", value.postfix),
+//!         }
+//!     }
+//! }
+//! # } // mod inner
+//! # #[cfg(feature = "serde")]
+//! # use inner::Baz;
+//!
+//! # fn main() {
+//! # #[cfg(feature = "serde")]
+//! # {
+//! let json_src = r#"{"f1": "f1 json"}"#;
+//! let foo_de = serde_json::from_str::<Baz>(&json_src).expect("Bar deserialization failure");
+//! assert_eq!(foo_de.f1(), "f1 json".to_string());
+//! assert_eq!(foo_de.f2(), "f2 from fubar".to_string());
+//! # }
+//! # }
+//! ```
 //!
 //! ## Arguments of `fieldx`
 //!
-//! ... TODO ...
+//! At this point, it worth refreshing your memory about [sub-arguments of helpers](#sub_args) and how they differ in
+//! semantics between `fxstruct` and `fieldx` attributes.
+//!
+//! ### **`skip`**
+//!
+//! **Type**: flag
+//!
+//! Leave this field alone. The only respected argument of `fieldx` when skipped is the `default`.
+//!
+//! ### **`lazy`**
+//!
+//! **Type**: helper
+//!
+//! Mark field as lazy.
+//!
+//! ### **`rename`**
+//!
+//! **Type**: function
+//!
+//! Specify alternative name for the field. The alternative will be used to form method names and, with `serde` feature
+//! enabled, serialization name[^unless_in_serde].
+//!
+//! [^unless_in_serde]: Unless a different alternative name is specified for serialization with `serde` argument.
+//!
+//! ### **`get`**, **`get_mut`**, **`set`**, **`reader`**, **`writer`**, **`clearer`**, **`predicate`**, **`optional`**
+//!
+//! **Type**: helper
+//!
+//! Have similar syntax and semantics to corresponding `fxstruct` arguments:
+//!
+//! - [`get`](#get)
+//! - [`get_mut`](#get_mut)
+//! - [`set`](#set)
+//! - [`reader` and `writer`](#reader-writer)
+//! - [`clearer`](#clearer)
+//! - [`predicate`](#predicate)
+//! - [`optional`](#optional)
+//!
+//! ### **`optional`**
+//!
+//! **Type**: keyword
+//!
+//! Explicitly mark field as optional even if neither `predicate` nor `clearer` are requested.
+//!
+//! ### **`public(...)`**, **`private`**
+//!
+//! Field-default visibility for helper methods. See [the sub-arguments section](#sub_args) above for more details.
+//!
+//! ### **`serde`**
+//!
+//! **Type**: function
+//!
+//! At the field-level this option acts mostly the same way, as [at the struct-level](#serde). With a couple of
+//! differences:
+//!
+//! - string literal sub-argument is bypassed into `serde` [field-level `rename`](https://serde.rs/field-attrs.html#rename)
+//! - `default` is responsible for field default value; contrary to the struct-level, it doesn't use [`Into`] trait
+//! - `attributes` will be applied to the field itself
+//!
+//! ### **`into`**
+//!
+//! **Type**: keyword
+//!
+//! Sets default for `set` and `builder` arguments.
+//!
+//! ### **`builder`**
+//!
+//! **Type**: function
+//!
+//! Mostly identical to the [struct-level `builder`](#builder). Field specifics are:
+//!
+//! - no `attributes_impl` (consumed, but ignored)
+//! - string literal specifies setter method name if the builder type for this field
+//! - `attributes` and `attributes_fn` are correspondingly applies to builder field and builder setter method
 //!
 //! # Do We Need The `Default` Trait? <a id="about_default"></a>
 //!
-// TODO Describe how `no_new`, `default`, and `sync` interact and determine wether `Default` implementation is produced and what happens to the `new` method.
-//! ...
+//! Unless explicit `default` argument is used with the `fxstruct` attribute, `fieldx` tries to avoid implementing the
+//! `Default` trait unless really required. Here is the conditions which determine if the implementation is needed:
+//!
+//! 1. Method `new` is generated by the procedural macro.
+//!
+//!    This is, actually, the default behavior which is disabled with [`no_new`](#no_new) argument of the `fxstruct`
+//!    attribute.
+//! 1. A field is given a [`default`](#default) value.
+//! 1. The struct is `sync` and has a lazy field.
+//!
+//! # Support Of De/Serialization With `serde`
 //!
 //! [`serde`]: https://docs.rs/serde
 
