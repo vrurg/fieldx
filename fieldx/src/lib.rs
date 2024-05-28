@@ -1,8 +1,8 @@
 #![doc(html_root_url = "https://docs.rs/")]
 //! Procedural macro for constructing structs with lazily initialized fields, builder pattern, and [`serde`] support
-//! with focus on declarative syntax.
+//! with a focus on declarative syntax.
 //!
-//! Let's start with a simple example:
+//! Let's start with an example:
 //!
 //! ```
 //! # use std::cell::RefCell;
@@ -41,15 +41,15 @@
 //!
 //! What happens here is:
 //!
-//! - a struct with lazy by default fields is declared
+//! - a struct with all fields been `lazy` by default
 //! - laziness is explicitly disabled for field `order`
 //! - methods `build_count` and `build_foo` return initial values for corresponding fields
 //!
 //! At run-time we first ensure that the `order` vector is empty meaning none of the `build_` methods was called. Then
 //! we read from `foo` using its accessor method. Then we make sure that each `build_` method was invoked only once.
 //!
-//! As one can notice, minimal amount of handwork is needed here as most of boilerplate is handled by the macro, which
-//! provides even basic `new` associated function.
+//! As one can notice, a minimal amount of handcraft is needed here as most of boilerplate is handled by the macro,
+//! which provides even basic `new` associated function.
 //!
 //! Also notice that we don't need to remember the order of initialization of fields. Builder of `foo` is using `count`
 //! without worrying if it's been initialized yet or not because it will always be.
@@ -63,28 +63,28 @@
 //! the type it is applied to according to the parameters provided. Here is a list of most notable changes and
 //! additions:
 //!
-//! - field types could be wrapped into container types
+//! - field types may be be wrapped into container types
 //!
 //!   In the above example `foo` and `count` become [`OnceCell<String>`][OnceCell] and `OnceCell<usize>`, whereas
 //!   `order` remains unchanged.
 //!
-//! - partial implementation of `Foo` is added with support methods and associated functions
+//! - a partial implementation of `Foo` is added with support methods and associated functions
 //!
 //!   I.e. this is where accessor methods and `new` live.
 //!
-//! - depending on parameters, implicit implementation of the [`Default`] trait could be added
-//! - if requested, builder struct and `builder` associated function will be implemented
+//! - depending on parameters, an implicit implementation of the [`Default`] trait may be be added
+//! - if requested, builder struct and `builder()` associated function will be implemented
 //! - also, if requested, a shadow struct for correct `serde` support will be there too
 //!
-//! **Note** that user is highly discouraged from directly accessing modified fields. The modules does its best to
-//! provided all necessary API via corresponding methods.
+//! **Note** that user is highly discouraged from directly accessing modified fields. The module does its best to
+//! provide all necessary API via corresponding methods.
 //!
 //! # Sync And Non-Sync Structs
 //!
 //! If a thread-safe struct is needed then `fxstruct` must take the `sync` argument: `#[fxstruct(sync, ...)]`. When told
 //! so, the macro will do its best to provide concurrency safety at the field level. It means that:
 //!
-//! - builder methods are guaranteed to be invoked once and exactly once per each lazy initialization, be it single- or
+//! - builder methods are guaranteed to be invoked once and only once per each lazy initialization, be it single- or
 //!   multi-threaded application
 //! - access to struct fields is lock-protected (unless otherwise requested by the user)
 //!
@@ -99,12 +99,12 @@
 //!
 //! # Optional Fields <a id="optional_fields"></a>
 //!
-//! _Optional_ in this context has the same meaning, as in [`Option`] type. Sure thing, one can simply declare a field
-//! using the core type (and, as a matter of fact, this is what `fieldx` is using internally anyway). What's the
+//! _Optional_ in this context has the same meaning, as in the [`Option`] type. Sure thing, one can simply declare a
+//! field using the core type (and, as a matter of fact, this is what `fieldx` is using internally anyway). What's the
 //! advantages of using `fieldx` then?
 //!
-//! First of all, manual declaration may mean additional boilerplate code to implement accessor and not only. With
-//! `fieldx` most of it can be hidden under a single declaration:
+//! First of all, manual declaration may mean additional boilerplate code to implement an accessor, among other things.
+//! With `fieldx` most of it can be hidden under a single declaration:
 //!
 //! <a id="optional_example"></a>
 //! ```
@@ -137,10 +137,10 @@
 //!
 //! # Laziness Protocol
 //!
-//! Though being very simple concept, laziness has its own peculiarities. The basics, as it's been shown above, are such
-//! that when we declare a field as `lazy` the macro wraps it into some kind of proxy container type ([`OnceCell`] for
-//! non-sync structs). The first read[^only_via_method] from an uninialized field will result in the builder method to
-//! be invoked and the value it returns to be stored in the field.
+//! Though being very simple concept, laziness has its own peculiarities. The basics, as shown above, are such that when
+//! we declare a field as `lazy` the macro wraps it into some kind of proxy container type ([`OnceCell`] for non-sync
+//! structs). The first read[^only_via_method] from an uninitialized field will result in the builder method to be
+//! invoked and the value it returns to be stored in the field.
 //!
 //! Here come the caveats:
 //!
@@ -152,12 +152,62 @@
 //!    For cases when it is important to have controllable error handling, one could give the field a [`Result`] type.
 //!    Then `obj.field()?` could be a way to take care of errors.
 //!
-//! 1. Builders cannot mutate their objects. This limitation also comes from the fact that a typical accessor method
-//!    doesn't need and must not use mutable `&self`. Of course, it is always possible to use internal mutability, as
-//!    in the first example here.
+//! 1. Field builder methods cannot mutate their objects. This limitation also comes from the fact that a typical
+//!    accessor method doesn't need and must not use mutable `&self`. Of course, it is always possible to use internal
+//!    mutability, as in the first example here.
 //!
 //! [^only_via_method]: Apparently, the access has to be made by calling a corresponding method. Mostly it'd be field's
 //! accessor, but for `sync` structs it's more likely to be a reader.
+//!
+//! # Builder Pattern
+//!
+//! **IMPORTANT!** First of all, it is necessary to point out at unintended terminological ambiguity here. The terms
+//! `build` and `builder` are used for different, though identical in nature, processes. The _lazy builders_ from the
+//! previous section are methods that return initial values for associated fields. The _struct builder_ in this section
+//! is an object that collects initial values from user and then is able to create the final instance of the original
+//! struct. This ambiguity has some history spanning back to the times when Perl's [`Moo`](https://metacpan.org/pod/Moo)
+//! module was one of the author's primary tools. Then it was borrowed by Raku
+//! [`AttrX::Mooish`](https://raku.land/zef:vrurg/AttrX::Mooish) and, finally, automatically made its way into `fieldx`
+//! which, initially, didn't implement the builder pattern.
+//!
+//! The default `new` method generated by `fxstruct` macro accepts no arguments and simply creates a bare-bones object
+//! initialized from type defaults. Submitting custom values for struct fields is better be done by using the
+//! builder pattern:
+//!
+//! ```
+//! # use fieldx::fxstruct;
+//! #[fxstruct(builder)]
+//! struct Foo {
+//!     #[fieldx(lazy)]
+//!     description: String,
+//!     count: usize,
+//! }
+//!
+//! impl Foo {
+//!     fn build_description(&self) -> String {
+//!         format!("this is item #{}", self.count)
+//!     }
+//! }
+//!
+//! # fn main() {
+//! let obj = Foo::builder()
+//!             .count(42)
+//!             .build()
+//!             .expect("Foo builder failure");
+//! assert_eq!( obj.description(), &String::from("this is item #42") );
+//!
+//! let obj = Foo::builder()
+//!             .count(13)
+//!             .description(String::from("count is ignored"))
+//!             .build()
+//!             .expect("Foo builder failure");
+//! // Since the `description` is given a value the `count` field is not used
+//! assert_eq!( obj.description(), &String::from("count is ignored") );
+//! # }
+//! ```
+//!
+//! Since the only `fieldx`-related failure that may happen when building a new object instance is a required field not
+//! given a value, the `build()` method would return [`FieldXError`](errors::FieldXError) if this happens.
 //!
 //! # Usage
 //!
@@ -166,7 +216,7 @@
 //!
 //! Also, most of the arguments are shared by both `fxstruct` and `fieldx`. But their meaning and the way their
 //! arguments are interpreted could be slightly different for each attribute. For example, if an argument takes a
-//! literal string subargument it is likely to be a method name when associated with `fieldx`; but for `fxstruct` it
+//! literal string sub-argument it is likely to be a method name when associated with `fieldx`; but for `fxstruct` it
 //! would define common prefix for method names.
 //!
 //! There is also a commonality between most of the arguments: they can be temporarily (say, for testing purposes) or
@@ -175,13 +225,13 @@
 //!
 //! # Attribute Arguments
 //!
-//! A few words about terminology here: <a id="attr_terminology"></a>
+//! A few words on terminology: <a id="attr_terminology"></a>
 //!
-//! - argument **Type** determines what subarguments can be received:
+//! - argument **Type** determines what sub-arguments can be received:
 //!   * _keyword_ – boolean-like, only accepts `off`: `keyword(off)`
 //!   * _flag_ – similar to the _keyword_ above but takes no arguments; as a matter of fact, the `off` above is a _flag_
 //!   * _helper_ - introduce functionality that is bound to a helper method (see below)
-//!   * _list_ or _function_ – can take multiple subarguments
+//!   * _list_ or _function_ – can take multiple sub-arguments
 //!   * _meta_ - can take some syntax constructs
 //! - helper method – implements certain functionality
 //!
@@ -197,7 +247,7 @@
 //! | Sub-argument | In fxstruct | In fxfield |
 //! |-|-|-|
 //! | **`off`** | disable helper | disable helper |
-//! | a non-empty string literal (**"foo"**) | method name prefix | explicit method name (prefix not used) |
+//! | a non-empty string literal (**`"foo"`**) | method name prefix | explicit method name (prefix not used) |
 //! | **`attributes_fn`** | default attributes for corresponding kind of helper methods | attributes for field's helper method |
 //! | <a id="visibility"></a> **`public`, `public(crate)`, `public(super)`, `public(some::module)`, `private`** | default visibility | visibility for field helper |
 //!
@@ -325,7 +375,8 @@
 //! Request for a mutable accessor. Since neither of additional options of `get` are applicable here[^no_copy_for_mut]
 //! only basic [helper sub-arguments](#sub_args) are accepted.
 //!
-//! Normally mutable accessors have the same name, as immutable ones, but with `_mut` suffix:
+//! Mutable accessors have the same name, as immutable ones, but with `_mut` suffix, unless given explicit name by the
+//! user:
 //!
 //! ```
 //! # use fieldx::fxstruct;
@@ -368,7 +419,7 @@
 //! # }
 //! ```
 //!
-//! ### **`reader`**, **`writer`**
+//! ### **`reader`**, **`writer`** <a id="reader_writer_helpers"></a>
 //!
 //! **Type**: helper
 //!
@@ -413,7 +464,7 @@
 //! Clearer helpers are the way to reset a field into uninitialized state. For optional fields it would simply mean it
 //! will contain [`None`]. A lazy field would be re-initialized the next time it is read from.
 //!
-//! Clearers return the current field value. If field is already uninialized (or never has been yet) `None` will be
+//! Clearers return the current field value. If field is already uninitialized (or never has been yet) `None` will be
 //! given back.
 //!
 //! Using either of the two automatically make fields optional unless lazy.
@@ -434,7 +485,7 @@
 //!
 //! Specify defaults for accessor helpers.
 //!
-//! ### **`serde`**
+//! ### **`serde`** <a id="serde_struct"></a>
 //!
 //! **Type**: [function](#attr_terminology)
 //!
@@ -523,7 +574,7 @@
 //!
 //! ## Arguments of `fieldx`
 //!
-//! At this point, it worth refreshing your memory about [sub-arguments of helpers](#sub_args) and how they differ in
+//! At this point, it's worth refreshing your memory about [sub-arguments of helpers](#sub_args) and how they differ in
 //! semantics between `fxstruct` and `fieldx` attributes.
 //!
 //! ### **`skip`**
@@ -581,6 +632,7 @@
 //! - string literal sub-argument is bypassed into `serde` [field-level `rename`](https://serde.rs/field-attrs.html#rename)
 //! - `default` is responsible for field default value; contrary to the struct-level, it doesn't use [`Into`] trait
 //! - `attributes` will be applied to the field itself
+//! - `serialize`/`deserialize` control field marshalling
 //!
 //! ### **`into`**
 //!
@@ -610,8 +662,57 @@
 //! 1. A field is given a [`default`](#default) value.
 //! 1. The struct is `sync` and has a lazy field.
 //!
-//! # Support Of De/Serialization With `serde`
+//! # The Inner Workings
 //!
+//! As it was mentioned in the [Basics](#basics) section, `fieldx` rewrites structures with `fxstruct` applied. The
+//! following table reveals the final types of fields. `T` in the table represents the original field type, as specified
+//! by the user; `O` is the original struct type.
+//!
+//! | Field Parameters | Non-Sync Type | Sync Type |
+//! |------------------|---------------|-----------|
+//! | `lazy` | `OnceCell<T>` | [`FXProxy<O, T>`] |
+//! | optional (also activated with `clearer` and `proxy`) | `Option<T>` | [`FXRwLock<Option<T>>`] |
+//! | `reader` and/or `writer` | N/A | [`FXRwLock<T>`] |
+//!
+//! Apparently, skipped fields retain their original type. Sure enough, if such a field is of non-`Send` or non-`Sync`
+//! type the entire struct would be missing these traits despite all the efforts from the `fxstruct` macro.
+//!
+//! There is also a difference in how the initialization of `lazy` fields is implemented. Non-sync structs do it
+//! directly in their accessor methods. Sync structs delegate this functionality to the [`FXProxy`] type.
+//!
+//! ## Traits
+//!
+//! `fieldx` additionally implement traits `FXStructNonSync` and `FXStructSync` for corresponding kind of structs. Both
+//! traits are empty and only used to distinguish structs from non-`fieldx` ones and from each other. For both of them
+//! `FXStruct` is a super-trait.
+//!
+//! ## Sync Primitives
+//!
+//! The functionality of `sync` structs are backed by primitives provided by the [`parking_lot`] crate.
+//!
+//! # Support Of De-/Serialization With `serde`
+//!
+//! Transparently de-/serializing container types is a non-trivial task. Luckily, [`serde`] allows us to use special
+//! parameters [`from`](https://serde.rs/container-attrs.html#from) and
+//! [`into`](https://serde.rs/container-attrs.html#into) to perform indirect marshalling via a shadow struct. The way
+//! this functionality implemented by `serde` (and it is for a good reason) requires our original struct to implement
+//! the [`Clone`] trait. `fxstruct` doesn't automatically add a `#[derive(Clone)]` because implementing the trait
+//! might require manual work from the user.
+//!
+//! Normally one doesn't need to interfere with the marshalling process. But if such a need emerges then the following
+//! implementation details might be helpful to know about:
+//!
+//! - shadow struct mirror-fields of lazy and optional originals are [`Option`]-wrapped
+//! - the struct may be given a custom name using string literal sub-argument of [the `serde` argument](#serde_struct)
+//! - a shadow field may share its attributes with the original if they are listed in `forward_attrs` sub-argument of
+//!   the `serde` argument
+//! - `forward_attrs` is always applied to the fields, no matter if it is used with struct- or field-level `serde`
+//!   argument
+//! - if you need custom attributes applied to the shadow struct, use the `attributes*`-family of `serde` sub-arguments
+//! - same is about non-shared field-level custom attributes: they are to be declared with field-level `attributes*` of
+//!   `serde`
+//!
+//! [`parking_lot`]: https://docs.rs/parking_lot
 //! [`serde`]: https://docs.rs/serde
 
 pub mod errors;
@@ -625,6 +726,9 @@ use std::{any, borrow::Borrow, cell::RefCell, fmt::Debug, marker::PhantomData, o
 pub use std::{cell::OnceCell, fmt, sync::atomic::Ordering};
 use traits::FXStructSync;
 
+/// Container type for lazy fields
+///
+/// Direct use of this struct is not recommended. See [reader and writer helpers](mod@crate#reader_writer_helpers).
 pub struct FXProxy<O, T>
 where
     O: FXStructSync,
@@ -634,10 +738,17 @@ where
     builder: RwLock<Option<fn(&O) -> T>>,
 }
 
-// We need FXRwLock because RwLock doesn't implement Clone
+/// Lock-protected container
+///
+/// This is a wrapper around [`RwLock`] sync primitive. It provides safe means of cloning the lock and the data it
+/// protects.
 #[derive(Default)]
 pub struct FXRwLock<T>(RwLock<T>);
 
+/// Write-lock returned by [`FXProxy::write`] method
+///
+/// This type, in cooperation with the [`FXProxy`] type, takes care of safely updating lazy field status when data is
+/// being stored.
 #[allow(private_bounds)]
 pub struct FXWrLock<'a, O, T>
 where
@@ -674,6 +785,7 @@ impl<O, T> FXProxy<O, T>
 where
     O: FXStructSync,
 {
+    #[doc(hidden)]
     pub fn new_default(builder_method: fn(&O) -> T, value: Option<T>) -> Self {
         Self {
             is_set:  AtomicBool::new(value.is_some()),
@@ -682,6 +794,7 @@ where
         }
     }
 
+    /// Consumes the container, returns the wrapped value or None if the container is empty
     pub fn into_inner(self) -> Option<T> {
         self.value.into_inner()
     }
@@ -691,10 +804,13 @@ where
         &self.is_set
     }
 
+    /// Returns `true` if the container has a value.
+    #[inline]
     pub fn is_set(&self) -> bool {
         self.is_set_raw().load(Ordering::SeqCst)
     }
 
+    /// This is the key method that actually implements lazy build of the container by invoking field's builder method.
     pub fn read_or_init<'a>(&'a self, owner: &O) -> RwLockReadGuard<'a, Option<T>> {
         let guard = self.value.upgradable_read();
         if (*guard).is_none() {
@@ -717,10 +833,13 @@ where
         }
     }
 
+    /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
+    /// semit-direct access to it without the [`Option`] wrapper.
     pub fn read<'a>(&'a self, owner: &O) -> MappedRwLockReadGuard<'a, T> {
         RwLockReadGuard::map(self.read_or_init(owner), |data: &Option<T>| data.as_ref().unwrap())
     }
 
+    /// Provides write-lock to directly store the value.
     pub fn write<'a>(&'a self) -> FXWrLock<'a, O, T> {
         FXWrLock::<'a, O, T>::new(self.value.write(), self)
     }
@@ -730,6 +849,7 @@ where
         wguard.take()
     }
 
+    /// Resets the container into unitialized state
     pub fn clear(&self) -> Option<T> {
         let mut wguard = self.value.write();
         self.clear_with_lock(&mut wguard)
@@ -741,6 +861,7 @@ impl<'a, O, T> FXWrLock<'a, O, T>
 where
     O: FXStructSync,
 {
+    #[doc(hidden)]
     pub fn new(lock: RwLockWriteGuard<'a, Option<T>>, fxproxy: &'a FXProxy<O, T>) -> Self {
         let lock = RefCell::new(lock);
         Self {
@@ -750,11 +871,13 @@ where
         }
     }
 
+    /// Store a new value into the container and returns the previous value or `None`.
     pub fn store(&mut self, value: T) -> Option<T> {
         self.fxproxy.is_set_raw().store(true, Ordering::Release);
         self.lock.borrow_mut().replace(value)
     }
 
+    /// Resets the container into unitialized state
     pub fn clear(&self) -> Option<T> {
         self.fxproxy.clear_with_lock(&mut *self.lock.borrow_mut())
     }
@@ -777,10 +900,12 @@ where
 }
 
 impl<T> FXRwLock<T> {
+    #[doc(hidden)]
     pub fn new(value: T) -> Self {
         Self(RwLock::new(value))
     }
 
+    /// Consumes the lock and returns the wrapped value.
     pub fn into_inner(self) -> T {
         self.0.into_inner()
     }
