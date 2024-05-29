@@ -79,7 +79,6 @@ exec cargo install cargo-readme
 description = "Build documentation"
 script_runner = '@duckscript'
 script = '''
-readme_content = exec --fail-on-error cargo readme -r fieldx
+readme_content = exec --fail-on-error cargo readme -r fieldx --template ../README.tpl
 writefile ./README.md ${readme_content.stdout}
-writefile ./fieldx/README.md ${readme_content.stdout}
 '''

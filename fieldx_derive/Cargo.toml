@@ -1,8 +1,14 @@
 [package]
 name = "fieldx_derive"
 version = "0.1.0"
-edition = "2021"
-license = "BSD-3"
+description = "Derive proc macros for fieldx crate"
+edition.workspace = true
+license-file.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+category.workspace = true
+exclude.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

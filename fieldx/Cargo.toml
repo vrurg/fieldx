@@ -1,9 +1,15 @@
 [package]
 name = "fieldx"
 version = "0.1.0"
-edition = "2021"
-authors = ["vrurg"]
-license-file = "LICENSE"
+description = "Procedural macro for constructing structs with lazily initialized fields, builder pattern, and serde support with a focus on declarative syntax."
+readme = "../README.md"
+edition.workspace = true
+license-file.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+category.workspace = true
+exclude.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
