@@ -84,6 +84,7 @@ writefile ./README.md ${readme_content.stdout}
 '''
 
 [tasks.publish]
+clear = true
 description = "Publish on crates.io"
 script_runner = "@duckscript"
 script = '''
