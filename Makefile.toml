@@ -87,7 +87,7 @@ writefile ./README.md ${readme_content.stdout}
 description = "Publish on crates.io"
 script_runner = "@duckscript"
 script = '''
-exec --fail-on-error cargo publish -p fieldx_derive_support
-exec --fail-on-error cargo publish -p fieldx_derive
-exec --fail-on-error cargo publish -p fieldx
+exec --fail-on-error cargo publish -p fieldx_derive_support --all-features
+exec --fail-on-error cargo publish -p fieldx_derive --all-features
+exec --fail-on-error cargo publish -p fieldx --all-features
 '''
