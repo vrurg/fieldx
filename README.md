@@ -1,6 +1,6 @@
 [![Rust](https://github.com/vrurg/fieldx/actions/workflows/fieldx.yml/badge.svg)](https://github.com/vrurg/fieldx/actions/workflows/fieldx.yml)
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
-![Crates.io Downloads (latest version)](https://img.shields.io/crates/dv/fieldx)
+![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
 # fieldx v0.1.0
 
