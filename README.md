@@ -1,3 +1,5 @@
+[![Rust](https://github.com/vrurg/fieldx/actions/workflows/fieldx.yml/badge.svg)](https://github.com/vrurg/fieldx/actions/workflows/fieldx.yml)
+
 # fieldx v0.1.0
 
 Procedural macro for constructing structs with lazily initialized fields, builder pattern, and [`serde`] support
