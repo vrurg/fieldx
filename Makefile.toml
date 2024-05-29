@@ -77,8 +77,17 @@ exec cargo install cargo-readme
 
 [tasks.doc]
 description = "Build documentation"
-script_runner = '@duckscript'
+script_runner = "@duckscript"
 script = '''
 readme_content = exec --fail-on-error cargo readme -r fieldx --template ../README.tpl
 writefile ./README.md ${readme_content.stdout}
+'''
+
+[tasks.publish]
+description = "Publish on crates.io"
+script_runner = "@duckscript"
+script = '''
+exec --fail-on-error cargo publish -p fieldx_derive_support
+exec --fail-on-error cargo publish -p fieldx_derive
+exec --fail-on-error cargo publish -p fieldx
 '''
