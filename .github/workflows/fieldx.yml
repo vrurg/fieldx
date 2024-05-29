@@ -9,7 +9,7 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
-  build_and_test_features:
+  with_features:
     runs-on: ${{ matrix.os }}-latest
     strategy:
       matrix:
@@ -20,9 +20,6 @@ jobs:
           - beta
           - nightly
         feature: [serde]
-        include:
-          - toolchain: nightly
-            feature: diagnostics
     steps:
       - uses: actions/checkout@v4
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
@@ -32,7 +29,7 @@ jobs:
         if: matrix.toolchain == 'nightly'
       - run: cargo test --verbose --all --all-features
         if: matrix.toolchain == 'nightly'
-  build_and_test_default:
+  no_features:
     runs-on: ${{ matrix.os }}-latest
     strategy:
       matrix:
