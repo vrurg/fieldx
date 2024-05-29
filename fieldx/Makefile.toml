@@ -1,4 +1,3 @@
-
 [tasks.test-compilation]
 description = "Test code compilability"
 category = "Test"

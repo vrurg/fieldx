@@ -97,7 +97,8 @@
 //!
 //! Wrapper types for sync struct fields are non-`std` and provided with the module.
 //!
-//! # Optional Fields <a id="optional_fields"></a>
+//! <a id="optional_fields"></a>
+//! # Optional Fields
 //!
 //! _Optional_ in this context has the same meaning, as in the [`Option`] type. Sure thing, one can simply declare a
 //! field using the core type (and, as a matter of fact, this is what `fieldx` is using internally anyway). What's the
@@ -225,7 +226,8 @@
 //!
 //! # Attribute Arguments
 //!
-//! A few words on terminology: <a id="attr_terminology"></a>
+//! <a id="attr_terminology"></a>
+//! A few words on terminology:
 //!
 //! - argument **Type** determines what sub-arguments can be received:
 //!   * _keyword_ – boolean-like, only accepts `off`: `keyword(off)`
@@ -239,7 +241,8 @@
 //!   user.
 //! - **For** specifies if argument is specific to an attribute
 //!
-//! ## Sub-Arguments of Helper Arguments <a id="sub_args"></a>
+//! <a id="sub_args"></a>
+//! ## Sub-Arguments of Helper Arguments
 //!
 //! Helper arguments share a bunch of common sub-arguments. We will describe them here, but if their meaning is unclear
 //! it'd be better to skip this section and get back to it later.
@@ -276,7 +279,8 @@
 //! let foo = self.special_type();
 //! ```
 //!
-//! ## `attributes*` Family of Sub-Arguments <a id="attrs_family"></a>
+//! <a id="attrs_family"></a>
+//! ## `attributes*` Family of Sub-Arguments
 //!
 //! Sometimes it might be necessary to specify attributes for various generated syntax elements like methods, or
 //! auxiliary structs. Where applicable, this functionality is supported by `attributes*` (sub)arguments. Their syntax
@@ -419,7 +423,8 @@
 //! # }
 //! ```
 //!
-//! ### **`reader`**, **`writer`** <a id="reader_writer_helpers"></a>
+//! <a id="reader_writer_helpers"></a>
+//! ### **`reader`**, **`writer`**
 //!
 //! **Type**: helper
 //!
@@ -485,7 +490,8 @@
 //!
 //! Specify defaults for accessor helpers.
 //!
-//! ### **`serde`** <a id="serde_struct"></a>
+//! <a id="serde_struct"></a>
+//! ### **`serde`**
 //!
 //! **Type**: [function](#attr_terminology)
 //!
@@ -650,7 +656,8 @@
 //! - string literal specifies setter method name if the builder type for this field
 //! - `attributes` and `attributes_fn` are correspondingly applies to builder field and builder setter method
 //!
-//! # Do We Need The `Default` Trait? <a id="about_default"></a>
+//! <a id="about_default"></a>
+//! # Do We Need The `Default` Trait?
 //!
 //! Unless explicit `default` argument is used with the `fxstruct` attribute, `fieldx` tries to avoid implementing the
 //! `Default` trait unless really required. Here is the conditions which determine if the implementation is needed:

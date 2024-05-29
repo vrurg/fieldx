@@ -131,12 +131,14 @@ fn threaded() {
         std::thread::sleep(time::Duration::from_millis(100));
         stop.store(true, Ordering::Relaxed);
         for thandle in thandles {
-            thandle.join().expect("thread join failed");
+            thandle.join().expect("Thread join failed");
         }
         // There is a chance for two or more consecutive clears to take place before a build is invoked.
+        let cleared = cleared.load(Ordering::SeqCst);
+        let built = sync.bar_builds();
         assert!(
-            cleared.load(Ordering::SeqCst) >= sync.bar_builds(),
-            "there were no more builds than clears"
+            cleared >= built,
+            "there were no more builds than clears ({} vs. {})", built, cleared
         );
     })
     .unwrap();

@@ -2,6 +2,7 @@
 name = "fieldx_derive_support"
 version = "0.1.0"
 edition = "2021"
+license = "BSD-3"
 
 [dependencies]
 quote = { workspace = true }

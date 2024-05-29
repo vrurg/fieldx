@@ -3,6 +3,7 @@ name = "fieldx"
 version = "0.1.0"
 edition = "2021"
 authors = ["vrurg"]
+license-file = "LICENSE"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

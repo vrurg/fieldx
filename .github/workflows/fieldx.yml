@@ -1,0 +1,41 @@
+name: Cargo Build & Test
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build_and_test:
+    name: Rust project - latest
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      matrix:
+        os: [ubuntu, macos, windows]
+        toolchain:
+          - 1.77
+          - stable
+          - beta
+          - nightly
+        feature: [serde]
+        include:
+          - toolchain: nightly
+            feature: diagnostics
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+      - run: cargo build --verbose --all
+      - run: cargo test --verbose --all
+      - run: cargo build --verbose --all --features ${{ matrix.feature }}
+      - run: cargo test --verbose --all --features ${{ matrix.feature }}
+  build_docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup default nightly
+      - run: cargo install docs-rs
+      - run: cargo docs-rs -p fieldx
+

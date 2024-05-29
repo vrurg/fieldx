@@ -3,6 +3,9 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 __FIELDX_TASK__ = "test"
 __FIELDX_TOOLCHAINS__ = "1.77 1.78 beta nightly"
 
+[config]
+default_to_workspace = false
+
 [tasks.test]
 clear = true
 description = "Extensive testing"
@@ -57,8 +60,26 @@ command = "cargo"
 args = ["test", "--workspace", "--features", "diagnostics"]
 
 [tasks.test-compilation]
+workspace = true
 description = "Run only the compilation test"
 script_runner = "@duckscript"
 script = '''
 echo Skipping compilation test for ${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN} in ${CARGO_MAKE_WORKING_DIRECTORY}
+'''
+
+[tasks.depends]
+description = "Install necessary dependencies and tools"
+script_runner = "@duckscript"
+script = '''
+echo "Installing dependencies"
+exec cargo install cargo-readme
+'''
+
+[tasks.doc]
+description = "Build documentation"
+script_runner = '@duckscript'
+script = '''
+readme_content = exec --fail-on-error cargo readme -r fieldx
+writefile ./README.md ${readme_content.stdout}
+writefile ./fieldx/README.md ${readme_content.stdout}
 '''
