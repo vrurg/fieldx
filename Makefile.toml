@@ -83,12 +83,73 @@ readme_content = exec --fail-on-error cargo readme -r fieldx --template ../READM
 writefile ./README.md ${readme_content.stdout}
 '''
 
+[tasks.tag-release]
+clear = true
+description = "Put Git tag on the commit."
+script_runner = "@duckscript"
+script = '''
+print -bgc red -c black " ► "
+print -bgc black -c white " Do you want to tag as v${CARGO_MAKE_PROJECT_VERSION}? "
+print -s bold "(y/N)"
+echo " "
+reply = read
+reply = lowercase ${reply}
+if eq ${reply} "y"
+    rc = exec git tag v${CARGO_MAKE_PROJECT_VERSION}
+    if ${rc.code}
+        println -c red "The tag is already set!"
+        print "Force set? "
+        print -s bold "(y/N)"
+        echo " "
+        reply = read
+        reply = lowercase ${reply}
+        if eq ${reply} "y"
+            exec --fail-on-error git tag -f v${CARGO_MAKE_PROJECT_VERSION}
+        else
+            exit 1
+        end
+    end
+else
+    echo "Won't tag."
+    exit 1
+end
+'''
+
+[tasks.check-git-status]
+clear = true
+description = "Check if the repo is clean"
+script_runner = "@duckscript"
+script = '''
+rc = exec git diff-index --quiet HEAD
+if ${rc.code}
+    print -c bright_red "***ERROR***"
+    echo " Repository is not clean. Commit your changes first!"
+    exit ${rc.code}
+end
+'''
+
+[tasks.release]
+clear = true
+description = "Preparing the releasse"
+dependencies = ["check-git-status", "tag-release", "test-versions"]
+
 [tasks.publish]
 clear = true
 description = "Publish on crates.io"
+dependencies = ["release"]
 script_runner = "@duckscript"
 script = '''
-exec --fail-on-error cargo publish -p fieldx_derive_support --all-features
-exec --fail-on-error cargo publish -p fieldx_derive --all-features
-exec --fail-on-error cargo publish -p fieldx --all-features
+print -bgc red -c black " ► "
+print -bgc black -c white " Do you want to publish the crates? "
+print -s bold "(y/N)"
+echo " "
+reply = read
+reply = lowercase ${reply}
+if eq ${reply} "y"
+    exec --fail-on-error cargo publish -p fieldx_derive_support --all-features
+    exec --fail-on-error cargo publish -p fieldx_derive --all-features
+    exec --fail-on-error cargo publish -p fieldx --all-features
+else
+    echo "Won't publish."
+end
 '''
