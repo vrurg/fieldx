@@ -4,7 +4,7 @@ edition = "2021"
 repository = "https://github.com/vrurg/fieldx.git"
 license-file = "LICENSE"
 keywords = ["lazy", "field", "macro", "builder", "struct"]
-category = [
+categories = [
     "concurrency",
     "development-tools::procedural-macro-helpers",
     "rust-patterns",
