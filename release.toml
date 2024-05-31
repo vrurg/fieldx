@@ -1,0 +1,24 @@
+allow-branch = [
+    "main",
+    "!HEAD",
+]
+sign-commit = true
+sign-tag = true
+push-remote = "origin"
+release = true
+publish = true
+verify = true
+owners = []
+push = true
+push-options = []
+consolidate-commits = false
+pre-release-commit-message = "chore: Release {{crate_name}} version {{version}}"
+pre-release-hook = ["cargo", "make", "-e", "CARGO_RELEASE_VERSION={{version}}", "pre-release"]
+pre-release-replacements = []
+tag-message = "chore: Release {{crate_name}} version {{version}}"
+tag-name = "{{prefix}}v{{version}}"
+tag = true
+enable-features = []
+enable-all-features = true
+dependent-version = "upgrade"
+metadata = "optional"

@@ -153,3 +153,12 @@ else
     echo "Won't publish."
 end
 '''
+
+[tasks.pre-release]
+clear = true
+description = "Pre-release target for `cargo release`"
+dependencies = ["test-versions"]
+script_runner = "@duckscript"
+script = """
+exec --fail-on-error git cliff -o CHANGELOG.md --tag ${CARGO_RELEASE_VERSION}
+"""
