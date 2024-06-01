@@ -9,14 +9,14 @@ where
 {
     #[fieldx(lazy, writer, clearer, predicate)]
     foo: String,
-    #[fieldx(lazy, writer, reader, predicate, clearer, set)]
+    #[fieldx(lazy, writer, reader, predicate, clearer, set, get(off))]
     bar: i32,
 
     // #[fieldx(default(3.1415926))]
     // pub pi: f32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(writer, clearer, predicate, set, default("bazzification"))]
+    #[fieldx(writer, reader, get(off), clearer, predicate, set, default("bazzification"))]
     baz: String,
 
     #[fieldx(lazy, clearer)]

@@ -17,14 +17,13 @@ fn non_threaded() {
     let sync = Foo::<Dummy>::new();
 
     assert!(!sync.has_foo(), "foo is not initialized yet");
-    assert_eq!(*sync.read_foo(), "Foo with bar=42".to_string(), "built foo");
+    assert_eq!(*sync.foo(), "Foo with bar=42".to_string(), "built foo");
     assert!(sync.has_foo(), "foo has been built");
-    eprintln!("BAR: {:?}", *sync.read_bar());
     assert!(sync.has_bar(), "bar has been built");
     assert_eq!(sync.clear_bar(), Some(42), "cleared bar");
     assert!(!sync.has_bar(), "bar has been cleared");
     assert_eq!(
-        *sync.read_foo(),
+        *sync.foo(),
         "Foo with bar=42".to_string(),
         "foo is unchanged after clearng bar"
     );
@@ -34,7 +33,7 @@ fn non_threaded() {
     assert_eq!(sync.clear_foo(), Some(String::from("Foo with bar=42")), "cleared foo");
     assert!(!sync.has_foo(), "foo has been cleared");
     assert_eq!(
-        *sync.read_foo(),
+        *sync.foo(),
         String::from("Foo with bar=12"),
         "manually set bar is used to rebuild foo"
     );
@@ -46,15 +45,15 @@ fn non_threaded() {
     }
 
     assert_eq!(
-        *sync.read_foo(),
+        *sync.foo(),
         String::from("Foo with bar=666"),
         "manually set bar using write lock"
     );
 
-    assert_eq!(*sync.read_fubar(), String::from("аби було"), "built fubar");
+    assert_eq!(*sync.fubar(), String::from("аби було"), "built fubar");
     assert_eq!(sync.clear_fubar(), Some(String::from("аби було")), "cleared fubar");
 
-    assert_eq!(*sync.read_dummy(), Dummy);
+    assert_eq!(*sync.dummy(), Dummy);
 }
 
 #[test]
@@ -63,7 +62,7 @@ fn non_lazy() {
 
     assert_eq!(
         *sync.read_baz(),
-        String::from("bazzification"),
+        Some(String::from("bazzification")),
         "initially set to a default"
     );
     assert_eq!(sync.clear_baz(), Some(String::from("bazzification")), "cleared");
@@ -72,13 +71,13 @@ fn non_lazy() {
         let mut wrg = sync.write_baz();
         *wrg = Some("bazzish".to_string());
     }
-    assert_eq!(*sync.read_baz(), String::from("bazzish"), "set to a new value");
+    assert_eq!(*sync.read_baz(), Some(String::from("bazzish")), "set to a new value");
     assert_eq!(
         sync.set_baz("bazzuka".to_string()),
         Some("bazzish".to_string()),
         "setter returns old value"
     );
-    assert_eq!(*sync.read_baz(), String::from("bazzuka"), "set with a setter");
+    assert_eq!(*sync.read_baz(), Some(String::from("bazzuka")), "set with a setter");
 }
 
 #[test]
@@ -106,8 +105,8 @@ fn threaded() {
                 let mut i = 0;
                 while !tstop.load(Ordering::Relaxed) {
                     i += 1;
-                    eprintln!("[{:>4}] {:?}", thread_id, scopy.read_foo().clone());
-                    assert_eq!(*scopy.read_foo(), (*texpect.lock()).clone(), "foo value");
+                    eprintln!("[{:>4}] {:?}", thread_id, scopy.foo().clone());
+                    assert_eq!(*scopy.foo(), (*texpect.lock()).clone(), "foo value");
                     if (i % 13) == 0 {
                         eprintln!("Time to clear for {} since {} % 13 == {}", thread_id, i, i % 13);
                         // Prevent other threads from accessing foo untils we're done updating bar

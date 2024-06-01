@@ -5,7 +5,7 @@ mod inner {
 
     #[fxstruct(sync)]
     pub struct Foo {
-        #[fieldx(get, set, clearer, predicate,
+        #[fieldx(get(copy), set, clearer, predicate,
             // reader + attributes_fn + deny(dead_code) are ensuring that attributes_fn are applied to the reader.
             reader, attributes_fn(allow(dead_code)))]
         v: u32,

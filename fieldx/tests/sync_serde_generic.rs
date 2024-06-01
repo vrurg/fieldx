@@ -111,14 +111,14 @@ fn basics() {
     let foo_de = serde_json::from_str::<Foo<u32>>(&json_src).expect("Foo deserialization failure");
 
     assert_eq!(
-        *foo_de.read_bar(),
+        *foo_de.bar(),
         Bar {
             v: "from lazy".to_string(),
         },
         "bar is not deserializable"
     );
     assert_eq!(
-        *foo_de.read_baz(),
+        *foo_de.baz(),
         Baz { cnt: 9876 },
         "a lazy field with struct got deserialized"
     );
@@ -129,7 +129,7 @@ fn basics() {
     );
     assert_eq!(foo_de.pi(), 3.141, "a lazy f64 field – deserialized");
     assert_eq!(
-        foo_de.opt(),
+        *foo_de.opt(),
         None,
         "an optional u64 field deserializes to None from JSON's 'null'"
     );
@@ -141,7 +141,7 @@ fn basics() {
 
     // eprintln!("{:#?}", foo_de);
 
-    assert_eq!(foo_de.opt(), Some(31415926u32), "an optional u64 field - deserialized");
+    assert_eq!(*foo_de.opt(), Some(31415926u32), "an optional u64 field - deserialized");
     assert_eq!(
         foo_de.pi(),
         -3.14,

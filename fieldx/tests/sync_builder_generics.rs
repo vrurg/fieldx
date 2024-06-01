@@ -19,7 +19,7 @@ where
     #[fieldx(lazy, clearer)]
     foo: T,
 
-    #[fieldx(lazy, clearer, into)]
+    #[fieldx(lazy, copy, clearer, into)]
     real: f32,
 
     _p1: PhantomData<&'a T>,
@@ -36,7 +36,7 @@ where
     }
 
     fn build_real(&self) -> f32 {
-        let l: u16 = format!("{}", *self.read_foo())
+        let l: u16 = format!("{}", *self.foo())
             .chars()
             .count()
             .try_into()
@@ -60,16 +60,16 @@ fn basics() {
         .unwrap();
 
     assert_eq!(foo.clear_real(), Some(12.0f32), "real was set manually using Into");
-    assert_eq!(*foo.read_real(), 25.0f32, "real is set lazily");
+    assert_eq!(foo.real(), 25.0f32, "real is set lazily");
     assert_eq!(
         foo.clear_foo(),
         Some("це користувацьке значення".to_string()),
         "foo is set manually"
     );
-    assert_eq!(*foo.read_foo(), "my default string".to_string(), "foo is set lazily");
+    assert_eq!(*foo.foo(), "my default string".to_string(), "foo is set lazily");
     foo.clear_real();
     assert_eq!(
-        *foo.read_real(),
+        foo.real(),
         17.0f32,
         "real is re-initialized lazily using new foo value"
     );

@@ -23,7 +23,7 @@ mod foo {
         }
 
         fn build_real(&self) -> f32 {
-            let l: u16 = (*self.read_foo()).chars().count().try_into().expect("u32 value");
+            let l: u16 = (*self.foo()).chars().count().try_into().expect("u32 value");
             l.try_into().expect("f32 value")
         }
 
@@ -47,19 +47,19 @@ fn basics() {
         .unwrap();
 
     assert_eq!(foo.clear_real(), Some(1f32), "real was set manually");
-    assert_eq!(*foo.read_real(), 25f32, "real was set lazily");
+    assert_eq!(foo.real(), 25f32, "real was set lazily");
     assert_eq!(
         foo.clear_foo(),
         Some("це користувацьке значення".to_string()),
         "foo was set manually"
     );
     assert_eq!(
-        *foo.read_foo(),
+        *foo.foo(),
         "це є ледачим значенням".to_string(),
         "foo re-initialized lazily"
     );
     foo.clear_real();
-    assert_eq!(*foo.read_real(), 22f32, "real re-initialized lazily from new foo value");
+    assert_eq!(foo.real(), 22f32, "real re-initialized lazily from new foo value");
 
     assert_eq!(*foo.read_locked_bar(), "custom set", "locked_bar was set manually");
     assert_eq!(foo.locked_bar(), "custom set", "locked_bar accessor");
@@ -72,7 +72,7 @@ fn empties() {
     let foo = foo::Foo::builder().build().unwrap();
 
     assert_eq!(
-        *foo.read_foo(),
+        *foo.foo(),
         "це є ледачим значенням".to_string(),
         "when no value from builder foo gets built"
     );
@@ -86,7 +86,7 @@ fn empties() {
     );
 
     assert_eq!(
-        *foo.read_lazy_default(),
+        *foo.lazy_default(),
         "this is default string value",
         "lazy field gets a default if not set"
     );
@@ -97,14 +97,14 @@ fn empties() {
         .expect("NonSync instance");
 
     assert_eq!(
-        *foo.read_lazy_default(),
+        *foo.lazy_default(),
         "non-lazy, non-default",
         "lazy field set manually, default is ignored"
     );
 
     foo.clear_lazy_default();
     assert_eq!(
-        *foo.read_lazy_default(),
+        *foo.lazy_default(),
         "this is a lazy default",
         "lazy field gets set by its builder when cleared"
     );

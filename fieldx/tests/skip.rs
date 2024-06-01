@@ -1,6 +1,6 @@
 use fieldx::fxstruct;
 
-#[fxstruct(sync, lazy, get)]
+#[fxstruct(sync, lazy, get(clone))]
 struct FooS {
     #[fieldx(attributes_fn(allow(dead_code)))]
     bar:        String,
@@ -8,7 +8,7 @@ struct FooS {
     bare_field: f64,
 }
 
-#[fxstruct(lazy, get)]
+#[fxstruct(lazy, get(clone))]
 struct FooN {
     #[fieldx(attributes_fn(allow(dead_code)))]
     bar:        String,

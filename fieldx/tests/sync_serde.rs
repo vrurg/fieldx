@@ -94,14 +94,14 @@ fn basics() {
     let foo_de = serde_json::from_str::<Foo>(&json_src).expect("Foo deserialization failure");
 
     assert_eq!(
-        *foo_de.read_bar(),
+        *foo_de.bar(),
         Bar {
             v: "from lazy".to_string(),
         },
         "bar is not deserializable"
     );
     assert_eq!(
-        *foo_de.read_baz(),
+        *foo_de.baz(),
         Baz { cnt: 9876 },
         "a lazy field with struct got deserialized"
     );

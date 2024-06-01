@@ -15,12 +15,12 @@ struct Bar {
 #[test]
 fn it_is_optional() {
     let foo = Foo::new();
-    assert_eq!(foo.foo(), None);
+    assert_eq!(*foo.foo(), None);
     foo.set_foo("manual");
-    assert_eq!(foo.foo(), Some("manual".to_string()));
+    assert_eq!(*foo.foo(), Some("manual".to_string()));
 
     let bar = Bar::new();
-    assert_eq!(bar.bar(), None);
+    assert_eq!(*bar.bar(), None);
     bar.set_bar("manual");
-    assert_eq!(bar.bar(), Some("manual".to_string()));
+    assert_eq!(*bar.bar(), Some("manual".to_string()));
 }

@@ -1,6 +1,6 @@
 use fieldx::fxstruct;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Bar {
     note: String,
 }
@@ -107,8 +107,7 @@ fn sync() {
         .expect("Sync::builder() failed");
 
     assert_eq!(sync.bar().note, "from builder".to_string());
-    assert_eq!(sync.b2().unwrap().note, "from builder 2".to_string());
-    assert_eq!((*sync.read_b2()).note, "from builder 2".to_string());
+    assert_eq!(sync.b2().as_ref().unwrap().note, "from builder 2".to_string());
     sync.clear_b2();
     assert!(sync.b2().is_none());
 

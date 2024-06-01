@@ -21,7 +21,7 @@ struct Foo {
     #[fieldx(get(clone))]
     bar_clone: BarClone,
 
-    #[fieldx(lazy, get, clone)]
+    #[fieldx(lazy, get, copy)]
     lazy_bar_copy: BarCopy,
 
     #[fieldx(lazy, get(clone))]
@@ -30,6 +30,12 @@ struct Foo {
     // Make sure it is possible to lock-protect a field
     #[fieldx(reader, writer("write_lb"), default("protected"))]
     locked_bar: String,
+
+    #[fieldx(lazy, get_mut)]
+    queue: Vec<String>,
+
+    #[fieldx(get, get_mut)]
+    seq: Vec<u32>,
 }
 
 impl Foo {
@@ -51,6 +57,10 @@ impl Foo {
         BarClone {
             s: "lazily created".into(),
         }
+    }
+
+    fn build_queue(&self) -> Vec<String> {
+        vec!["foo".into(), "bar".into()]
     }
 }
 
@@ -95,4 +105,17 @@ fn sync_locked() {
     );
     *foo.write_lb() = "changed".to_string();
     assert_eq!(*foo.read_locked_bar(), "changed", "updated the field via write-lock");
+}
+
+#[test]
+fn mutable() {
+    let mut foo = Foo::for_test();
+
+    assert_eq!(*foo.queue(), vec!["foo".to_string(), "bar".to_string()], "initial lazy vector value");
+    foo.queue_mut().push("baz".into());
+    assert_eq!(*foo.queue(), vec!["foo".to_string(), "bar".to_string(), "baz".to_string()], "lazy vector with new elem");
+
+    *foo.seq_mut() = vec![12, 13, 42, 666];
+    assert_eq!(*foo.seq(), vec![12, 13, 42, 666], "assignment into a non-protected field");
+    assert_eq!(foo.seq_mut().pop().unwrap(), 666, "mutate a non-protected field");
 }

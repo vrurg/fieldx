@@ -10,7 +10,7 @@ pub struct Foo {
     bar: i32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(writer, clearer, predicate, set, default("bazzification"))]
+    #[fieldx(reader, writer, get(off), clearer, predicate, set, default("bazzification"))]
     baz: String,
 
     #[fieldx(lazy, clearer, default("fufubarik!"))]
@@ -22,7 +22,7 @@ pub struct Foo {
 
 impl Foo {
     fn build_foo(&self) -> String {
-        format!("Foo with bar={:?}", *self.read_bar()).to_string()
+        format!("Foo with bar={:?}", *self.bar()).to_string()
     }
 
     fn build_bar(&self) -> i32 {

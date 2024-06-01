@@ -4,7 +4,7 @@ mod inner {
 
     #[fxstruct(sync)]
     pub struct Inner {
-        #[fieldx(private, lazy)]
+        #[fieldx(private, lazy, reader)]
         foo: u8,
     }
 
