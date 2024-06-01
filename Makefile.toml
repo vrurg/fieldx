@@ -19,8 +19,8 @@ script = '''
 toolchain_list = array %{__FIELDX_TOOLCHAINS__}
 
 for toolchain in ${toolchain_list}
-    echo Testing toolchain ${CARGO_MAKE_RUST_CHANNEL} ${toolchain}
-    set_env CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN ${toolchain}
+    echo Testing toolchain '${toolchain}'
+    set_env __FIELDX_DEFAULT_TOOLCHAIN__ ${toolchain}
     cm_run_task ${__FIELDX_TASK__}
 end
 '''
@@ -32,25 +32,25 @@ run_task = { name = ["test-versions"] }
 
 [tasks.test-default]
 description = "Test with only the default features"
-toolchain = "${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN}"
+toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 category = "Test"
 command = "cargo"
 args = ["test", "--workspace"]
 
 [tasks.test-serde]
 description = "Test with 'serde' feature"
-toolchain = "${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN}"
+toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 category = "Test"
 command = "cargo"
 args = ["test", "--workspace", "--features", "serde"]
 
 [tasks.test-diagnostics]
 description = "Test with 'diagnostics' feature"
-toolchain = "${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN}"
+toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 category = "Test"
 condition_script = ["""
 #!@duckscript
-if eq ${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN} "nightly"
+if eq ${__FIELDX_DEFAULT_TOOLCHAIN__} "nightly"
     exit 0
 end
 echo Skipping diagnostics test on a non-nightly toolchain
@@ -64,7 +64,7 @@ workspace = true
 description = "Run only the compilation test"
 script_runner = "@duckscript"
 script = '''
-echo Skipping compilation test for ${CARGO_MAKE_RUST_DEFAULT_TOOLCHAIN} in ${CARGO_MAKE_WORKING_DIRECTORY}
+echo Skipping compilation test for ${__FIELDX_DEFAULT_TOOLCHAIN__} in ${CARGO_MAKE_WORKING_DIRECTORY}
 '''
 
 [tasks.depends]
