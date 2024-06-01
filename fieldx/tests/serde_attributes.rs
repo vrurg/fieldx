@@ -36,5 +36,9 @@ fn extra_field() {
 #[test]
 fn skippable() {
     let foo = Foo::builder().f1("custom f1").f2("").build().unwrap();
-    assert_eq!(serde_json::to_string(&foo).unwrap(), r#"{"f1":"custom f1"}"#, "field-level user attribute");
+    assert_eq!(
+        serde_json::to_string(&foo).unwrap(),
+        r#"{"f1":"custom f1"}"#,
+        "field-level user attribute"
+    );
 }

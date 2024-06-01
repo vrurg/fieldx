@@ -77,7 +77,6 @@ impl<'f> FXCodeGen<'f> {
                 #attributes_fn
                 #vis_tok fn #method_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::RwLockReadGuard<'fx_reader_lifetime, ::std::option::Option<#ty>> {
                     self.#ident.read()
-                    // ::fieldx::RwLockReadGuard::map(self.#ident.read(), |data: &Option<#ty>| data.as_ref().unwrap())
                 }
             ])
         }

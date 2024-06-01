@@ -111,11 +111,23 @@ fn sync_locked() {
 fn mutable() {
     let mut foo = Foo::for_test();
 
-    assert_eq!(*foo.queue(), vec!["foo".to_string(), "bar".to_string()], "initial lazy vector value");
+    assert_eq!(
+        *foo.queue(),
+        vec!["foo".to_string(), "bar".to_string()],
+        "initial lazy vector value"
+    );
     foo.queue_mut().push("baz".into());
-    assert_eq!(*foo.queue(), vec!["foo".to_string(), "bar".to_string(), "baz".to_string()], "lazy vector with new elem");
+    assert_eq!(
+        *foo.queue(),
+        vec!["foo".to_string(), "bar".to_string(), "baz".to_string()],
+        "lazy vector with new elem"
+    );
 
     *foo.seq_mut() = vec![12, 13, 42, 666];
-    assert_eq!(*foo.seq(), vec![12, 13, 42, 666], "assignment into a non-protected field");
+    assert_eq!(
+        *foo.seq(),
+        vec![12, 13, 42, 666],
+        "assignment into a non-protected field"
+    );
     assert_eq!(foo.seq_mut().pop().unwrap(), 666, "mutate a non-protected field");
 }

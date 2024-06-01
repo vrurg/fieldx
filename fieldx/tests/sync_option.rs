@@ -2,7 +2,7 @@ use fieldx::fxstruct;
 
 #[fxstruct(sync, into)]
 struct Foo {
-    #[fieldx(get(clone), reader,  set, private, predicate, clearer)]
+    #[fieldx(get(clone), reader, set, private, predicate, clearer)]
     foo: Option<String>,
 }
 

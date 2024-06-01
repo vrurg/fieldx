@@ -68,9 +68,5 @@ fn basics() {
     );
     assert_eq!(*foo.foo(), "my default string".to_string(), "foo is set lazily");
     foo.clear_real();
-    assert_eq!(
-        foo.real(),
-        17.0f32,
-        "real is re-initialized lazily using new foo value"
-    );
+    assert_eq!(foo.real(), 17.0f32, "real is re-initialized lazily using new foo value");
 }

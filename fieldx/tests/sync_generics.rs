@@ -137,7 +137,9 @@ fn threaded() {
         let built = sync.bar_builds();
         assert!(
             cleared >= built,
-            "there were no more builds than clears ({} vs. {})", built, cleared
+            "there were no more builds than clears ({} vs. {})",
+            built,
+            cleared
         );
     })
     .unwrap();

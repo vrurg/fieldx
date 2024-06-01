@@ -8,11 +8,11 @@ struct Bar {
 #[fxstruct(sync, get, lock, builder(into))]
 struct Foo {
     #[fieldx(get_mut)]
-    text: String,
+    text:  String,
     #[fieldx(get(copy), reader)]
     count: usize,
     #[fieldx(lock(off))]
-    bare: Bar,
+    bare:  Bar,
 }
 
 #[test]
