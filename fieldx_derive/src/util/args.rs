@@ -5,7 +5,7 @@ use crate::helper::FXSerde;
 use crate::{
     helper::{
         with_origin::FXOrig, FXAccessor, FXAccessorMode, FXAttributes, FXBoolArg, FXBoolHelper, FXBuilder, FXHelper,
-        FXHelperContainer, FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter,
+        FXHelperContainer, FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXTriggerHelper,
     },
     util::{needs_helper, validate_exclusives},
 };
@@ -41,6 +41,7 @@ pub(crate) struct FXSArgs {
     private:      Option<FXBoolArg>,
     clone:        Option<FXBoolArg>,
     copy:         Option<FXBoolArg>,
+    lock:         Option<FXBoolArg>,
     #[cfg(feature = "serde")]
     serde:        Option<FXSerde>,
 }
@@ -80,8 +81,24 @@ impl FXSArgs {
     }
 
     #[inline]
+    pub fn is_clone(&self) -> Option<bool> {
+        if self.copy.is_true() {
+            // Explicitly set `clone` means "not copy"
+            Some(false)
+        }
+        else {
+            self.clone.is_true_opt()
+        }
+    }
+
+    #[inline]
     pub fn is_accessor_copy(&self) -> Option<bool> {
         self.accessor_mode().map(|m| m == FXAccessorMode::Copy)
+    }
+
+    #[inline]
+    pub fn is_accessor_clone(&self) -> Option<bool> {
+        self.accessor_mode().map(|m| m == FXAccessorMode::Clone)
     }
 
     #[inline]
@@ -135,6 +152,11 @@ impl FXSArgs {
     #[inline]
     pub fn needs_builder(&self) -> Option<bool> {
         self.builder.is_true_opt()
+    }
+
+    #[inline]
+    pub fn needs_lock(&self) -> Option<bool> {
+        self.lock.as_ref().map(|b| b.is_true())
     }
 
     #[inline]

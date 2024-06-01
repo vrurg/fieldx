@@ -176,34 +176,37 @@ pub(crate) trait FXCGenContextual<'f> {
         self.ident_field_ctx(&field_ident)
     }
 
+    #[inline]
     fn accessor_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(fctx, FXHelperKind::Accessor)
     }
 
+    #[inline]
     fn accessor_mut_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(fctx, FXHelperKind::AccessorMut)
     }
 
+    #[inline]
     fn lazy_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(fctx, FXHelperKind::Lazy)
     }
 
+    #[inline]
     fn setter_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(fctx, FXHelperKind::Setter)
     }
 
+    #[inline]
     fn clearer_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(fctx, FXHelperKind::Clearer)
     }
 
+    #[inline]
     fn predicate_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(fctx, FXHelperKind::Predicate)
     }
 
-    fn reader_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.helper_name_tok(fctx, FXHelperKind::Reader)
-    }
-
+    #[inline]
     fn writer_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         self.helper_name_tok(fctx, FXHelperKind::Writer)
     }

@@ -53,6 +53,7 @@ pub(crate) struct FXFieldReceiver {
     into:          Option<FXBoolArg>,
     clone:         Option<FXBoolArg>,
     copy:          Option<FXBoolArg>,
+    lock:          Option<FXBoolArg>,
     #[cfg(feature = "serde")]
     serde:         Option<FXSerde>,
 
@@ -190,13 +191,33 @@ impl FXFieldReceiver {
     }
 
     #[inline]
+    pub fn is_clone(&self) -> Option<bool> {
+        if self.copy.is_true() {
+            Some(false)
+        }
+        else {
+            self.clone.is_true_opt()
+        }
+    }
+
+    #[inline]
     pub fn is_accessor_copy(&self) -> Option<bool> {
         self.accessor_mode().map(|m| m == FXAccessorMode::Copy)
     }
 
     #[inline]
+    pub fn is_accessor_clone(&self) -> Option<bool> {
+        self.accessor_mode().map(|m| m == FXAccessorMode::Clone)
+    }
+
+    #[inline]
     pub fn is_skipped(&self) -> bool {
         self.skip.is_present()
+    }
+
+    #[inline]
+    pub fn needs_lock(&self) -> Option<bool> {
+        self.lock.as_ref().map(|l| l.is_true())
     }
 
     #[cfg(feature = "serde")]

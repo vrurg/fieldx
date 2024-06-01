@@ -53,6 +53,44 @@ impl<'f> FXCodeGen<'f> {
     fn field_proxy_type(&self, _fctx: &FXFieldCtx) -> TokenStream {
         quote![FXProxy]
     }
+
+    fn field_reader_method(&self, fctx: &FXFieldCtx, helper_kind: FXHelperKind) -> darling::Result<TokenStream> {
+        let span = self.helper_span(fctx, helper_kind);
+        let method_name = self.helper_name(fctx, helper_kind)?;
+        let ident = fctx.ident_tok();
+        let vis_tok = fctx.vis_tok(helper_kind);
+        let ty = fctx.ty();
+        let attributes_fn = self.attributes_fn(fctx, helper_kind);
+
+        if fctx.is_lazy() {
+            Ok(quote_spanned! [span=>
+                #[inline(always)]
+                #attributes_fn
+                #vis_tok fn #method_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
+                    self.#ident.read(self)
+                }
+            ])
+        }
+        else if fctx.is_optional() {
+            Ok(quote_spanned! [span=>
+                #[inline]
+                #attributes_fn
+                #vis_tok fn #method_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::RwLockReadGuard<'fx_reader_lifetime, ::std::option::Option<#ty>> {
+                    self.#ident.read()
+                    // ::fieldx::RwLockReadGuard::map(self.#ident.read(), |data: &Option<#ty>| data.as_ref().unwrap())
+                }
+            ])
+        }
+        else {
+            Ok(quote_spanned! [span=>
+                #[inline(always)]
+                #attributes_fn
+                #vis_tok fn #method_name(&self) -> ::fieldx::RwLockReadGuard<#ty> {
+                    self.#ident.read()
+                }
+            ])
+        }
+    }
 }
 
 impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
@@ -181,7 +219,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 else if fctx.is_optional() {
                     ty_toks = quote_spanned! [span=> ::fieldx::FXRwLock<Option<#ty_tok>>];
                 }
-                else if fctx.needs_reader() || fctx.needs_writer() {
+                else if fctx.needs_lock() {
                     ty_toks = quote_spanned! [span=> ::fieldx::FXRwLock<#ty_tok>]
                 }
             }
@@ -191,53 +229,76 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
 
     fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_accessor() {
+            let is_copy = fctx.is_copy();
+            let is_clone = fctx.is_clone();
+            let is_lazy = fctx.is_lazy();
+            let is_optional = fctx.is_optional();
+            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Accessor);
+            let span = self.helper_span(fctx, FXHelperKind::Accessor);
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok(FXHelperKind::Accessor);
             let accessor_name = self.accessor_name(fctx)?;
-            let is_optional = fctx.is_optional();
             let ty = fctx.ty();
-            let is_copy = fctx.is_copy();
-            let is_lazy = fctx.is_lazy();
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Accessor);
-            let span = self.helper_span(fctx, FXHelperKind::Accessor);
 
-            if is_lazy || fctx.needs_lock() || is_optional {
-                let ty = if is_optional { quote![Option<#ty>] } else { quote![#ty] };
+            if is_clone || is_copy {
+                if is_lazy || fctx.needs_lock() || is_optional {
+                    let ty = if is_optional { quote![Option<#ty>] } else { quote![#ty] };
 
-                let read_arg = if is_lazy { quote![self] } else { quote![] };
+                    let read_arg = if is_lazy { quote![self] } else { quote![] };
 
-                let cmethod = if is_copy {
-                    if is_optional {
-                        quote![.as_ref().copied()]
+                    let cmethod = if is_copy {
+                        if is_optional {
+                            quote![.as_ref().copied()]
+                        }
+                        else {
+                            quote![]
+                        }
                     }
                     else {
-                        quote![]
-                    }
+                        if is_optional {
+                            quote![.as_ref().cloned()]
+                        }
+                        else {
+                            quote![.clone()]
+                        }
+                    };
+
+                    Ok(quote_spanned![span=>
+                        #attributes_fn
+                        #vis_tok fn #accessor_name(&self) -> #ty {
+                            let rlock = self.#ident.read(#read_arg);
+                            (*rlock)#cmethod
+                        }
+                    ])
+                }
+                else if is_clone || is_copy {
+                    let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
+
+                    Ok(quote_spanned![span=>
+                        #attributes_fn
+                        #vis_tok fn #accessor_name(&self) -> #ty {
+                            self.#ident #cmethod
+                        }
+                    ])
                 }
                 else {
-                    if is_optional {
-                        quote![.as_ref().cloned()]
-                    }
-                    else {
-                        quote![.clone()]
-                    }
-                };
-
-                Ok(quote_spanned![span=>
-                    #attributes_fn
-                    #vis_tok fn #accessor_name(&self) -> #ty {
-                        let rlock = self.#ident.read(#read_arg);
-                        (*rlock)#cmethod
-                    }
-                ])
+                    Ok(quote_spanned![span=>
+                        #attributes_fn
+                        #vis_tok fn #accessor_name(&self) -> & #ty {
+                            & self.#ident
+                        }
+                    ])
+                }
+            }
+            else if is_lazy || is_optional || fctx.needs_lock() {
+                self.field_reader_method(fctx, FXHelperKind::Accessor)
             }
             else {
-                let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
-
-                Ok(quote_spanned![*fctx.span()=>
+                Ok(quote_spanned![span=>
+                    #[inline]
                     #attributes_fn
-                    #vis_tok fn #accessor_name(&self) -> #ty {
-                        self.#ident #cmethod
+                    #vis_tok fn #accessor_name(&self) -> &#ty {
+                        &self.#ident
                     }
                 ])
             }
@@ -249,10 +310,50 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
 
     fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_accessor_mut() {
-            Err(
-                darling::Error::custom("Mutable accessors are not supported for sync structs")
-                    .with_span(&self.helper_span(fctx, FXHelperKind::AccessorMut)),
-            )
+            let ident = fctx.ident_tok();
+            let vis_tok = fctx.vis_tok(FXHelperKind::Accessor);
+            let accessor_name = self.accessor_mut_name(fctx)?;
+            let ty = fctx.ty();
+            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Accessor);
+            let span = self.helper_span(fctx, FXHelperKind::Accessor);
+
+            if fctx.is_lazy() {
+                Ok(quote_spanned! [span=>
+                    #[inline]
+                    #attributes_fn
+                    #vis_tok fn #accessor_name<'fx_get_mut>(&'fx_get_mut self) -> ::fieldx::MappedRwLockWriteGuard<'fx_get_mut, #ty> {
+                        self.#ident.read_mut(self)
+                    }
+                ])
+            }
+            else if fctx.is_optional() {
+                Ok(quote_spanned! [span=>
+                    #[inline]
+                    #attributes_fn
+                    #vis_tok fn #accessor_name<'fx_get_mut>(&'fx_get_mut self) -> ::fieldx::MappedRwLockWriteGuard<'fx_get_mut, #ty> {
+                        ::fieldx::RwLockWriteGuard::map(self.#ident.write(), |data: &Option<#ty>| data.as_ref().unwrap())
+                    }
+                ])
+            }
+            else if fctx.needs_lock() {
+                Ok(quote_spanned! [span=>
+                    #[inline(always)]
+                    #attributes_fn
+                    #vis_tok fn #accessor_name(&self) -> ::fieldx::RwLockWriteGuard<#ty> {
+                        self.#ident.write()
+                    }
+                ])
+            }
+            else {
+                // Bare field
+                Ok(quote_spanned![span=>
+                    #[inline]
+                    #attributes_fn
+                    #vis_tok fn #accessor_name(&mut self) -> &mut #ty {
+                        &mut self.#ident
+                    }
+                ])
+            }
         }
         else {
             Ok(quote![])
@@ -305,7 +406,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     ) -> darling::Result<TokenStream> {
         let ident = fctx.ident_tok();
         let self_var = self_ident.unwrap_or(quote![self]);
-        Ok(quote![#self_var.#ident.read_or_init(#self_var)])
+        Ok(quote![#self_var.#ident.lazy_init(#self_var)])
     }
 
     #[cfg(feature = "serde")]
@@ -329,40 +430,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
 
     fn field_reader(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_reader() {
-            let span = self.helper_span(fctx, FXHelperKind::Reader);
-            let reader_name = self.reader_name(fctx)?;
-            let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok(FXHelperKind::Reader);
-            let ty = fctx.ty();
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Reader);
-
-            if fctx.is_lazy() {
-                Ok(quote_spanned! [span=>
-                    #[inline]
-                    #attributes_fn
-                    #vis_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
-                        self.#ident.read(self)
-                    }
-                ])
-            }
-            else if fctx.is_optional() {
-                Ok(quote_spanned! [span=>
-                    #[inline]
-                    #attributes_fn
-                    #vis_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
-                        ::fieldx::RwLockReadGuard::map(self.#ident.read(), |data: &Option<#ty>| data.as_ref().unwrap())
-                    }
-                ])
-            }
-            else {
-                Ok(quote_spanned! [span=>
-                    #[inline]
-                    #attributes_fn
-                    #vis_tok fn #reader_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::RwLockReadGuard<#ty> {
-                        self.#ident.read()
-                    }
-                ])
-            }
+            self.field_reader_method(fctx, FXHelperKind::Reader)
         }
         else {
             Ok(TokenStream::new())

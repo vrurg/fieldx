@@ -310,10 +310,7 @@ impl<'f> FXFieldCtx<'f> {
         self.field
             .needs_accessor()
             .or_else(|| self.codegen_ctx.args.needs_accessor())
-            .unwrap_or_else(|| {
-                // sync struct doesn't provide accessors by default.
-                !self.codegen_ctx.args.is_sync() && (self.needs_clearer() || self.needs_predicate() || self.is_lazy())
-            })
+            .unwrap_or_else(|| self.needs_clearer() || self.needs_predicate() || self.is_lazy())
     }
 
     pub fn needs_clearer(&self) -> bool {
@@ -334,12 +331,16 @@ impl<'f> FXFieldCtx<'f> {
         self.field
             .needs_reader()
             .or_else(|| self.codegen_ctx.args.needs_reader())
-            .unwrap_or_else(|| self.codegen_ctx.args().is_sync() && (self.is_lazy() || self.is_optional()))
+            .unwrap_or(false)
+        // .unwrap_or_else(|| self.codegen_ctx.args().is_sync() && (self.is_lazy() || self.is_optional()))
     }
 
     #[inline]
     pub fn needs_lock(&self) -> bool {
-        self.needs_reader() || self.needs_writer()
+        self.field
+            .needs_lock()
+            .or_else(|| self.codegen_ctx().args().needs_lock())
+            .unwrap_or_else(|| self.needs_reader() || self.needs_writer())
     }
 
     #[cfg(feature = "serde")]
@@ -364,6 +365,15 @@ impl<'f> FXFieldCtx<'f> {
             .or_else(|| self.field.is_copy())
             .or_else(|| self.codegen_ctx().args().is_accessor_copy())
             .or_else(|| self.codegen_ctx().args().is_copy())
+            .unwrap_or(false)
+    }
+
+    pub fn is_clone(&self) -> bool {
+        self.field
+            .is_accessor_clone()
+            .or_else(|| self.field.is_clone())
+            .or_else(|| self.codegen_ctx().args().is_accessor_clone())
+            .or_else(|| self.codegen_ctx().args().is_clone())
             .unwrap_or(false)
     }
 

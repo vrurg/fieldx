@@ -572,8 +572,8 @@
 //! # {
 //! let json_src = r#"{"f1": "f1 json"}"#;
 //! let foo_de = serde_json::from_str::<Baz>(&json_src).expect("Bar deserialization failure");
-//! assert_eq!(foo_de.f1(), "f1 json".to_string());
-//! assert_eq!(foo_de.f2(), "f2 from fubar".to_string());
+//! assert_eq!(*foo_de.f1(), "f1 json".to_string());
+//! assert_eq!(*foo_de.f2(), "f2 from fubar".to_string());
 //! # }
 //! # }
 //! ```
@@ -727,7 +727,7 @@ pub mod traits;
 
 pub use fieldx_derive::fxstruct;
 #[doc(hidden)]
-pub use parking_lot::{MappedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
+pub use parking_lot::{MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use std::{any, borrow::Borrow, cell::RefCell, fmt::Debug, marker::PhantomData, ops::Deref, sync::atomic::AtomicBool};
 #[doc(hidden)]
 pub use std::{cell::OnceCell, fmt, sync::atomic::Ordering};
@@ -817,8 +817,13 @@ where
         self.is_set_raw().load(Ordering::SeqCst)
     }
 
-    /// This is the key method that actually implements lazy build of the container by invoking field's builder method.
-    pub fn read_or_init<'a>(&'a self, owner: &O) -> RwLockReadGuard<'a, Option<T>> {
+    /// Initialize the field without obtaining the lock. Note though that if the lock is already owned this method will
+    /// wait for it to be released.
+    pub fn lazy_init<'a>(&'a self, owner: &O) {
+        let _ = self.read_or_init(owner);
+    }
+
+    fn read_or_init<'a>(&'a self, owner: &O) -> RwLockUpgradableReadGuard<'a, Option<T>> {
         let guard = self.value.upgradable_read();
         if (*guard).is_none() {
             let mut wguard = RwLockUpgradableReadGuard::upgrade(guard);
@@ -833,17 +838,28 @@ where
                     None => panic!("Builder is not set"),
                 }
             }
-            RwLockWriteGuard::downgrade(wguard)
+            RwLockWriteGuard::downgrade_to_upgradable(wguard)
         }
         else {
-            RwLockUpgradableReadGuard::downgrade(guard)
+            guard
         }
     }
 
     /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
     /// semit-direct access to it without the [`Option`] wrapper.
     pub fn read<'a>(&'a self, owner: &O) -> MappedRwLockReadGuard<'a, T> {
-        RwLockReadGuard::map(self.read_or_init(owner), |data: &Option<T>| data.as_ref().unwrap())
+        RwLockReadGuard::map(
+            RwLockUpgradableReadGuard::downgrade(self.read_or_init(owner)),
+            |data: &Option<T>| data.as_ref().unwrap(),
+        )
+    }
+
+    /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
+    /// semit-direct mutable access to it without the [`Option`] wrapper.
+    pub fn read_mut<'a>(&'a self, owner: &O) -> MappedRwLockWriteGuard<'a, T> {
+        RwLockWriteGuard::map(
+            RwLockUpgradableReadGuard::upgrade(self.read_or_init(owner)),
+            |data: &mut Option<T>| data.as_mut().unwrap())
     }
 
     /// Provides write-lock to directly store the value.
