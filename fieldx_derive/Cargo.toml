@@ -1,6 +1,6 @@
 [package]
 name = "fieldx_derive"
-version = "0.1.0"
+version = "0.1.1"
 description = "Derive proc macros for fieldx crate"
 edition.workspace = true
 license-file.workspace = true
