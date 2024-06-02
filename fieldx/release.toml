@@ -1,0 +1,1 @@
+pre-release-hook = ["cargo", "make", "-e", "CARGO_RELEASE_VERSION={{version}}", "--makefile", "../Makefile.toml", "pre-release"]
