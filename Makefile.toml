@@ -96,7 +96,7 @@ echo " "
 reply = read
 reply = lowercase ${reply}
 if eq ${reply} "y"
-    exec --fail-on-error cargo release publish
+    exec --fail-on-error cargo release -x
 else
     echo "Won't publish."
 end
