@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
 ![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
-# fieldx v0.1.0
+# fieldx v0.1.1
 
 Procedural macro for constructing structs with lazily initialized fields, builder pattern, and [`serde`] support
 with a focus on declarative syntax.
@@ -83,21 +83,40 @@ provide all necessary API via corresponding methods.
 
 ## Sync And Non-Sync Structs
 
-If a thread-safe struct is needed then `fxstruct` must take the `sync` argument: `#[fxstruct(sync, ...)]`. When told
-so, the macro will do its best to provide concurrency safety at the field level. It means that:
+If a thread-safe struct is needed then `fxstruct` must take the `sync` argument: `#[fxstruct(sync, ...)]`. When
+instructed so, the macro will do its best to provide concurrency safety at the field level. It means that:
 
 - builder methods are guaranteed to be invoked once and only once per each lazy initialization, be it single- or
   multi-threaded application
 - access to struct fields is lock-protected (unless otherwise requested by the user)
 
-Sync and non-sync structures also are very different in ways they act and interact with user code. For example,
-there is no way to have a mutable accessor for a sync structure.
+Sync and non-sync structures also are very different in ways they act and interact with user code.
 
-Also, non-mutable accessors of non-sync struct normally return a reference to their field. Accessors of sync structs
-return either a [clone][`Clone`] or a [copy][`Copy`] of field value. Direct access to field value is provided via
-lock-returning reader and writer methods (usually prefixed with `read_` and `write_`).
+Also, non-mutable accessors of non-sync struct normally return a reference to their field. Accessors of sync
+structs, unless directed to use [`clone`][`Clone`] or [`copy`][`Copy`], or used with a non-protected field, return a
+kind of lock-guard.
 
 Wrapper types for sync struct fields are non-`std` and provided with the module.
+
+<a id="protected_unprotected_fields"></a>
+### Protected And Unprotected Fields Of Sync Structs
+
+For a `fieldx` sync struct to be `Sync+Sent` all of its fields are expected to be _lock-protected_ (or, sometimes we
+could just say _"protected"_). But "expected" doesn't mean "has to be". Unless defaults, specified with `fxstruct`
+attribute (i.e. with _struct-level_ arguments) tell otherwise, fields not marked with `fieldx` attribute with
+corresponding arguments will remain _unprotected_. I.e.:
+
+```rust
+#[fxstruct(sync)]
+struct Foo {
+    #[fieldx(lazy)]
+    foo: String, // protected
+    #[fieldx(get_mut)]
+    bar: String, // unprotected
+}
+```
+
+Of course, whether the struct remains thread-safe would then depend on the safety of unprotected fields.
 
 <a id="optional_fields"></a>
 ## Optional Fields
@@ -161,12 +180,12 @@ accessor, but for `sync` structs it's more likely to be a reader.
 
 ## Builder Pattern
 
-**IMPORTANT!** First of all, it is necessary to point out at unintended terminological ambiguity here. The terms
-`build` and `builder` are used for different, though identical in nature, processes. The _lazy builders_ from the
-previous section are methods that return initial values for associated fields. The _struct builder_ in this section
-is an object that collects initial values from user and then is able to create the final instance of the original
-struct. This ambiguity has some history spanning back to the times when Perl's [`Moo`](https://metacpan.org/pod/Moo)
-module was one of the author's primary tools. Then it was borrowed by Raku
+**IMPORTANT!** First of all, it is necessary to mention unintended terminological ambiguity here. The terms `build`
+and `builder` are used for different, though identical in nature, processes. As mentioned in the previous section,
+the _lazy builders_ are methods that return initial values for associated fields. The _struct builder_ in this
+section is an object that collects initial values from user and then is able to create the final instance of the
+original struct.  This ambiguity has some history spanning back to the times when Perl's
+[`Moo`](https://metacpan.org/pod/Moo) module was one of the author's primary tools. Then it was borrowed by Raku
 [`AttrX::Mooish`](https://raku.land/zef:vrurg/AttrX::Mooish) and, finally, automatically made its way into `fieldx`
 which, initially, didn't implement the builder pattern.
 
@@ -384,8 +403,6 @@ let mut obj = Foo::new();
 assert_eq!(obj.description(), "some description");
 ```
 
-**Important!** Mutable accessors are not possible for `sync` structs.
-
 [^no_copy_for_mut]: What sense is in having a mutable copy if you own it already?
 
 #### **`set`**
@@ -415,7 +432,7 @@ assert_eq!(obj.description(), &"some description".to_string());
 **Type**: helper
 
 Only meaningful for `sync` structs. Request for reader and writer methods that would return either read-only or
-read-write lock guards. This is the only valid way to directly access field value in a concurrent environment.
+read-write lock guards.
 
 Akin to setters, method names are formed using `read_` and `write_` prefixes, correspondingly, prepended to the
 field name.
@@ -436,8 +453,7 @@ let obj = Foo::new();
 }
 ```
 
-These helper are the primary means of accessing field content for `sync` structs. Writers are the only way to change
-the field.
+See [the section about differences between `get`/`get_mut` and `reader`/`writer`](#accessor_vs_reader_writer)
 
 #### **`clearer`** and **`predicate`**
 
@@ -546,8 +562,8 @@ impl From<Fubar> for BazDup {
 
 let json_src = r#"{"f1": "f1 json"}"#;
 let foo_de = serde_json::from_str::<Baz>(&json_src).expect("Bar deserialization failure");
-assert_eq!(foo_de.f1(), "f1 json".to_string());
-assert_eq!(foo_de.f2(), "f2 from fubar".to_string());
+assert_eq!(*foo_de.f1(), "f1 json".to_string());
+assert_eq!(*foo_de.f2(), "f2 from fubar".to_string());
 ```
 
 ### Arguments of `fieldx`
@@ -640,6 +656,106 @@ Unless explicit `default` argument is used with the `fxstruct` attribute, `field
    attribute.
 1. A field is given a [`default`](#default) value.
 1. The struct is `sync` and has a lazy field.
+
+<a id="accessor_vs_reader_writer"></a>
+## Why `get`/`get_mut` and `reader`/`writer` For Sync Structs?
+
+It may be confusing at first as to why there are, basically, two different kinds of accessors for sync structs. But
+there are reasons for it.
+
+First of all, let's take into account these important factors:
+
+- fields, that are [protected](#protected_unprotected_fields), cannot provide their values directly; lock-guards are
+  required for this
+- lazy fields are expected to always get some value when read from
+
+Let's focus on a case of lazy fields. They have all properties of lock-protected and optional fields, so we loose
+nothing in the context of the `get`/`get_mut` and `reader`/`writer` differences.
+
+### `get` vs `reader`
+
+A bare bones `get` accessor helper is the same thing, as the `reader` helper[^get_reader_guts]. But, as soon as a
+user decides that they want `copy` or `clone` accessor behavior, `reader` becomes the only means of reaching out
+to field's lock-guard:
+
+[^get_reader_guts]: As a matter of fact, internally they even use the same method-generation code.
+
+```rust
+#[fxstruct(sync)]
+struct Foo {
+    #[fieldx(get(copy), reader, lazy)]
+    bar: u32
+}
+impl Foo {
+    fn build_bar(&self) -> u32 { 1234 }
+    fn do_something(&self) -> u32 {
+        // We need to protect the field value until we're done using it.
+        let bar_guard = self.read_bar();
+        let outcome = *bar_guard * 2;
+        outcome
+    }
+}
+let foo = Foo::new();
+assert_eq!(foo.do_something(), 2468);
+```
+
+### `get_mut` vs `writer`
+
+This case if significantly different. Despite both helpers are responsible for mutating fields, the `get_mut` helper
+remains an accessor in first place, whereas the `writer` is not. In the context of lazy fields it means that
+`get_mut` guarantees the field to be initialized first. Then we can mutate its value.
+
+`writer`, instead, provides direct and immediate access to the field's container. It allows to store a value into it
+without the builder method to be involved. Since building a lazy field can be expensive, it could be helpful to
+avoid it in cases when we don't actually need it[^sync_writer_vs_builder].
+
+[^sync_writer_vs_builder]: Sometimes, if the value is known before a struct instance is created, it might make sense
+to use the builder instead of the writer.
+
+Basically, the guard returned by the `writer` helper can only do two things: store an entire value into the field,
+and clear the field.
+
+```rust
+#[fxstruct(sync)]
+struct Foo {
+    #[fieldx(get_mut, get(copy), writer, lazy)]
+    bar: u32
+}
+impl Foo {
+    fn build_bar(&self) -> u32 {
+        eprintln!("Building bar");
+        1234
+    }
+    fn do_something1(&self) {
+        eprintln!("Using writer.");
+        let mut bar_guard = self.write_bar();
+        bar_guard.store(42);
+    }
+    fn do_something2(&self) {
+        eprintln!("Using get_mut.");
+        let mut bar_guard = self.bar_mut();
+        *bar_guard = 12;
+    }
+}
+
+let foo = Foo::new();
+foo.do_something1();
+assert_eq!(foo.bar(), 42);
+
+let foo = Foo::new();
+foo.do_something2();
+assert_eq!(foo.bar(), 12);
+```
+
+This example is expected to output something like this:
+
+```rust
+Using writer.
+Using get_mut.
+Building bar
+```
+
+As you can see, use of the `bar_mut` accessor results in the `build_bar` method invoked.
 
 ## The Inner Workings
 
