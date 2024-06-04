@@ -1,8 +1,11 @@
-use super::{FXAccessorMode, FXAttributes, FXBuilder, FXHelperContainer, FXHelperKind, FXHelperTrait, FXPubMode};
+use super::{
+    FXAccessorMode, FXAttributes, FXBoolArg, FXBuilder, FXHelperContainer, FXHelperKind, FXHelperTrait, FXPubMode,
+};
 #[cfg(feature = "serde")]
 use crate::helper::FXSerde;
 use crate::{
     fields::FXField,
+    helper::with_origin::FXOrig,
     input_receiver::FXInputReceiver,
     util::args::{self, FXSArgs},
 };
@@ -26,6 +29,18 @@ macro_rules! helper_fn_ctx {
                 }
             )+
         }
+    };
+}
+
+macro_rules! arg_accessor {
+    ( $( $arg:ident: $ty:ty ),+ ) => {
+        $(
+            pub fn $arg(&self) -> Option<&$ty> {
+                self.field.$arg()
+                    .as_ref()
+                    .or_else(|| self.codegen_ctx().args().$arg().as_ref())
+            }
+        )+
     };
 }
 
@@ -285,9 +300,11 @@ impl<'f> FXFieldCtx<'f> {
         }
     }
 
-    helper_fn_ctx! {is: lazy}
+    helper_fn_ctx! { is: lazy }
 
-    helper_fn_ctx! {needs: accessor_mut, builder, setter, writer}
+    helper_fn_ctx! { needs: accessor_mut, builder, setter, writer }
+
+    arg_accessor! { optional: FXBoolArg, lock: FXBoolArg }
 
     pub fn new(field: &'f FXField, codegen_ctx: &'f FXCodeGenCtx) -> Self {
         Self {
@@ -302,10 +319,12 @@ impl<'f> FXFieldCtx<'f> {
         }
     }
 
+    #[inline]
     pub fn codegen_ctx(&self) -> &FXCodeGenCtx {
         &self.codegen_ctx
     }
 
+    #[inline]
     pub fn needs_accessor(&self) -> bool {
         self.field
             .needs_accessor()
@@ -313,6 +332,7 @@ impl<'f> FXFieldCtx<'f> {
             .unwrap_or_else(|| self.needs_clearer() || self.needs_predicate() || self.is_lazy())
     }
 
+    #[inline]
     pub fn needs_clearer(&self) -> bool {
         self.field
             .needs_clearer()
@@ -320,6 +340,7 @@ impl<'f> FXFieldCtx<'f> {
             .unwrap_or(false)
     }
 
+    #[inline]
     pub fn needs_predicate(&self) -> bool {
         self.field
             .needs_predicate()
@@ -327,6 +348,7 @@ impl<'f> FXFieldCtx<'f> {
             .unwrap_or(false)
     }
 
+    #[inline]
     pub fn needs_reader(&self) -> bool {
         self.field
             .needs_reader()
@@ -340,7 +362,7 @@ impl<'f> FXFieldCtx<'f> {
         self.field
             .needs_lock()
             .or_else(|| self.codegen_ctx().args().needs_lock())
-            .unwrap_or_else(|| self.needs_reader() || self.needs_writer())
+            .unwrap_or_else(|| self.needs_reader() || self.needs_writer() || self.is_optional())
     }
 
     #[cfg(feature = "serde")]
@@ -540,6 +562,26 @@ impl<'f> FXFieldCtx<'f> {
 
     pub fn helper_span(&self, helper_kind: FXHelperKind) -> Span {
         self.get_helper_span(helper_kind).unwrap_or_else(|| Span::call_site())
+    }
+
+    pub fn optional_span(&self) -> Span {
+        self.optional()
+            .map_or_else(
+                || {
+                    self.get_helper_span(FXHelperKind::Clearer)
+                        .or_else(|| self.get_helper_span(FXHelperKind::Predicate))
+                },
+                |o| o.span(),
+            )
+            .unwrap_or_else(|| Span::call_site())
+    }
+
+    pub fn lock_span(&self) -> Span {
+        self.lock().and_then(|l| l.span()).unwrap_or_else(|| {
+            self.get_helper_span(FXHelperKind::Reader)
+                .or_else(|| self.get_helper_span(FXHelperKind::Writer))
+                .unwrap_or_else(|| self.optional_span())
+        })
     }
 
     pub fn all_attrs(&self) -> Vec<syn::Attribute> {

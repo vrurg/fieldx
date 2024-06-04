@@ -18,6 +18,44 @@ use std::{
 };
 use syn::{spanned::Spanned, Ident, Lit};
 
+#[derive(PartialEq)]
+pub(crate) enum FXValueRepr<T> {
+    None,
+    Exact(T),
+    Versatile(T),
+}
+
+impl<T> FXValueRepr<T> {
+    pub(crate) fn is_none(&self) -> bool {
+        matches!(self, FXValueRepr::None)
+    }
+
+    pub(crate) fn expect(self, msg: &str) -> T {
+        match self {
+            FXValueRepr::None => panic!("{}", msg),
+            FXValueRepr::Exact(v) => v,
+            FXValueRepr::Versatile(v) => v,
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn unwrap_or(self, default: T) -> T {
+        match self {
+            FXValueRepr::None => default,
+            FXValueRepr::Exact(v) => v,
+            FXValueRepr::Versatile(v) => v,
+        }
+    }
+
+    pub(crate) fn map<U>(self, mapper: impl FnOnce(T) -> U) -> FXValueRepr<U> {
+        match self {
+            FXValueRepr::None => FXValueRepr::None,
+            FXValueRepr::Exact(v) => FXValueRepr::Exact(mapper(v)),
+            FXValueRepr::Versatile(v) => FXValueRepr::Versatile(mapper(v)),
+        }
+    }
+}
+
 // Methods that are related to the current context if first place.
 #[enum_dispatch]
 pub(crate) trait FXCGenContextual<'f> {
@@ -32,7 +70,7 @@ pub(crate) trait FXCGenContextual<'f> {
     fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
     fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
     fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
-    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: Option<TokenStream>) -> darling::Result<TokenStream>;
+    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<TokenStream>) -> darling::Result<TokenStream>;
     fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
     fn field_lazy_initializer(
         &self,
@@ -234,7 +272,7 @@ pub(crate) trait FXCGenContextual<'f> {
         }
     }
 
-    fn field_default_value(&self, fctx: &FXFieldCtx) -> darling::Result<Option<TokenStream>> {
+    fn field_default_value(&self, fctx: &FXFieldCtx) -> darling::Result<FXValueRepr<TokenStream>> {
         let field = fctx.field();
 
         Ok(if let Some(def_meta) = fctx.default_value() {
@@ -245,7 +283,7 @@ pub(crate) trait FXCGenContextual<'f> {
                 is_str = true;
             }
 
-            Some(if is_str {
+            FXValueRepr::Versatile(if is_str {
                 quote_spanned! [span=> ::std::string::String::from(#def_meta) ]
             }
             else {
@@ -253,10 +291,10 @@ pub(crate) trait FXCGenContextual<'f> {
             })
         }
         else if fctx.is_lazy() || fctx.is_optional() {
-            None
+            FXValueRepr::None
         }
         else {
-            Some(quote_spanned! [field.span()=> ::std::default::Default::default() ])
+            FXValueRepr::Exact(quote_spanned! [field.span()=> ::std::default::Default::default() ])
         })
     }
 
@@ -422,10 +460,16 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         Ok(())
     }
 
-    fn simple_field_build_setter(&self, fctx: &FXFieldCtx, field_ident: &TokenStream, span: &Span) -> TokenStream {
+    fn field_builder_value_for_set(&self, fctx: &FXFieldCtx, field_ident: &TokenStream, span: &Span) -> TokenStream {
         let field_name = field_ident.to_string();
         let alternative = if fctx.has_default_value() {
             self.ok_or_empty(self.field_default_wrap(fctx))
+        }
+        else if fctx.is_optional() {
+            self.ok_or_empty(self.field_value_wrap(
+                fctx,
+                FXValueRepr::Exact(quote_spanned![*span=> ::std::option::Option::None]),
+            ))
         }
         else {
             quote_spanned![*span=>
@@ -436,16 +480,23 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
             ]
         };
 
-        let manual_wrapped = self.ok_or_empty(self.field_value_wrap(fctx, Some(quote![field_manual_value])));
+        let manual_wrapped =
+            self.ok_or_empty(self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![field_manual_value])));
 
         quote_spanned![*span=>
-            #field_ident: if let ::std::option::Option::Some(field_manual_value) = self.#field_ident.take() {
+            if let ::std::option::Option::Some(field_manual_value) = self.#field_ident.take() {
                 #manual_wrapped
             }
             else {
                 #alternative
             }
         ]
+    }
+
+    fn simple_field_build_setter(&self, fctx: &FXFieldCtx, field_ident: &TokenStream, span: &Span) -> TokenStream {
+        let set_toks = self.field_builder_value_for_set(fctx, field_ident, span);
+
+        quote_spanned![*span=> #field_ident: #set_toks ]
     }
 
     fn default_impl(&self) -> TokenStream {
@@ -475,8 +526,9 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
     }
 
     fn builder_ident(&self) -> TokenStream {
-        let ident = self.ctx().input_ident();
-        format_ident!("{}{}", ident, "Builder").to_token_stream()
+        let ctx = self.ctx();
+        let ident = ctx.input_ident();
+        format_ident!("{}{}", ident, "Builder", span = ctx.helper_span(FXHelperKind::Builder)).to_token_stream()
     }
 
     fn builder_field_ctxs(&'f self) -> Vec<darling::Result<Ref<FXFieldCtx<'f>>>> {

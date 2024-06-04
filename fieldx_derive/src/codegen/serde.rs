@@ -1,4 +1,4 @@
-use super::{FXCGenContextual, FXFieldCtx};
+use super::{FXCGenContextual, FXFieldCtx, FXValueRepr};
 use crate::helper::with_origin::FXOrig;
 use darling::ast::NestedMeta;
 use proc_macro2::{Span, TokenStream};
@@ -197,7 +197,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
 
     fn serde_shadow_field_default(&self, fctx: &FXFieldCtx) {
         let mut default_tok = self.fixup_self_type(
-            self.ok_or_else(self.field_default_value(fctx), || None)
+            self.ok_or_else(self.field_default_value(fctx), || FXValueRepr::None)
                 .unwrap_or(quote![::std::default::Default::default()]),
         );
 

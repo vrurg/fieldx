@@ -2,7 +2,7 @@ use crate::codegen::context::{FXCodeGenCtx, FXFieldCtx};
 #[cfg(feature = "serde")]
 use crate::codegen::FXCGenSerde;
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
@@ -10,7 +10,7 @@ use std::{
 };
 use syn::spanned::Spanned;
 
-use super::{FXCGen, FXCGenContextual, FXHelperKind};
+use super::{FXCGen, FXCGenContextual, FXHelperKind, FXValueRepr};
 
 pub(crate) struct FXCodeGen<'f> {
     ctx:                 FXCodeGenCtx,
@@ -88,6 +88,28 @@ impl<'f> FXCodeGen<'f> {
                     self.#ident.read()
                 }
             ])
+        }
+    }
+
+    #[inline(always)]
+    fn maybe_optional_ty<T: ToTokens>(&self, fctx: &FXFieldCtx, ty: &T) -> TokenStream {
+        if fctx.is_optional() {
+            let span = fctx.optional_span();
+            quote_spanned![span=> ::std::option::Option<#ty>]
+        }
+        else {
+            quote![#ty]
+        }
+    }
+
+    #[inline(always)]
+    fn maybe_locked_ty<T: ToTokens>(&self, fctx: &FXFieldCtx, ty: &T) -> TokenStream {
+        if fctx.needs_lock() {
+            let span = fctx.lock_span();
+            quote_spanned![span=> ::fieldx::FXRwLock<#ty>]
+        }
+        else {
+            quote![#ty]
         }
     }
 }
@@ -204,25 +226,23 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
 
     fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> &'s TokenStream {
         fctx.ty_wrapped(|| {
-            let ty_tok = fctx.ty_tok();
-            let span = fctx.ty().span();
-            let ident = self.ctx().input_ident();
-            let generic_params = self.generic_params();
-            let mut ty_toks = ty_tok.clone();
+            let ty = fctx.ty_tok().clone();
 
-            if !fctx.is_skipped() {
-                if fctx.is_lazy() {
-                    let proxy_type = self.field_proxy_type(fctx);
-                    ty_toks = quote_spanned! [span=> ::fieldx::#proxy_type<#ident #generic_params, #ty_tok>];
-                }
-                else if fctx.is_optional() {
-                    ty_toks = quote_spanned! [span=> ::fieldx::FXRwLock<Option<#ty_tok>>];
-                }
-                else if fctx.needs_lock() {
-                    ty_toks = quote_spanned! [span=> ::fieldx::FXRwLock<#ty_tok>]
-                }
+            if fctx.is_skipped() {
+                return ty;
             }
-            ty_toks
+
+            let generic_params = self.generic_params();
+
+            if fctx.is_lazy() {
+                let ident = self.ctx().input_ident();
+                let proxy_type = self.field_proxy_type(fctx);
+                let span = fctx.ty().span();
+                quote_spanned! [span=> ::fieldx::#proxy_type<#ident #generic_params, #ty>]
+            }
+            else {
+                self.maybe_locked_ty(fctx, &self.maybe_optional_ty(fctx, &ty))
+            }
         })
     }
 
@@ -240,27 +260,24 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let ty = fctx.ty();
 
             if is_clone || is_copy {
-                if is_lazy || fctx.needs_lock() || is_optional {
-                    let ty = if is_optional { quote![Option<#ty>] } else { quote![#ty] };
-
-                    let read_arg = if is_lazy { quote![self] } else { quote![] };
-
-                    let cmethod = if is_copy {
-                        if is_optional {
-                            quote![.as_ref().copied()]
-                        }
-                        else {
-                            quote![]
-                        }
+                let cmethod = if is_copy {
+                    if is_optional {
+                        quote![.as_ref().copied()]
                     }
                     else {
-                        if is_optional {
-                            quote![.as_ref().cloned()]
-                        }
-                        else {
-                            quote![.clone()]
-                        }
-                    };
+                        quote![]
+                    }
+                }
+                else {
+                    if is_optional {
+                        quote![.as_ref().cloned()]
+                    }
+                    else {
+                        quote![.clone()]
+                    }
+                };
+                if is_lazy {
+                    let read_arg = if is_lazy { quote![self] } else { quote![] };
 
                     Ok(quote_spanned![span=>
                         #attributes_fn
@@ -270,9 +287,18 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                         }
                     ])
                 }
-                else if is_clone || is_copy {
-                    let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
-
+                else if fctx.needs_lock() {
+                    let ty = self.maybe_optional_ty(fctx, ty);
+                    Ok(quote_spanned![span=>
+                        #attributes_fn
+                        #vis_tok fn #accessor_name(&self) -> #ty {
+                            let rlock = self.#ident.read();
+                            (*rlock) #cmethod
+                        }
+                    ])
+                }
+                else if is_optional {
+                    let ty = self.maybe_optional_ty(fctx, ty);
                     Ok(quote_spanned![span=>
                         #attributes_fn
                         #vis_tok fn #accessor_name(&self) -> #ty {
@@ -281,18 +307,21 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                     ])
                 }
                 else {
+                    let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
                     Ok(quote_spanned![span=>
                         #attributes_fn
-                        #vis_tok fn #accessor_name(&self) -> & #ty {
-                            & self.#ident
+                        #vis_tok fn #accessor_name(&self) -> #ty {
+                            self.#ident #cmethod
                         }
                     ])
                 }
             }
-            else if is_lazy || is_optional || fctx.needs_lock() {
+            else if is_lazy || fctx.needs_lock() {
                 self.field_reader_method(fctx, FXHelperKind::Accessor)
             }
             else {
+                let ty = self.maybe_optional_ty(fctx, ty);
+
                 Ok(quote_spanned![span=>
                     #[inline]
                     #attributes_fn
@@ -325,33 +354,36 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                     }
                 ])
             }
-            else if fctx.is_optional() {
-                Ok(quote_spanned! [span=>
-                    #[inline]
-                    #attributes_fn
-                    #vis_tok fn #accessor_name<'fx_get_mut>(&'fx_get_mut self) -> ::fieldx::MappedRwLockWriteGuard<'fx_get_mut, #ty> {
-                        ::fieldx::RwLockWriteGuard::map(self.#ident.write(), |data: &Option<#ty>| data.as_ref().unwrap())
-                    }
-                ])
-            }
-            else if fctx.needs_lock() {
-                Ok(quote_spanned! [span=>
-                    #[inline(always)]
-                    #attributes_fn
-                    #vis_tok fn #accessor_name(&self) -> ::fieldx::RwLockWriteGuard<#ty> {
-                        self.#ident.write()
-                    }
-                ])
-            }
             else {
-                // Bare field
-                Ok(quote_spanned![span=>
-                    #[inline]
-                    #attributes_fn
-                    #vis_tok fn #accessor_name(&mut self) -> &mut #ty {
-                        &mut self.#ident
-                    }
-                ])
+                let ty_toks = if fctx.is_optional() {
+                    let opt_span = fctx.optional_span();
+                    quote_spanned! [opt_span=> ::std::option::Option<#ty>]
+                }
+                else {
+                    ty.to_token_stream()
+                };
+                if fctx.needs_lock() {
+                    let lock_span = fctx.lock_span();
+                    let ty_toks = quote_spanned! [lock_span=> ::fieldx::RwLockWriteGuard<#ty_toks>];
+
+                    Ok(quote_spanned! [span=>
+                        #[inline(always)]
+                        #attributes_fn
+                        #vis_tok fn #accessor_name(&self) -> #ty_toks {
+                            self.#ident.write()
+                        }
+                    ])
+                }
+                else {
+                    // Bare field
+                    Ok(quote_spanned![span=>
+                        #[inline]
+                        #attributes_fn
+                        #vis_tok fn #accessor_name(&mut self) -> &mut #ty_toks {
+                            &mut self.#ident
+                        }
+                    ])
+                }
             }
         }
         else {
@@ -365,12 +397,20 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         let input_type = self.input_type_toks();
         let field_type = self.type_tokens(fctx);
         let lazy_builder_name = self.lazy_name(fctx)?;
+        let is_optional = fctx.is_optional();
+        let is_lazy = fctx.is_lazy();
         let or_default = if fctx.has_default_value() {
             let default = self.fixup_self_type(self.field_default_value(fctx)?.expect(&format!(
                 "Internal problem: expected default value for field {}",
                 fctx.ident_str()
             )));
-            quote![  .or_else(|| Some(#default)) ]
+
+            if is_optional || is_lazy {
+                quote_spanned! [span=> .or_else(|| ::std::option::Option::Some(#default))]
+            }
+            else {
+                quote_spanned! [span=> .unwrap_or_else(|| #default)]
+            }
         }
         else {
             quote![]
@@ -387,10 +427,16 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 )
             ]
         }
-        else if fctx.is_optional() {
+        else if fctx.needs_lock() {
+            let set_value = self.field_builder_value_for_set(fctx, field_ident, &span);
             quote_spanned![span=>
                 // Optional can simply pickup and own either Some() or None from the builder.
-                #field_ident: ::fieldx::FXRwLock::new(self.#field_ident.take()#or_default)
+                #field_ident: #set_value
+            ]
+        }
+        else if is_optional {
+            quote_spanned! [span=>
+                #field_ident: self.#field_ident.take()#or_default
             ]
         }
         else {
@@ -412,7 +458,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     fn field_from_shadow(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let field_ident = fctx.ident_tok();
         let shadow_var = self.ctx().shadow_var_ident();
-        self.field_value_wrap(fctx, Some(quote![ #shadow_var.#field_ident ]))
+        self.field_value_wrap(fctx, FXValueRepr::Exact(quote![#shadow_var.#field_ident ]))
     }
 
     #[cfg(feature = "serde")]
@@ -582,13 +628,22 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                     }
                 ])
             }
-            else {
-                // If not lazy then it's optional
+            // If not lazy then it's optional
+            else if fctx.needs_lock() {
                 Ok(quote_spanned![span=>
                     #[inline]
                     #attributes_fn
                     #vis_tok fn #pred_name(&self) -> bool {
                       self.#ident.read().is_some()
+                   }
+                ])
+            }
+            else {
+                Ok(quote_spanned![span=>
+                    #[inline]
+                    #attributes_fn
+                    #vis_tok fn #pred_name(&self) -> bool {
+                      self.#ident.is_some()
                    }
                 ])
             }
@@ -598,49 +653,49 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         }
     }
 
-    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: Option<TokenStream>) -> darling::Result<TokenStream> {
-        Ok(if fctx.is_lazy() {
+    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<TokenStream>) -> darling::Result<TokenStream> {
+        let ident_span = fctx.ident().map_or_else(|i| i.span(), |_| *fctx.span());
+        let is_optional = fctx.is_optional();
+        let is_lazy = fctx.is_lazy();
+
+        let value_wrapper = match &value {
+            FXValueRepr::None => quote_spanned![ident_span=> ::std::option::Option::None],
+            FXValueRepr::Exact(v) => quote_spanned![ident_span=> #v],
+            FXValueRepr::Versatile(v) => {
+                if is_optional || is_lazy {
+                    quote_spanned![ident_span=> ::std::option::Option::Some(#v)]
+                }
+                else {
+                    quote_spanned![ident_span=> #v]
+                }
+            }
+        };
+
+        Ok(if is_lazy {
             let input_type = self.input_type_toks();
             let field_type = self.type_tokens(fctx);
             let lazy_builder_name = self.lazy_name(fctx)?;
 
-            value.map_or_else(
-                || quote![ <#field_type>::new_default(<#input_type>::#lazy_builder_name, ::std::option::Option::None) ],
-                |value| quote![ <#field_type>::new_default(<#input_type>::#lazy_builder_name, #value) ],
-            )
-        }
-        else if fctx.is_optional() {
-            let value_tok = value.map_or_else(|| quote![::std::option::Option::None], |value| quote![#value]);
-            quote![ ::fieldx::FXRwLock::new(#value_tok) ]
+            quote_spanned![ident_span=> <#field_type>::new_default(<#input_type>::#lazy_builder_name, #value_wrapper) ]
         }
         else {
-            let value = value.map(|value| quote![ #value]).ok_or_else(|| {
-                darling::Error::custom(format!(
-                    "No value was supplied for non-optional, non-lazy field {}",
+            if !is_optional && value.is_none() {
+                return Err(darling::Error::custom(format!(
+                    "No value was supplied for non-optional, non-lazy field '{}'",
                     fctx.ident_str()
-                ))
-            })?;
+                )));
+            }
 
             if fctx.needs_lock() {
-                quote![ ::fieldx::FXRwLock::new(#value) ]
+                quote_spanned![ident_span=> ::fieldx::FXRwLock::new(#value_wrapper) ]
             }
             else {
-                quote![ #value ]
+                value_wrapper
             }
         })
     }
 
     fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.field_value_wrap(
-            fctx,
-            self.field_default_value(fctx)?.map(|d| {
-                if fctx.is_optional() || fctx.is_lazy() {
-                    quote![ ::std::option::Option::Some(#d) ]
-                }
-                else {
-                    quote![ #d ]
-                }
-            }),
-        )
+        self.field_value_wrap(fctx, self.field_default_value(fctx)?)
     }
 }

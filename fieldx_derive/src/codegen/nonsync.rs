@@ -1,6 +1,6 @@
 #[cfg(feature = "serde")]
 use super::FXCGenSerde;
-use super::{FXAccessorMode, FXCGen, FXCGenContextual, FXHelperKind};
+use super::{FXAccessorMode, FXCGen, FXCGenContextual, FXHelperKind, FXValueRepr};
 use crate::{
     codegen::context::{FXCodeGenCtx, FXFieldCtx},
     // util::fxtrace,
@@ -410,23 +410,28 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         Ok(TokenStream::new())
     }
 
-    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: Option<TokenStream>) -> darling::Result<TokenStream> {
+    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<TokenStream>) -> darling::Result<TokenStream> {
+        let ident_span = fctx.ident().map_or_else(|i| i.span(), |_| *fctx.span());
         Ok(if fctx.is_lazy() {
-            value.map_or_else(
-                || quote![::fieldx::OnceCell::new()],
-                |value| quote! [ ::fieldx::OnceCell::from(#value) ],
-            )
+            match value {
+                FXValueRepr::None => quote_spanned![ident_span=> ::fieldx::OnceCell::new()],
+                FXValueRepr::Exact(v) => quote_spanned![ident_span=> #v],
+                FXValueRepr::Versatile(v) => quote_spanned![ident_span=> ::fieldx::OnceCell::from(#v)],
+            }
         }
         else if fctx.is_optional() {
-            value.map_or_else(
-                || quote![::std::option::Option::None],
-                |value| quote! [ ::std::option::Option::Some(#value) ],
-            )
+            match value {
+                FXValueRepr::None => quote_spanned![ident_span=> ::std::option::Option::None],
+                FXValueRepr::Exact(v) => quote_spanned![ident_span=> #v],
+                FXValueRepr::Versatile(v) => quote_spanned![ident_span=> ::std::option::Option::Some(#v)],
+            }
         }
         else {
-            value.map(|value| quote! [ #value ]).ok_or_else(|| {
-                darling::Error::custom(format!("No value was supplied for plain field {}", fctx.ident_str()))
-            })?
+            match value {
+                FXValueRepr::None => return Err(darling::Error::custom(format!("No value was supplied for plain field {}", fctx.ident_str())).with_span(&ident_span)),
+                FXValueRepr::Exact(v) => v,
+                FXValueRepr::Versatile(v) => v,
+            }
         })
     }
 
@@ -450,7 +455,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
 
         Ok(if self.is_serde_optional(fctx) {
             let default_value = self.field_default_wrap(fctx)?;
-            let shadow_value = self.field_value_wrap(fctx, Some(quote![v]))?;
+            let shadow_value = self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![v]))?;
             quote![ #shadow_var.#field_ident.map_or_else(|| #default_value, |v| #shadow_value) ]
         }
         else {

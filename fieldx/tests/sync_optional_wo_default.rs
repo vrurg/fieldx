@@ -13,7 +13,7 @@ mod inner {
 }
 
 #[test]
-fn main() {
+fn base() {
     let foo = inner::Foo::new();
 
     assert!(!foo.has_v(), "field is initially unset");

@@ -45,7 +45,7 @@ impl NonSync {
 }
 
 #[fxstruct(sync, get(public), builder, no_new)]
-struct Sync {
+struct IsSync {
     #[fieldx(set)]
     bar: Bar,
 
@@ -53,7 +53,7 @@ struct Sync {
     b2: Bar,
 }
 
-impl Sync {
+impl IsSync {
     fn new(bar: Bar) -> Self {
         Self {
             bar: bar.into(),
@@ -92,11 +92,11 @@ fn nonsync() {
 
 #[test]
 fn sync() {
-    let sync = Sync::new(Bar { note: "manual".into() });
+    let sync = IsSync::new(Bar { note: "manual".into() });
     assert_eq!(sync.bar().note, "manual".to_string());
     assert!(sync.b2().is_none());
 
-    let mut sync = Sync::builder()
+    let mut sync = IsSync::builder()
         .bar(Bar {
             note: "from builder".into(),
         })
@@ -104,7 +104,7 @@ fn sync() {
             note: "from builder 2".into(),
         })
         .build()
-        .expect("Sync::builder() failed");
+        .expect("IsSync::builder() failed");
 
     assert_eq!(sync.bar().note, "from builder".to_string());
     assert_eq!(sync.b2().as_ref().unwrap().note, "from builder 2".to_string());
