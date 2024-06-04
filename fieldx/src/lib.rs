@@ -149,7 +149,8 @@
 //! _`<digression_mode>`_ Besides, aesthetically, to some `has_description` is more appealing than
 //! `obj.description().is_some()`. _`</digression_mode>`_
 //!
-//! Next, optional fields of `sync` structs are automatically lock-protected.
+//! Next, optional fields of `sync` structs are lock-protected by default. This can be changed with explicit
+//! `lock(off)`, but one has to be aware that then sync status of the struct will depend the safety of the field.
 //!
 //! And the last note to be made is that if at some point it would prove to be useful to convert a field into a `lazy`
 //! then refactoring could be reduced to simply adding corresponding argument the `fieldx` attribute and implementing a
@@ -471,6 +472,13 @@
 //! ```
 //!
 //! See [the section about differences between `get`/`get_mut` and `reader`/`writer`](#accessor_vs_reader_writer)
+//!
+//! ### **`lock`**
+//!
+//! **Type**: flag
+//!
+//! Forces lock-wrapping of all fields by default. Can be explicitly disabled with `lock(off)`. Identical to the
+//! `reader`/`writer` arguments but without installing any methods.
 //!
 //! ### **`clearer`** and **`predicate`**
 //!
@@ -800,8 +808,8 @@
 //! | Field Parameters | Non-Sync Type | Sync Type |
 //! |------------------|---------------|-----------|
 //! | `lazy` | `OnceCell<T>` | [`FXProxy<O, T>`] |
-//! | optional (also activated with `clearer` and `proxy`) | `Option<T>` | [`FXRwLock<Option<T>>`] |
-//! | `reader` and/or `writer` | N/A | [`FXRwLock<T>`] |
+//! | `optional` (also activated with `clearer` and `proxy`) | `Option<T>` | [`FXRwLock<Option<T>>`] |
+//! | `lock`, `reader` and/or `writer` | N/A | [`FXRwLock<T>`] |
 //!
 //! Apparently, skipped fields retain their original type. Sure enough, if such a field is of non-`Send` or non-`Sync`
 //! type the entire struct would be missing these traits despite all the efforts from the `fxstruct` macro.
