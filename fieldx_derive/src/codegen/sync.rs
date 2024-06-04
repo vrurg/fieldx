@@ -534,6 +534,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let ty = fctx.ty();
             let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Setter);
             let (gen_params, val_type, into_tok) = self.into_toks(fctx, fctx.is_setter_into());
+            let needs_lock = fctx.needs_lock();
 
             if fctx.is_lazy() {
                 Ok(quote_spanned! [span=>
@@ -545,11 +546,18 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 ])
             }
             else if fctx.is_optional() {
+                let (lock_method, mutable) = if needs_lock {
+                    let lock_span = fctx.lock().span();
+                    (quote_spanned![lock_span=> .write()], quote![])
+                }
+                else {
+                    (quote![], quote![mut])
+                };
                 Ok(quote_spanned![span=>
                     #[inline]
                     #attributes_fn
-                    #vis_tok fn #set_name #gen_params(&self, value: #val_type) -> ::std::option::Option<#ty> {
-                        self.#ident.write().replace(value #into_tok)
+                    #vis_tok fn #set_name #gen_params(& #mutable self, value: #val_type) -> ::std::option::Option<#ty> {
+                        self.#ident #lock_method .replace(value #into_tok)
                     }
                 ])
             }
