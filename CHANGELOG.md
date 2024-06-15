@@ -1,6 +1,28 @@
 # Changelog
 
-## [0.1.1] - 2024-06-02
+## [0.1.2] - 2024-06-15
+
+### Features
+
+- [**breaking**] Allow optional unlocked fields on sync structs
+
+### Bug Fixes
+
+- Make sure that Copy trait bound check doesn't fail for generics
+
+### Documentation
+
+- Document new argument `lock`
+
+### Maintenance
+
+- Set some environment variables conditionally
+
+### Main
+
+- Should've not use `publish` with `cargo release`
+
+## [fieldx_derive_support-v0.1.1] - 2024-06-02
 
 ### Features
 
