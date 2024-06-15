@@ -4,7 +4,7 @@ use fieldx::fxstruct;
 #[derive(Debug)]
 struct NonSync<T>
 where
-    T: std::fmt::Debug + Clone + Send + Sync + Default,
+    T: std::fmt::Debug + Clone + Copy + Send + Sync + Default,
 {
     #[fieldx(lazy, clearer, predicate)]
     foo:    String,
@@ -22,11 +22,15 @@ where
 
     #[fieldx(lazy, clearer, predicate)]
     maybe: Option<T>,
+
+    // This field ensures that the Copy trait bound is satisfied for a generic
+    #[fieldx(get(copy, attributes_fn(allow(dead_code))))]
+    plain: T,
 }
 
 impl<T> NonSync<T>
 where
-    T: std::fmt::Debug + Clone + Send + Sync + Default,
+    T: std::fmt::Debug + Clone + Copy + Send + Sync + Default,
 {
     fn build_foo(&self) -> String {
         format!("this is foo with bar={}", self.bar()).to_string()
@@ -45,7 +49,7 @@ where
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 struct Dummy;
 
 #[test]

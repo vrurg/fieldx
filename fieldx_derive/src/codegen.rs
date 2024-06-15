@@ -738,10 +738,11 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         let copyable_validation = if !copyables.is_empty() {
             let copyables: Vec<TokenStream> = copyables.iter().map(|ct| ct.to_token_stream()).collect();
             Some(quote![
-                const _: fn() = || {
+                #[allow(dead_code)]
+                fn __fieldx_copy_validation() {
                     fn field_implements_copy<T: ?Sized + Copy>() {}
                     #( field_implements_copy::<#copyables>(); )*
-                };
+                }
             ])
         }
         else {
@@ -750,8 +751,6 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
 
         ctx.tokens_extend(quote! [
             use ::fieldx::traits::*;
-
-            #copyable_validation
 
             #( #attrs )*
             #vis struct #ident #generics
@@ -764,6 +763,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
 
             impl #generics #ident #generics #where_clause {
                 #methods
+                #copyable_validation
             }
 
             #default
