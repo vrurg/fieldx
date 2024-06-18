@@ -20,6 +20,9 @@ jobs:
           - beta
           - nightly
         feature: [serde]
+        exclude:
+          - os: windows
+            toolchain: nightly
     steps:
       - uses: actions/checkout@v4
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
