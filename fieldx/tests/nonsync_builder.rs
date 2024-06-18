@@ -1,8 +1,9 @@
+// With this `deny` we make sure that attributes_impl is actually applied.
+#![deny(dead_code)]
 use fieldx::fxstruct;
 
-#[fxstruct(builder(public(crate), attributes(derive(Debug))))]
+#[fxstruct(builder(public(crate), attributes(derive(Debug))), attributes_impl(allow(dead_code)))]
 #[derive(Debug)]
-#[allow(dead_code)]
 struct NonSync {
     #[fieldx(lazy, clearer, predicate, rename("dummy"))]
     foo:    String,

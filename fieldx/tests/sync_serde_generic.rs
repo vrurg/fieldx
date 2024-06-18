@@ -41,7 +41,7 @@ where
     #[fieldx(lazy, get(copy), serde)]
     pi: f64,
 
-    #[fieldx(predicate, clearer, get, set)]
+    #[fieldx(optional, get, set)]
     opt: T,
 
     #[fieldx(default(-1122.3344))]

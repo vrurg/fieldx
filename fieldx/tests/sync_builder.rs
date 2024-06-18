@@ -10,7 +10,7 @@ mod foo {
         #[fieldx(lazy, clearer, builder(into), get(copy))]
         real: f32,
 
-        #[fieldx(reader, writer, get(clone), set, builder(into), default("initial"))]
+        #[fieldx(reader, get(clone), set, builder(into), default("initial"))]
         locked_bar: String,
 
         #[fieldx(lazy, clearer, default(Self::default_string()))]

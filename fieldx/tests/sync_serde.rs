@@ -34,7 +34,7 @@ struct Foo {
     #[fieldx(lazy, get(copy), serde)]
     pi: f64,
 
-    #[fieldx(predicate, clearer, set, get(copy))]
+    #[fieldx(optional, set, get(copy))]
     opt: u64,
 
     #[fieldx(default(-1122.3344))]

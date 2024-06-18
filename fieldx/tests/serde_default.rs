@@ -6,7 +6,6 @@ use serde_json;
 #[fxstruct(sync, get, serde(default(Self::serde_default())))]
 #[derive(Clone)]
 struct Foo {
-    #[fieldx(reader)]
     f1: String,
     f2: String,
 }
@@ -23,7 +22,6 @@ impl Foo {
 #[fxstruct(sync, get, serde(default("Self::serde_default")))]
 #[derive(Clone)]
 struct Bar {
-    #[fieldx(reader)]
     f1: String,
     f2: String,
 }
@@ -40,7 +38,6 @@ impl Bar {
 #[fxstruct(sync, get, serde("BazDup", default(Self::serde_default())))]
 #[derive(Clone)]
 struct Baz {
-    #[fieldx(reader)]
     f1: String,
     f2: String,
 }

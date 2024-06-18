@@ -7,7 +7,6 @@ struct Bar {
 
 #[fxstruct(sync, get, lock, builder(into))]
 struct Foo {
-    #[fieldx(get_mut)]
     text:  String,
     #[fieldx(get(copy), reader)]
     count: usize,

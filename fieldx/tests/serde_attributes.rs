@@ -4,10 +4,9 @@ use fieldx::fxstruct;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-#[fxstruct(sync, builder(into), get, serde(attributes(serde(deny_unknown_fields))))]
+#[fxstruct(sync, builder(into), serde(attributes(serde(deny_unknown_fields))))]
 #[derive(Clone, Debug)]
 struct Foo {
-    #[fieldx(reader)]
     f1: String,
     #[fieldx(serde(attributes(serde(skip_serializing_if = "Foo::no_empty"))))]
     f2: String,
