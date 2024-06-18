@@ -1,3 +1,4 @@
+use cargo_toolchain::get_active_toolchain;
 use rustc_version::Version;
 use std::{
     env,
@@ -9,7 +10,7 @@ use trybuild;
 
 struct UncompEnv {
     // .0 is a path of .stderr under the version subdir, .1 is the one used for testing
-    stderrs:  Vec<(PathBuf, PathBuf)>,
+    stderrs: Vec<(PathBuf, PathBuf)>,
     base_dir: String,
 }
 
@@ -83,19 +84,36 @@ impl UncompEnv {
     }
 
     fn version_group() -> String {
-        let version = rustc_version::version().expect("Rust Compiler Version");
-        let version = Version::new(version.major, version.minor, version.patch);
+        if let Ok(toolchain) = get_active_toolchain() {
+            // If toolchain is <version>-<arch> then strip the arch part off
+            let toolchain = if let Some((t, _)) = toolchain.split_once("-") {
+                t.to_string()
+            } else {
+                toolchain
+            };
+
+            if Version::parse(&toolchain).is_err() {
+                // This is a case of named toolchain, use it as the group name
+                return toolchain.into();
+            }
+        }
+
+        // If it's not the case of a named toolchain then use the compiler version as such
+        let full_version = rustc_version::version().expect("Rust Compiler Version");
+        // Still, if the version has any pre-release then remove it
+        let version = Version::new(full_version.major, full_version.minor, full_version.patch);
         (if version < Version::new(1, 78, 0) {
             "1.77"
-        }
-        else if version == Version::new(1, 78, 0) {
+        } else if version == Version::new(1, 78, 0) {
             "1.78"
-        }
-        else if version == Version::new(1, 79, 0) {
+        } else if version <= Version::new(1, 80, 0) {
             "1.79"
-        }
-        else {
-            "1.80"
+        } else {
+            panic!(
+                "Unknown version {} ({})",
+                full_version,
+                get_active_toolchain().unwrap_or("<unknown toolchain>".into())
+            );
         })
         .to_string()
     }

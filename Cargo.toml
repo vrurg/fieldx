@@ -36,6 +36,7 @@ serde_json = "=1.0.117"
 syn = "2.0"
 thiserror = "1.0"
 trybuild = "1.0"
+cargo-toolchain = "0.1"
 
 [patch.crates-io]
 fieldx = { path = "fieldx" }

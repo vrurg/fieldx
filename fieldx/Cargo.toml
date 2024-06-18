@@ -27,6 +27,7 @@ num_cpus = { workspace = true }
 crossbeam = { workspace = true }
 serde_json = { workspace = true }
 rustc_version = { workspace = true }
+cargo-toolchain = { workspace = true }
 
 [features]
 diagnostics = ["fieldx_derive/diagnostics"]
