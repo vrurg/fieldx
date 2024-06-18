@@ -184,7 +184,8 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
         let user_attrs = fctx
             .serde()
             .as_ref()
-            .and_then(|serde_helper| serde_helper.attributes().as_ref());
+            .and_then(|serde_helper| serde_helper.attributes().as_ref())
+            .or_else(|| self.ctx().args().attributes().as_ref());
         let ty = self.serde_shadow_field_type(fctx);
 
         self.add_shadow_field_decl(quote_spanned! [*fctx.span()=>

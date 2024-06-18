@@ -24,6 +24,9 @@ pub(crate) struct FXSArgs {
     no_new:  Option<FXBoolArg>,
     default: Option<FXBoolArg>,
 
+    attributes:      Option<FXAttributes>,
+    attributes_impl: Option<FXAttributes>,
+
     // Field defaults
     lazy:         Option<FXHelper>,
     #[darling(rename = "get")]
@@ -171,12 +174,18 @@ impl FXSArgs {
 
     #[inline]
     pub fn builder_attributes(&self) -> Option<&FXAttributes> {
-        self.builder.as_ref().and_then(|b| b.attributes())
+        self.builder
+            .as_ref()
+            .and_then(|b| b.attributes())
+            .or_else(|| self.attributes().as_ref())
     }
 
     #[inline]
     pub fn builder_impl_attributes(&self) -> Option<&FXAttributes> {
-        self.builder.as_ref().and_then(|b| b.attributes_impl())
+        self.builder
+            .as_ref()
+            .and_then(|b| b.attributes_impl())
+            .or_else(|| self.attributes_impl().as_ref())
     }
 
     #[inline(always)]

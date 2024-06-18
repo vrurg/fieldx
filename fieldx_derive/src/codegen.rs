@@ -364,7 +364,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
     }
 
     fn field_decl(&self, fctx: &FXFieldCtx<'f>) {
-        let attrs = fctx.all_attrs();
+        let attributes = fctx.all_attrs();
         let vis = fctx.vis();
 
         let ty_tok = self.type_tokens(&fctx);
@@ -372,7 +372,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         let ident = fctx.ident_tok();
 
         self.add_field_decl(quote_spanned! [*fctx.span()=>
-            #( #attrs )*
+            #( #attributes )*
             #vis #ident: #ty_tok
         ]);
     }
@@ -510,6 +510,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         let ident = ctx.input().ident();
         let generics = ctx.input().generics();
         let where_clause = &generics.where_clause;
+
         if !defaults.is_empty() {
             quote! [
                 impl #generics Default for #ident #generics #where_clause {
@@ -726,7 +727,8 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
 
         // ctx.add_attr(self.derive_toks(&self.derive_traits()));
 
-        let attrs = ctx.all_attrs();
+        let attributes = ctx.all_attrs();
+        let attributes_impl = ctx.args().attributes_impl().as_ref();
         let methods = self.methods_combined();
         let fields = self.struct_fields();
         let default = self.default_impl();
@@ -752,7 +754,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         ctx.tokens_extend(quote! [
             use ::fieldx::traits::*;
 
-            #( #attrs )*
+            #( #attributes )*
             #vis struct #ident #generics
             #where_clause
             {
@@ -761,6 +763,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
 
             impl #generics FXStruct for #ident #generic_params #where_clause {}
 
+            #attributes_impl
             impl #generics #ident #generics #where_clause {
                 #methods
                 #copyable_validation
