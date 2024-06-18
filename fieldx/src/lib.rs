@@ -319,6 +319,18 @@
 //!
 //! ## Arguments of `fxstruct`
 //!
+//! ### **`attributes`**
+//!
+//! **Type**: `list`
+//!
+//! Fallback [attributes](#attrs_family) for structs produced by the `builder` and `serde` arguments.
+//!
+//! ### **`attributes_impl`**
+//!
+//! **Type**: `list`
+//!
+//! [Attributes](#attrs_family) to be applied to the struct implementation.
+//!
 //! ### **`sync`**
 //!
 //! **Type**: keyword
