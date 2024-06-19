@@ -55,14 +55,14 @@ commit_preprocessors = [
 ]
 # regex for parsing and grouping commits
 commit_parsers = [
-  { message = "^feat", group = "<!-- 0 --> Features" },
-  { message = "^fix", group = "<!-- 1 --> Bug Fixes" },
+  { message = '^feat(\(.*\))?', group = "<!-- 0 --> Features" },
+  { message = '^fix(\(.*\))?', group = "<!-- 1 --> Bug Fixes" },
   { message = "^doc", group = "<!-- 3 --> Documentation" },
   { message = "^perf", group = "<!-- 4 --> Performance" },
   { message = "^refactor", group = "<!-- 2 --> Refactor" },
   { message = "^style", group = "<!-- 5 --> Styling" },
   { message = "^test", group = "<!-- 6 --> Testing" },
-  { message = "^[mM]aint: ", group = "<!-- 7 --> Maintenance" },
+  { message = '^[mM]aint(\(.*\))?', group = "<!-- 7 --> Maintenance" },
   { message = "^chore\\(release\\): prepare for", skip = true },
   { message = "^chore\\(deps.*\\)", skip = true },
   { message = "^chore\\(pr\\)", skip = true },
