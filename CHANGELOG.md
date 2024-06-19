@@ -1,10 +1,11 @@
 # Changelog
 
-## [0.1.2] - 2024-06-15
+## [0.1.2] - 2024-06-19
 
 ### Features
 
 - [**breaking**] Allow optional unlocked fields on sync structs
+- Add support for `attributes` and `attributes_impl` for `fxstruct`
 
 ### Bug Fixes
 
@@ -13,16 +14,25 @@
 ### Documentation
 
 - Document new argument `lock`
+- Document `attributes` and `attributes_impl` of `fxstruct`
+
+### Testing
+
+- Streamline toolchain(version)-dependent testing
+- Use stricter/safer atomic ordering
+- Refactor tests to get rid of warnings
 
 ### Maintenance
 
 - Set some environment variables conditionally
+- *(CI)* Exclude `nightly` toolchain from testing under `windows`
+- *(cliff)* Allow scoping for `feat`, `fix`, and `maint` groups
 
 ### Main
 
 - Should've not use `publish` with `cargo release`
 
-## [fieldx_derive_support-v0.1.1] - 2024-06-02
+## [fieldx-v0.1.1] - 2024-06-02
 
 ### Features
 
