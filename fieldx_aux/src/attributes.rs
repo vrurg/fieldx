@@ -5,8 +5,8 @@ use quote::{quote, ToTokens};
 use syn::{parse_quote_spanned, spanned::Spanned, Meta};
 
 #[derive(Debug, Clone, Getters)]
-#[getset(get = "pub(crate)")]
-pub(crate) struct FXAttributes {
+#[getset(get = "pub")]
+pub struct FXAttributes {
     list: Vec<syn::Attribute>,
 }
 

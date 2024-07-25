@@ -1,5 +1,5 @@
 use super::{FXCGenContextual, FXFieldCtx, FXValueRepr};
-use crate::helper::with_origin::FXOrig;
+use crate::helper::FXOrig;
 use darling::ast::NestedMeta;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};

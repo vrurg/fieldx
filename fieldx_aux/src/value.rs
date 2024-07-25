@@ -3,7 +3,7 @@ use darling::{util::Flag, FromMeta};
 use syn::Lit;
 
 #[derive(Debug, FromMeta, Clone)]
-pub(crate) struct FXValueArg<T, const BOOL_ONLY: bool = false> {
+pub struct FXValueArg<T, const BOOL_ONLY: bool = false> {
     off:   Flag,
     #[darling(skip)]
     value: Option<T>,
@@ -34,7 +34,7 @@ impl<T, const BOOL_ONLY: bool> FXValueArg<T, BOOL_ONLY> {
         }
     }
 
-    pub(crate) fn value(&self) -> Option<&T> {
+    pub fn value(&self) -> Option<&T> {
         if self.is_true() {
             self.value.as_ref()
         }
@@ -61,7 +61,7 @@ impl<T, const BOOL_ONLY: bool> From<T> for FXValueArg<T, BOOL_ONLY> {
 
 macro_rules! from_nest_attr_num {
     ($from:path => $ty:ty) => {
-        impl crate::helper::FromNestAttr for FXValueArg<$ty, false> {
+        impl crate::FromNestAttr for FXValueArg<$ty, false> {
             fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
                 Self::validate_literals(literals)?;
                 if let $from(ref lit) = literals[0] {
@@ -111,7 +111,7 @@ impl<T, const BOOL_ONLY: bool> FXFrom<Option<T>> for FXValueArg<T, BOOL_ONLY> {
 
 macro_rules! from_nest_attr_val {
     ($from:path => $ty:ty) => {
-        impl crate::helper::FromNestAttr for FXValueArg<$ty, false> {
+        impl crate::FromNestAttr for FXValueArg<$ty, false> {
             fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
                 Self::validate_literals(literals)?;
                 if let $from(ref lit) = literals[0] {

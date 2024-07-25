@@ -1,4 +1,4 @@
-use crate::helper::{with_origin::FXOrig, FXFrom, FXTriggerHelper};
+use crate::{with_origin::FXOrig, FXFrom, FXTriggerHelper};
 use darling::{ast::NestedMeta, FromMeta};
 use getset::Getters;
 use proc_macro2::TokenStream;
@@ -6,7 +6,7 @@ use quote::ToTokens;
 use std::ops::{Deref, DerefMut};
 use syn::{Lit, Meta};
 
-pub(crate) trait FromNestAttr: FromMeta {
+pub trait FromNestAttr: FromMeta {
     /// A constructor that supposed to create default object for when there is only keyword with no arguments.
     fn for_keyword(path: &syn::Path) -> darling::Result<Self>;
     fn set_literals(self, literals: &Vec<Lit>) -> darling::Result<Self>;
@@ -17,19 +17,19 @@ pub(crate) trait FromNestAttr: FromMeta {
 }
 
 #[derive(Debug, Clone, Getters)]
-pub(crate) struct FXNestingAttr<T: FromNestAttr> {
+pub struct FXNestingAttr<T: FromNestAttr> {
     inner: T,
     orig:  Option<Meta>,
 }
 
 impl<T: FromNestAttr> FXNestingAttr<T> {
     #[inline]
-    pub(crate) fn new(inner: T, orig: Option<Meta>) -> Self {
+    pub fn new(inner: T, orig: Option<Meta>) -> Self {
         Self { inner, orig }
     }
 
     #[inline]
-    pub(crate) fn set_orig(mut self, orig: Meta) -> Self {
+    pub fn set_orig(mut self, orig: Meta) -> Self {
         self.orig = Some(orig);
         self
     }

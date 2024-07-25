@@ -173,12 +173,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "fieldx_aux"
+version = "0.1.2"
+dependencies = [
+ "darling",
+ "getset",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.65",
+]
+
+[[package]]
 name = "fieldx_derive"
 version = "0.1.2"
 dependencies = [
  "darling",
  "delegate",
  "enum_dispatch",
+ "fieldx_aux",
  "fieldx_derive_support",
  "getset",
  "paste",

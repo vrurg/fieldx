@@ -1,4 +1,4 @@
-use super::{with_origin::FXOrig, FXTriggerHelper};
+use super::{FXOrig, FXTriggerHelper};
 use darling::{ast::NestedMeta, FromMeta};
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};

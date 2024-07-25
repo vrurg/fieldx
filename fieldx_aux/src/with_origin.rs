@@ -17,13 +17,13 @@ where
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct FXWithOrig<T, O> {
+pub struct FXWithOrig<T, O> {
     parsed: T,
     orig:   Option<O>,
 }
 
 impl<T, O> FXWithOrig<T, O> {
-    pub(crate) fn new(parsed: T, orig: O) -> Self {
+    pub fn new(parsed: T, orig: O) -> Self {
         Self {
             parsed,
             orig: Some(orig),

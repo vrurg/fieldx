@@ -1,0 +1,18 @@
+[package]
+name = "fieldx_aux"
+version = "0.1.2"
+description = "Various types and tools useful for fieldx crates and, potentially, to users of fieldx"
+edition.workspace = true
+license-file.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+exclude.workspace = true
+
+[dependencies]
+quote = { workspace = true }
+syn = { workspace = true, features = ["extra-traits", "parsing"] }
+darling = { workspace = true, features = ["suggestions"] }
+proc-macro2 = { workspace = true }
+getset = { workspace = true }

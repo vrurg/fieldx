@@ -5,7 +5,7 @@ use super::{
 use crate::helper::FXSerde;
 use crate::{
     fields::FXField,
-    helper::with_origin::FXOrig,
+    helper::FXOrig,
     input_receiver::FXInputReceiver,
     util::args::{self, FXSArgs},
 };

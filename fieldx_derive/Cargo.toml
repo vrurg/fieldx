@@ -13,10 +13,11 @@ exclude.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fieldx_derive_support = { workspace = true }
 darling = { workspace = true, features = ["suggestions"] }
 delegate = { workspace = true }
 enum_dispatch = { workspace = true }
+fieldx_aux = { workspace = true }
+fieldx_derive_support = { workspace = true }
 getset = { workspace = true }
 paste = { workspace = true }
 proc-macro2 = { workspace = true }
