@@ -23,6 +23,8 @@ pub(crate) struct FXSArgs {
 
     no_new:  Option<FXBoolArg>,
     default: Option<FXBoolArg>,
+    // Produce reference counted object; i.e. Rc<Self> or Arc<Self>.
+    rc:      Option<FXBoolArg>,
 
     attributes:      Option<FXAttributes>,
     attributes_impl: Option<FXAttributes>,
@@ -65,6 +67,11 @@ impl FXSArgs {
     #[inline]
     pub fn is_sync(&self) -> bool {
         self.sync.is_true()
+    }
+
+    #[inline]
+    pub fn is_ref_counted(&self) -> bool {
+        self.rc.is_true()
     }
 
     #[inline]

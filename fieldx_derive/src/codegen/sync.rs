@@ -246,6 +246,10 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         })
     }
 
+    fn ref_count_type(&self) -> TokenStream {
+        quote!(::std::sync::Arc)
+    }
+
     fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_accessor() {
             let is_copy = fctx.is_copy();

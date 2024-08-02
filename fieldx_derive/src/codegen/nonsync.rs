@@ -180,6 +180,10 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         })
     }
 
+    fn ref_count_type(&self) -> TokenStream {
+        quote!(::std::rc::Rc)
+    }
+
     fn field_lazy_initializer(
         &self,
         fctx: &FXFieldCtx,
@@ -428,7 +432,13 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         }
         else {
             match value {
-                FXValueRepr::None => return Err(darling::Error::custom(format!("No value was supplied for plain field {}", fctx.ident_str())).with_span(&ident_span)),
+                FXValueRepr::None => {
+                    return Err(darling::Error::custom(format!(
+                        "No value was supplied for plain field {}",
+                        fctx.ident_str()
+                    ))
+                    .with_span(&ident_span))
+                }
                 FXValueRepr::Exact(v) => v,
                 FXValueRepr::Versatile(v) => v,
             }

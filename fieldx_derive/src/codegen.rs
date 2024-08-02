@@ -99,6 +99,7 @@ pub(crate) trait FXCGenContextual<'f> {
     fn add_shadow_default_decl(&self, field: TokenStream);
 
     fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> &'s TokenStream;
+    fn ref_count_type(&self) -> TokenStream;
     fn copyable_types(&self) -> Ref<Vec<syn::Type>>;
     #[cfg(feature = "serde")]
     fn shadow_fields(&self) -> Ref<Vec<TokenStream>>;
@@ -271,6 +272,16 @@ pub(crate) trait FXCGenContextual<'f> {
             quote![]
         }
     }
+
+    // fn maybe_ref_counted<TT: ToTokens>(&self, ctx: &FXCodeGenCtx, expr: &TT) -> TokenStream {
+    //     if ctx.args().is_ref_counted() {
+    //         let span = ctx.args().rc().span();
+    //         let rc_type = self.ref_count_type();
+    //         return quote_spanned![span=> #rc_type::new(#expr)];
+    //     }
+
+    //     expr.to_token_stream()
+    // }
 
     fn field_default_value(&self, fctx: &FXFieldCtx) -> darling::Result<FXValueRepr<TokenStream>> {
         let field = fctx.field();
@@ -699,6 +710,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         ]);
 
         if ctx.needs_default() {
+            // Generate fn new()
             let new_name = if ctx.args().needs_new() {
                 quote![new]
             }
@@ -706,10 +718,19 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
                 quote![__fieldx_new]
             };
 
+            let mut body = quote![Self::default()];
+            let mut return_type = quote![Self];
+
+            if ctx.args().is_ref_counted() {
+                let rc_type = self.ref_count_type();
+                body = quote![#rc_type::new(#body)];
+                return_type = quote![#rc_type<#return_type>];
+            }
+
             self.add_method_decl(quote![
                 #[inline]
-                pub fn #new_name() -> Self {
-                    Self::default()
+                pub fn #new_name() -> #return_type {
+                    #body
                 }
             ]);
         }
