@@ -1,6 +1,6 @@
 [package]
 name = "fieldx_aux"
-version = "0.1.2"
+version = "0.1.3"
 description = "Various types and tools useful for fieldx crates and, potentially, to users of fieldx"
 edition.workspace = true
 license-file.workspace = true

@@ -16,10 +16,10 @@ resolver = "2"
 members = ["fieldx", "fieldx_aux", "fieldx_derive", "fieldx_derive_support"]
 
 [workspace.dependencies]
-fieldx = { version = "0.1.2", path = "fieldx" }
-fieldx_aux = { version = "0.1.2", path = "fieldx_aux" }
-fieldx_derive = { version = "0.1.2", path = "fieldx_derive" }
-fieldx_derive_support = { version = "0.1.2", path = "fieldx_derive_support" }
+fieldx = { version = "0.1.3", path = "fieldx" }
+fieldx_aux = { version = "0.1.3", path = "fieldx_aux" }
+fieldx_derive = { version = "0.1.3", path = "fieldx_derive" }
+fieldx_derive_support = { version = "0.1.3", path = "fieldx_derive_support" }
 crossbeam = "0.8"
 darling = ">=0.20.7"
 delegate = "0.12"

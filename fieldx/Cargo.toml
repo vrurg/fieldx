@@ -1,6 +1,6 @@
 [package]
 name = "fieldx"
-version = "0.1.2"
+version = "0.1.3"
 description = "Procedural macro for constructing structs with lazily initialized fields, builder pattern, and serde support with a focus on declarative syntax."
 readme = "../README.md"
 edition.workspace = true
