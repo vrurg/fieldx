@@ -230,6 +230,16 @@
 //! Since the only `fieldx`-related failure that may happen when building a new object instance is a required field not
 //! given a value, the `build()` method would return [`FieldXError`](errors::FieldXError) if this happens.
 //!
+//! # Crate Features
+//!
+//! The following featues are supported by this crate:
+//!
+//! | *Feature* | *Description* |
+//! |-|-|
+//! | `diagnostics` | Enable additional diagnostics for compile time errors. Requires Rust nightly toolset. |
+//! | `serde` | Enable support for `serde` marshalling. |
+//! | `send_guard` | See corresponding feature of the [`parking_lot` crate](https://crates.io/crates/parking_lot) |
+//!
 //! # Usage
 //!
 //! Most arguments of both `fxstruct` and `fieldx` can take either of the two forms: a keyword (`arg`), or a
@@ -375,6 +385,13 @@
 //!
 //!   With `into` the example above wouldn't need `String::from` and the call could look like this:
 //!   `.description("some description")`
+//!
+//! ### **`rc`**
+//!
+//! **Type**: keyword
+//!
+//! With this argument new instances of the type, produced by the `new` method or by type's builder, will be wrapped
+//! into reference counting pointers `Rc` or `Arc`, depending on `sync` status of the type.
 //!
 //! ### **`no_new`**
 //!
