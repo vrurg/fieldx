@@ -1,9 +1,9 @@
-use fieldx::fxstruct;
+use fieldx::{errors::FieldXError, fxstruct};
 use std::sync::{Arc, Weak};
 
 #[fxstruct(sync, rc)]
 struct Bar {
-    #[fieldx(get(copy))]
+    #[fieldx(get(copy), attributes_fn(allow(dead_code)))]
     id: usize,
 }
 
@@ -13,7 +13,7 @@ impl Bar {
     }
 }
 
-#[fxstruct(sync, rc)]
+#[fxstruct(sync, rc, builder)]
 struct Foo {
     #[fieldx(get)]
     bar: Arc<Bar>,
@@ -24,4 +24,10 @@ fn type_check() {
     let foo: Arc<Foo> = Foo::new();
     let bar: &Arc<Bar> = foo.bar();
     let _bar_copy: Weak<Bar> = bar.bar();
+}
+
+#[test]
+fn builder() {
+    let foo: Result<Arc<Foo>, FieldXError> = Foo::builder().bar(Bar::new()).build();
+    let _foo_copy = Arc::clone(&foo.expect("There was an error producing Foo instance"));
 }

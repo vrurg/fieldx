@@ -273,15 +273,23 @@ pub(crate) trait FXCGenContextual<'f> {
         }
     }
 
-    // fn maybe_ref_counted<TT: ToTokens>(&self, ctx: &FXCodeGenCtx, expr: &TT) -> TokenStream {
-    //     if ctx.args().is_ref_counted() {
-    //         let span = ctx.args().rc().span();
-    //         let rc_type = self.ref_count_type();
-    //         return quote_spanned![span=> #rc_type::new(#expr)];
-    //     }
+    fn maybe_ref_counted<TT: ToTokens, ET: ToTokens>(
+        &self,
+        ctx: &FXCodeGenCtx,
+        ty: &TT,
+        expr: &ET,
+    ) -> (TokenStream, TokenStream) {
+        if ctx.args().is_ref_counted() {
+            let span = ctx.args().rc().span();
+            let rc_type = self.ref_count_type();
+            return (
+                quote_spanned![span=> #rc_type<#ty>],
+                quote_spanned![span=> #rc_type::new(#expr)],
+            );
+        }
 
-    //     expr.to_token_stream()
-    // }
+        (ty.to_token_stream(), expr.to_token_stream())
+    }
 
     fn field_default_value(&self, fctx: &FXFieldCtx) -> darling::Result<FXValueRepr<TokenStream>> {
         let field = fctx.field();
@@ -649,7 +657,6 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         let generics = ctx.input().generics();
         let where_clause = &generics.where_clause;
         let generic_params = self.generic_params();
-        let builder_return_type = self.builder_return_type();
         let attributes = ctx.args().builder_impl_attributes();
 
         let mut field_setters = Vec::<TokenStream>::new();
@@ -676,12 +683,18 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
             quote![]
         };
 
-        let construction = quote![
-            #input_ident {
-                #(#field_setters,)*
-                #default_initializer
-            }
-        ];
+        let (builder_return_type, construction) = self.maybe_ref_counted(
+            ctx,
+            &self.builder_return_type(),
+            &quote![
+                {
+                    #input_ident {
+                        #(#field_setters,)*
+                        #default_initializer
+                    }
+                }
+            ],
+        );
 
         quote![
             #attributes
@@ -690,7 +703,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
             {
                 #builders
                 #vis fn build(&mut self) -> ::std::result::Result<#builder_return_type, ::fieldx::errors::FieldXError> {
-                    Ok({ #construction })
+                    Ok(#construction)
                 }
             }
         ]
@@ -718,14 +731,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
                 quote![__fieldx_new]
             };
 
-            let mut body = quote![Self::default()];
-            let mut return_type = quote![Self];
-
-            if ctx.args().is_ref_counted() {
-                let rc_type = self.ref_count_type();
-                body = quote![#rc_type::new(#body)];
-                return_type = quote![#rc_type<#return_type>];
-            }
+            let (return_type, body) = self.maybe_ref_counted(ctx, &quote![Self], &quote![Self::default()]);
 
             self.add_method_decl(quote![
                 #[inline]
