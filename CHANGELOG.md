@@ -1,6 +1,17 @@
 # Changelog
 
-## [0.1.2] - 2024-06-19
+## [0.1.3] - 2024-08-02
+
+### Features
+
+- Add feature `send_guard`
+- Support reference counted objects
+
+### Documentation
+
+- Document the new `rc` argument and crate features
+
+## [fieldx-v0.1.2] - 2024-06-19
 
 ### Features
 
@@ -27,6 +38,10 @@
 - Set some environment variables conditionally
 - *(CI)* Exclude `nightly` toolchain from testing under `windows`
 - *(cliff)* Allow scoping for `feat`, `fix`, and `maint` groups
+
+### ️ Miscellaneous Tasks
+
+- Release fieldx version 0.1.2
 
 ### Main
 
