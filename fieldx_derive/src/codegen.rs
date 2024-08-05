@@ -8,7 +8,7 @@ mod sync;
 pub(crate) use self::serde::FXCGenSerde;
 use crate::{fields::FXField, helper::*, util::args::FXSArgs, FXInputReceiver};
 use context::{FXCodeGenCtx, FXFieldCtx};
-use darling::ast::NestedMeta;
+use darling::{ast::NestedMeta, FromField};
 use enum_dispatch::enum_dispatch;
 use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
@@ -16,7 +16,7 @@ use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
 };
-use syn::{spanned::Spanned, Ident, Lit};
+use syn::{parse_quote, spanned::Spanned, Ident, Lit};
 
 #[derive(PartialEq)]
 pub(crate) enum FXValueRepr<T> {
@@ -99,7 +99,7 @@ pub(crate) trait FXCGenContextual<'f> {
     fn add_shadow_default_decl(&self, field: TokenStream);
 
     fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> &'s TokenStream;
-    fn ref_count_type(&self) -> TokenStream;
+    fn ref_count_types(&self) -> (TokenStream, TokenStream);
     fn copyable_types(&self) -> Ref<Vec<syn::Type>>;
     #[cfg(feature = "serde")]
     fn shadow_fields(&self) -> Ref<Vec<TokenStream>>;
@@ -204,8 +204,8 @@ pub(crate) trait FXCGenContextual<'f> {
             .map_err(|_| darling::Error::custom(format!("No context found for field `{}`", field_ident)))
     }
 
-    fn field_ctx(&'f self, field: &'f FXField) -> darling::Result<Ref<FXFieldCtx<'f>>> {
-        let field_ident = field.ident()?;
+    fn field_ctx(&'f self, field: FXField) -> darling::Result<Ref<FXFieldCtx<'f>>> {
+        let field_ident = field.ident()?.clone();
         {
             let mut fctx_table = self.field_ctx_table_mut();
             if !fctx_table.contains_key(&field_ident) {
@@ -273,22 +273,41 @@ pub(crate) trait FXCGenContextual<'f> {
         }
     }
 
-    fn maybe_ref_counted<TT: ToTokens, ET: ToTokens>(
-        &self,
-        ctx: &FXCodeGenCtx,
-        ty: &TT,
-        expr: &ET,
-    ) -> (TokenStream, TokenStream) {
+    fn maybe_ref_counted<TT: ToTokens>(&self, ctx: &FXCodeGenCtx, ty: &TT) -> TokenStream {
         if ctx.args().is_ref_counted() {
             let span = ctx.args().rc().span();
-            let rc_type = self.ref_count_type();
-            return (
-                quote_spanned![span=> #rc_type<#ty>],
-                quote_spanned![span=> #rc_type::new(#expr)],
-            );
+            let (rc_type, _) = self.ref_count_types();
+            return quote_spanned![span=> #rc_type<#ty>];
         }
 
-        (ty.to_token_stream(), expr.to_token_stream())
+        ty.to_token_stream()
+    }
+
+    fn maybe_ref_counted_create<NT: ToTokens, IT: ToTokens>(&self, self_name: &NT, struct_init: &IT) -> TokenStream {
+        let ctx = self.ctx();
+        let args = ctx.args();
+        if args.is_ref_counted() {
+            let rc_helper = args.rc().as_ref().unwrap();
+            let (rc_type, _) = self.ref_count_types();
+            let myself_field = self.myself_field(rc_helper);
+            quote![
+                #rc_type::new_cyclic(
+                    |me| {
+                        #self_name {
+                            #myself_field: me.clone(),
+                            #struct_init
+                        }
+                    }
+                )
+            ]
+        }
+        else {
+            quote![
+                #self_name {
+                    #struct_init
+                }
+            ]
+        }
     }
 
     fn field_default_value(&self, fctx: &FXFieldCtx) -> darling::Result<FXValueRepr<TokenStream>> {
@@ -408,7 +427,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
             if self.needs_builder_struct() {
                 self.add_builder_decl(self.field_builder(&fctx)?);
                 self.add_builder_field_decl(self.field_builder_field(&fctx)?);
-                self.add_builder_field_ident(fctx.ident()?.clone());
+                self.add_builder_field_ident(fctx.ident().clone());
             }
         }
 
@@ -444,10 +463,35 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         Ok(())
     }
 
+    fn prepare_ref_counted(&self) {
+        let ctx = self.ctx();
+        let args = ctx.args();
+        if args.is_ref_counted() {
+            let mut fieldx_args: Vec<TokenStream> = vec![quote![skip], quote![builder(off)]];
+            #[cfg(feature = "serde")]
+            fieldx_args.push(quote![serde(off)]);
+
+            let rc_helper = args.rc().as_ref().unwrap();
+            let myself_field = self.myself_field(rc_helper);
+            let (_, weak_type) = self.ref_count_types();
+
+            let field: syn::Field = parse_quote![
+                #[fieldx( #( #fieldx_args ),* )]
+                #myself_field: #weak_type<Self>
+            ];
+
+            match FXField::from_field(&field) {
+                Ok(field) => self.ctx().add_field(field),
+                Err(err) => ctx.push_error(err),
+            }
+        }
+    }
+
     fn prepare_struct(&'f self) {
         self.ensure_builder_is_needed();
+        self.prepare_ref_counted();
 
-        for field in self.input().fields() {
+        for field in self.ctx().all_fields() {
             let Ok(fctx) = self.field_ctx(field)
             else {
                 continue;
@@ -481,35 +525,63 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
 
     fn field_builder_value_for_set(&self, fctx: &FXFieldCtx, field_ident: &TokenStream, span: &Span) -> TokenStream {
         let field_name = field_ident.to_string();
+        let ctx = self.ctx();
         let alternative = if fctx.has_default_value() {
-            self.ok_or_empty(self.field_default_wrap(fctx))
+            self.field_default_wrap(fctx).map_or_else(
+                |e| {
+                    ctx.push_error(e);
+                    None
+                },
+                |tt| Some(tt),
+            )
         }
         else if fctx.is_optional() {
-            self.ok_or_empty(self.field_value_wrap(
+            self.field_value_wrap(
                 fctx,
                 FXValueRepr::Exact(quote_spanned![*span=> ::std::option::Option::None]),
-            ))
+            )
+            .map_or_else(
+                |e| {
+                    ctx.push_error(e);
+                    None
+                },
+                |tt| Some(tt),
+            )
         }
         else {
-            quote_spanned![*span=>
-                return ::std::result::Result::Err(
-                    ::std::convert::Into::into(
-                        ::fieldx::errors::FieldXError::uninitialized_field(#field_name.into()) )
-                )
-            ]
+            fctx.set_builder_checker(quote_spanned![*span=>
+                if self.#field_ident.is_none() {
+                    return ::std::result::Result::Err(
+                        ::std::convert::Into::into(
+                            ::fieldx::errors::FieldXError::uninitialized_field(#field_name.into()) )
+                    )
+                }
+            ]);
+            None
         };
 
-        let manual_wrapped =
-            self.ok_or_empty(self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![field_manual_value])));
+        // let alternative = alternative.map(|tt| quote![else { #tt }]);
 
-        quote_spanned![*span=>
-            if let ::std::option::Option::Some(field_manual_value) = self.#field_ident.take() {
-                #manual_wrapped
-            }
-            else {
-                #alternative
-            }
-        ]
+        if let Some(alternative) = alternative {
+            let manual_wrapped =
+                self.ok_or_empty(self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![field_manual_value])));
+            quote_spanned![*span=>
+                if let ::std::option::Option::Some(field_manual_value) = self.#field_ident.take() {
+                    #manual_wrapped
+                }
+                else {
+                    #alternative
+                }
+            ]
+        }
+        else {
+            // If no alternative init path provided then we just unwrap. It'd be either totally safe if builder checker
+            // is set for this field, or won't be ever run because of an earlier error in this method.
+            let value_wrapped = self.ok_or_empty(
+                self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![self.#field_ident.take().unwrap()])),
+            );
+            quote_spanned![*span=> #value_wrapped ]
+        }
     }
 
     fn simple_field_build_setter(&self, fctx: &FXFieldCtx, field_ident: &TokenStream, span: &Span) -> TokenStream {
@@ -615,12 +687,23 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
             let derive_attr = self.derive_toks(&traits);
             let builder_ident = self.builder_ident();
 
+            let myself_field = if args.is_ref_counted() {
+                let (_, weak_type) = self.ref_count_types();
+                let mf = self.myself_field(args.rc().as_ref().unwrap());
+                let input_ident = ctx.input_ident();
+                quote![#mf: #weak_type<#input_ident #generics>,]
+            }
+            else {
+                quote![]
+            };
+
             quote_spanned![span=>
                 #derive_attr
                 #attributes
                 #vis struct #builder_ident #generics
                 #where_clause
                 {
+                    #myself_field
                     #builder_fields
                 }
 
@@ -661,6 +744,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
 
         let mut field_setters = Vec::<TokenStream>::new();
         let mut use_default = false;
+        let mut builder_checkers = vec![];
         for fctx in self.builder_field_ctxs() {
             if let Ok(fctx) = fctx {
                 let fsetter = self.ok_or_empty(self.field_builder_setter(&fctx));
@@ -669,6 +753,9 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
                 }
                 else {
                     field_setters.push(fsetter);
+                }
+                if let Some(bchecker) = fctx.builder_checker() {
+                    builder_checkers.push(bchecker);
                 }
             }
             else {
@@ -683,16 +770,13 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
             quote![]
         };
 
-        let (builder_return_type, construction) = self.maybe_ref_counted(
-            ctx,
-            &self.builder_return_type(),
+        let builder_return_type = self.maybe_ref_counted(ctx, &self.builder_return_type());
+
+        let construction = self.maybe_ref_counted_create(
+            &input_ident.to_token_stream(),
             &quote![
-                {
-                    #input_ident {
-                        #(#field_setters,)*
-                        #default_initializer
-                    }
-                }
+                    #(#field_setters,)*
+                    #default_initializer
             ],
         );
 
@@ -703,10 +787,68 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
             {
                 #builders
                 #vis fn build(&mut self) -> ::std::result::Result<#builder_return_type, ::fieldx::errors::FieldXError> {
+                    #( #builder_checkers );*
                     Ok(#construction)
                 }
             }
         ]
+    }
+
+    fn myself_field(&self, rc_helper: &FXHelper) -> Ident {
+        let (myself_name, _) = self.myself_names(rc_helper);
+        format_ident!("__weak_{}", myself_name)
+    }
+
+    fn myself_names(&self, rc_helper: &FXHelper) -> (Ident, Ident) {
+        let myself_name = rc_helper.name().unwrap_or("myself");
+        (
+            format_ident!("{}", myself_name),
+            format_ident!("{}_downgrade", myself_name),
+        )
+    }
+
+    fn myself_methods(&self) {
+        let ctx = self.ctx();
+        let args = ctx.args();
+
+        if args.is_ref_counted() {
+            let rc_helper = args.rc().as_ref().unwrap();
+            let rc_span = rc_helper.orig().map_or_else(|| Span::call_site(), |orig| orig.span());
+            let (myself_name, downgrade_name) = self.myself_names(rc_helper);
+            let myself_field = self.myself_field(rc_helper);
+            let (rc_type, weak_type) = self.ref_count_types();
+            let visibility = rc_helper.public_mode();
+
+            self.add_method_decl(quote_spanned![rc_span=>
+                #[allow(dead_code)]
+                #[inline(always)]
+                #visibility fn #myself_name(&self) -> ::std::option::Option<#rc_type<Self>> {
+                    #weak_type::upgrade(&self.#myself_field)
+                }
+            ]);
+            self.add_method_decl(quote_spanned![rc_span=>
+                #[allow(dead_code)]
+                #[inline(always)]
+                #visibility fn #downgrade_name(&self) -> #weak_type<Self> {
+                    #weak_type::clone(&self.#myself_field)
+                }
+            ]);
+        }
+    }
+
+    fn maybe_ref_counted_self(&self, fctx: &FXFieldCtx) -> TokenStream {
+        let args = self.ctx().args();
+        if args.is_ref_counted() {
+            let (myself_method, _) = self.myself_names(args.rc().as_ref().unwrap());
+            let field_ident = fctx.ident();
+            let expect_msg = format!("Can't obtain weak reference to myself for field {}", field_ident);
+            // Unwrap must be safe here because if the object has been legally reached out by user code then
+            // it means there is at least one Arc instance alive and thus the strong count is > 0
+            quote![self.#myself_method().expect(#expect_msg)]
+        }
+        else {
+            quote![self]
+        }
     }
 
     fn struct_extras(&'f self) {
@@ -717,6 +859,8 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         let input = ctx.input_ident();
         let where_clause = &generics.where_clause;
         let struct_trait = self.fxstruct_trait();
+
+        self.myself_methods();
 
         ctx.tokens_extend(quote![
             impl #generics #struct_trait for #input #generic_params #where_clause {}
@@ -731,7 +875,8 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
                 quote![__fieldx_new]
             };
 
-            let (return_type, body) = self.maybe_ref_counted(ctx, &quote![Self], &quote![Self::default()]);
+            let return_type = self.maybe_ref_counted(ctx, &quote![Self]);
+            let body = self.maybe_ref_counted_create(&quote![Self], &quote![..Self::default()]);
 
             self.add_method_decl(quote![
                 #[inline]
@@ -811,7 +956,7 @@ enum FXCG<'f> {
     Sync(sync::FXCodeGen<'f>),
 }
 
-impl<'f, T> FXCGen<'f> for T where T: FXCGenContextual<'f> {}
+impl<'f, T> FXCGen<'f> for T where T: FXCGenContextual<'f> + ?Sized {}
 
 pub struct FXRewriter<'f> {
     generator: FXCG<'f>,

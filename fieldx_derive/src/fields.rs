@@ -15,7 +15,7 @@ use quote::{quote_spanned, ToTokens};
 use std::{cell::OnceCell, ops::Deref};
 use syn::{spanned::Spanned, Meta};
 
-#[derive(Debug, FromField, Getters)]
+#[derive(Debug, FromField, Getters, Clone)]
 #[getset(get = "pub(crate)")]
 #[darling(attributes(fieldx), forward_attrs)]
 pub(crate) struct FXFieldReceiver {
@@ -65,7 +65,7 @@ pub(crate) struct FXFieldReceiver {
     fieldx_attr_span: Option<Span>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct FXField(FXFieldReceiver);
 
 impl FromField for FXField {
@@ -140,8 +140,8 @@ impl FXFieldReceiver {
         crate::util::public_mode(&self.public, &self.private)
     }
 
-    pub fn ident(&self) -> darling::Result<&syn::Ident> {
-        self.ident.as_ref().ok_or_else(|| {
+    pub fn ident(&self) -> darling::Result<syn::Ident> {
+        self.ident.clone().ok_or_else(|| {
             darling::Error::custom("This is weird, but the field doesn't have an ident!").with_span(self.span())
         })
     }

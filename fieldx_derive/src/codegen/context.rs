@@ -83,20 +83,22 @@ pub(crate) struct FXCodeGenCtx {
     #[getset(get = "pub")]
     input:                FXInputReceiver,
     extra_attrs:          RefCell<Vec<syn::Attribute>>,
+    extra_fields:         RefCell<Vec<FXField>>,
     unique_id:            RefCell<u32>,
     needs_default:        RefCell<OnceCell<bool>>,
 }
 
 #[derive(Debug)]
 pub(crate) struct FXFieldCtx<'f> {
-    field:            &'f FXField,
+    field:            FXField,
     codegen_ctx:      &'f FXCodeGenCtx,
     ty_tok:           OnceCell<TokenStream>,
     ty_wrapped:       OnceCell<TokenStream>,
-    ident:            OnceCell<darling::Result<&'f syn::Ident>>,
+    ident:            OnceCell<syn::Ident>,
     ident_tok:        OnceCell<TokenStream>,
     #[cfg(feature = "serde")]
     default_fn_ident: OnceCell<darling::Result<syn::Ident>>,
+    builder_checker:  RefCell<Option<TokenStream>>,
 }
 
 impl FXCodeGenCtx {
@@ -112,6 +114,7 @@ impl FXCodeGenCtx {
             shadow_var_ident: OnceCell::new(),
             needs_builder_struct: RefCell::new(None),
             extra_attrs: RefCell::new(vec![]),
+            extra_fields: RefCell::new(vec![]),
             unique_id: RefCell::new(0),
             needs_default: RefCell::new(OnceCell::new()),
         }
@@ -204,6 +207,11 @@ impl FXCodeGenCtx {
     }
 
     #[inline]
+    pub fn add_field(&self, field: FXField) {
+        self.extra_fields.borrow_mut().push(field);
+    }
+
+    #[inline]
     pub fn all_attrs(&self) -> Vec<syn::Attribute> {
         let mut attrs: Vec<syn::Attribute> = self
             .extra_attrs
@@ -224,6 +232,15 @@ impl FXCodeGenCtx {
             }
         });
         attrs
+    }
+
+    pub fn all_fields(&self) -> Vec<FXField> {
+        self.extra_fields
+            .borrow()
+            .iter()
+            .chain(self.input().fields().iter().cloned())
+            .cloned()
+            .collect()
     }
 
     #[allow(dead_code)]
@@ -306,7 +323,7 @@ impl<'f> FXFieldCtx<'f> {
 
     arg_accessor! { optional: FXBoolArg, lock: FXBoolArg }
 
-    pub fn new(field: &'f FXField, codegen_ctx: &'f FXCodeGenCtx) -> Self {
+    pub fn new(field: FXField, codegen_ctx: &'f FXCodeGenCtx) -> Self {
         Self {
             field,
             codegen_ctx,
@@ -316,6 +333,7 @@ impl<'f> FXFieldCtx<'f> {
             ty_tok: OnceCell::new(),
             #[cfg(feature = "serde")]
             default_fn_ident: OnceCell::new(),
+            builder_checker: RefCell::new(None),
         }
     }
 
@@ -468,8 +486,8 @@ impl<'f> FXFieldCtx<'f> {
     }
 
     #[inline]
-    pub fn field(&self) -> &'f FXField {
-        self.field
+    pub fn field(&'f self) -> &'f FXField {
+        &self.field
     }
 
     pub fn vis_tok(&self, helper_kind: FXHelperKind) -> TokenStream {
@@ -509,17 +527,14 @@ impl<'f> FXFieldCtx<'f> {
     }
 
     #[inline]
-    pub fn ident(&self) -> darling::Result<&syn::Ident> {
-        self.ident.get_or_init(|| self.field.ident()).clone()
+    pub fn ident(&self) -> &syn::Ident {
+        self.ident
+            .get_or_init(|| self.field.ident().expect("No field ident found"))
     }
 
     #[inline]
     pub fn ident_tok(&self) -> &TokenStream {
-        self.ident_tok.get_or_init(|| {
-            self.ident()
-                .as_ref()
-                .map_or_else(|err| err.clone().write_errors(), |i| i.to_token_stream())
-        })
+        self.ident_tok.get_or_init(|| self.ident().to_token_stream())
     }
 
     #[allow(dead_code)]
@@ -539,7 +554,7 @@ impl<'f> FXFieldCtx<'f> {
         self.default_fn_ident
             .get_or_init(|| {
                 let ctx = self.codegen_ctx();
-                let field_ident = self.ident()?;
+                let field_ident = self.ident();
                 let struct_ident = ctx.input_ident();
                 Ok(ctx.unique_ident_pfx(&format!("__{}_{}_default", struct_ident, field_ident)))
             })
@@ -586,5 +601,13 @@ impl<'f> FXFieldCtx<'f> {
 
     pub fn all_attrs(&self) -> Vec<syn::Attribute> {
         self.attrs().iter().cloned().collect()
+    }
+
+    pub fn set_builder_checker(&self, bc: TokenStream) {
+        *self.builder_checker.borrow_mut() = Some(bc);
+    }
+
+    pub fn builder_checker(&self) -> Option<TokenStream> {
+        self.builder_checker.borrow().clone()
     }
 }

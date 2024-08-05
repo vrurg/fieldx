@@ -180,8 +180,8 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         })
     }
 
-    fn ref_count_type(&self) -> TokenStream {
-        quote!(::std::rc::Rc)
+    fn ref_count_types(&self) -> (TokenStream, TokenStream) {
+        (quote![::std::rc::Rc], quote![::std::rc::Weak])
     }
 
     fn field_lazy_initializer(
@@ -191,14 +191,15 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     ) -> darling::Result<TokenStream> {
         let lazy_name = self.lazy_name(fctx)?;
         let ident = fctx.ident_tok();
-        let self_var = self_ident.unwrap_or(quote![self]);
-        Ok(quote![#self_var.#ident.get_or_init( || #self_var.#lazy_name() )])
+        let self_var = self_ident.as_ref().cloned().unwrap_or(quote![self]);
+        let builder_self = self_ident.unwrap_or(self.maybe_ref_counted_self(fctx));
+        Ok(quote![#self_var.#ident.get_or_init( || #builder_self.#lazy_name() )])
     }
 
     fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         if fctx.needs_accessor() {
             let span = self.helper_span(fctx, FXHelperKind::Accessor);
-            let ident = fctx.ident()?;
+            let ident = fctx.ident();
             let vis_tok = fctx.vis_tok(FXHelperKind::Accessor);
             let ty = fctx.ty();
             let accessor_name = self.accessor_name(fctx)?;
@@ -257,11 +258,12 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
 
             if fctx.is_lazy() {
                 let lazy_name = self.lazy_name(fctx)?;
+                let builder_self = self.maybe_ref_counted_self(fctx);
 
                 Ok(quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty {
-                        self.#ident.get_or_init( || self.#lazy_name() );
+                        self.#ident.get_or_init( || #builder_self.#lazy_name() );
                         self.#ident.get_mut().unwrap()
                     }
                 ])
@@ -415,7 +417,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     }
 
     fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<TokenStream>) -> darling::Result<TokenStream> {
-        let ident_span = fctx.ident().map_or_else(|i| i.span(), |_| *fctx.span());
+        let ident_span = fctx.ident().span();
         Ok(if fctx.is_lazy() {
             match value {
                 FXValueRepr::None => quote_spanned![ident_span=> ::fieldx::OnceCell::new()],

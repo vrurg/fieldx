@@ -24,7 +24,7 @@ pub(crate) struct FXSArgs {
     no_new:  Option<FXBoolArg>,
     default: Option<FXBoolArg>,
     // Produce reference counted object; i.e. Rc<Self> or Arc<Self>.
-    rc:      Option<FXBoolArg>,
+    rc:      Option<FXHelper>,
 
     attributes:      Option<FXAttributes>,
     attributes_impl: Option<FXAttributes>,
@@ -52,7 +52,20 @@ pub(crate) struct FXSArgs {
 }
 
 impl FXSArgs {
-    validate_exclusives!("visibility" => public, private; "accessor mode" => copy, clone; "lazy/optional" => lazy, optional);
+    #[cfg(feature = "serde")]
+    validate_exclusives!(
+        "visibility" => public, private;
+        "accessor mode" => copy, clone;
+        "lazy/optional" => lazy, optional;
+        "serde/ref.counting" => serde, rc
+    );
+
+    #[cfg(not(feature = "serde"))]
+    validate_exclusives!(
+        "visibility" => public, private;
+        "accessor mode" => copy, clone;
+        "lazy/optional" => lazy, optional
+    );
 
     // Generate needs_<helper> methods
     needs_helper! {accessor, accessor_mut, setter, reader, writer, clearer, predicate}
@@ -204,11 +217,11 @@ impl FXSArgs {
 impl FXHelperContainer for FXSArgs {
     fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait> {
         match kind {
-            FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Accessor => self.accessor().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::Builder => self.builder().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Builder => self.builder().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Clearer => self.clearer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+            FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Predicate => self.predicate().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Reader => self.reader().as_ref().map(|h| &**h as &dyn FXHelperTrait),
             FXHelperKind::Setter => self.setter().as_ref().map(|h| &**h as &dyn FXHelperTrait),

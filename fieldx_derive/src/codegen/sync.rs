@@ -2,7 +2,7 @@ use crate::codegen::context::{FXCodeGenCtx, FXFieldCtx};
 #[cfg(feature = "serde")]
 use crate::codegen::FXCGenSerde;
 use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
@@ -63,11 +63,12 @@ impl<'f> FXCodeGen<'f> {
         let attributes_fn = self.attributes_fn(fctx, helper_kind);
 
         if fctx.is_lazy() {
+            let read_arg = self.maybe_ref_counted_self(fctx);
             Ok(quote_spanned! [span=>
                 #[inline(always)]
                 #attributes_fn
                 #vis_tok fn #method_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::fieldx::MappedRwLockReadGuard<'fx_reader_lifetime, #ty> {
-                    self.#ident.read(self)
+                    self.#ident.read(&#read_arg)
                 }
             ])
         }
@@ -235,10 +236,12 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let generic_params = self.generic_params();
 
             if fctx.is_lazy() {
-                let ident = self.ctx().input_ident();
+                let ctx = self.ctx();
+                let ident = ctx.input_ident();
                 let proxy_type = self.field_proxy_type(fctx);
+                let self_type = quote![#ident #generic_params]; // self.maybe_ref_counted(ctx, &quote![#ident #generic_params]);
                 let span = fctx.ty().span();
-                quote_spanned! [span=> ::fieldx::#proxy_type<#ident #generic_params, #ty>]
+                quote_spanned! [span=> ::fieldx::#proxy_type<#self_type, #ty>]
             }
             else {
                 self.maybe_locked_ty(fctx, &self.maybe_optional_ty(fctx, &ty))
@@ -246,8 +249,8 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         })
     }
 
-    fn ref_count_type(&self) -> TokenStream {
-        quote!(::std::sync::Arc)
+    fn ref_count_types(&self) -> (TokenStream, TokenStream) {
+        (quote![::std::sync::Arc], quote![::std::sync::Weak])
     }
 
     fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
@@ -281,12 +284,12 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                     }
                 };
                 if is_lazy {
-                    let read_arg = if is_lazy { quote![self] } else { quote![] };
+                    let read_arg = self.maybe_ref_counted_self(fctx);
 
                     Ok(quote_spanned![span=>
                         #attributes_fn
                         #vis_tok fn #accessor_name(&self) -> #ty {
-                            let rlock = self.#ident.read(#read_arg);
+                            let rlock = self.#ident.read(&#read_arg);
                             (*rlock)#cmethod
                         }
                     ])
@@ -350,11 +353,13 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let span = self.helper_span(fctx, FXHelperKind::Accessor);
 
             if fctx.is_lazy() {
+                let read_arg = self.maybe_ref_counted_self(fctx);
+
                 Ok(quote_spanned! [span=>
                     #[inline]
                     #attributes_fn
                     #vis_tok fn #accessor_name<'fx_get_mut>(&'fx_get_mut self) -> ::fieldx::MappedRwLockWriteGuard<'fx_get_mut, #ty> {
-                        self.#ident.read_mut(self)
+                        self.#ident.read_mut(&#read_arg)
                     }
                 ])
             }
@@ -666,7 +671,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     }
 
     fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<TokenStream>) -> darling::Result<TokenStream> {
-        let ident_span = fctx.ident().map_or_else(|i| i.span(), |_| *fctx.span());
+        let ident_span = fctx.ident().span();
         let is_optional = fctx.is_optional();
         let is_lazy = fctx.is_lazy();
 

@@ -20,8 +20,8 @@ use proc_macro2::Span;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum FXHelperKind {
-    AccessorMut,
     Accessor,
+    AccessorMut,
     Builder,
     Clearer,
     Lazy,

@@ -266,8 +266,8 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
             let generics = ctx.input().generics();
             let where_clause = &generics.where_clause;
 
-            for field in ctx.input().fields() {
-                let fctx = self.field_ctx(&field);
+            for field in ctx.all_fields() {
+                let fctx = self.field_ctx(field);
                 if let Ok(fctx) = fctx {
                     if fctx.is_serde() && fctx.needs_deserialize() {
                         let field_ident = fctx.ident_tok();
@@ -309,8 +309,8 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
             let generics = ctx.input().generics();
             let where_clause = &generics.where_clause;
 
-            for field in ctx.input().fields() {
-                let fctx = self.field_ctx(&field);
+            for field in ctx.all_fields() {
+                let fctx = self.field_ctx(field);
                 if let Ok(fctx) = fctx {
                     if fctx.is_serde() && fctx.needs_serialize() {
                         let field_ident = fctx.ident_tok();
@@ -351,7 +351,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
     }
 
     fn serde_prepare_struct(&'f self) {
-        for field in self.input().fields() {
+        for field in self.ctx().all_fields() {
             let Ok(fctx) = self.field_ctx(field)
             else {
                 continue;

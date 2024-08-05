@@ -10,7 +10,7 @@ use trybuild;
 
 struct UncompEnv {
     // .0 is a path of .stderr under the version subdir, .1 is the one used for testing
-    stderrs: Vec<(PathBuf, PathBuf)>,
+    stderrs:  Vec<(PathBuf, PathBuf)>,
     base_dir: String,
 }
 
@@ -88,7 +88,8 @@ impl UncompEnv {
             // If toolchain is <version>-<arch> then strip the arch part off
             let toolchain = if let Some((t, _)) = toolchain.split_once("-") {
                 t.to_string()
-            } else {
+            }
+            else {
                 toolchain
             };
 
@@ -104,11 +105,14 @@ impl UncompEnv {
         let version = Version::new(full_version.major, full_version.minor, full_version.patch);
         (if version < Version::new(1, 78, 0) {
             "1.77"
-        } else if version == Version::new(1, 78, 0) {
+        }
+        else if version == Version::new(1, 78, 0) {
             "1.78"
-        } else if version <= Version::new(1, 80, 0) {
+        }
+        else if version <= Version::new(1, 80, 0) {
             "1.79"
-        } else {
+        }
+        else {
             panic!(
                 "Unknown version {} ({})",
                 full_version,
