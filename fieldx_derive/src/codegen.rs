@@ -467,6 +467,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         let ctx = self.ctx();
         let args = ctx.args();
         if args.is_ref_counted() {
+            #[allow(unused_mut)]
             let mut fieldx_args: Vec<TokenStream> = vec![quote![skip], quote![builder(off)]];
             #[cfg(feature = "serde")]
             fieldx_args.push(quote![serde(off)]);
