@@ -1,4 +1,4 @@
-use fieldx::{errors::FieldXError, fxstruct};
+use fieldx::fxstruct;
 use std::rc::{Rc, Weak};
 
 #[derive(Debug)]
@@ -23,7 +23,7 @@ impl Foo {
 
 #[test]
 fn type_check() {
-    let mut foo: Rc<Foo> = Foo::new();
+    let foo: Rc<Foo> = Foo::new();
     assert_eq!(Rc::weak_count(&foo), 1, "Implicit Weak reference is there");
     let bar: &Rc<Bar> = foo.bar();
     let _bar_copy: Weak<Bar> = bar.myself_downgrade();

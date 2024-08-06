@@ -35,11 +35,6 @@ fn type_check() {
 }
 
 #[test]
-fn mutable() {
-    let foo: Arc<Foo> = Foo::new();
-}
-
-#[test]
 fn builder() {
     let foo: Result<Arc<Foo>, FieldXError> = Foo::builder().bar(Bar::new()).build();
     let _foo_copy = Arc::clone(&foo.expect("There was an error producing Foo instance"));

@@ -2,7 +2,7 @@ use crate::codegen::context::{FXCodeGenCtx, FXFieldCtx};
 #[cfg(feature = "serde")]
 use crate::codegen::FXCGenSerde;
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 use std::{
     cell::{Ref, RefCell, RefMut},
     collections::HashMap,
