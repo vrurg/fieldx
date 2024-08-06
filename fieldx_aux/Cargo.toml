@@ -11,8 +11,14 @@ categories.workspace = true
 exclude.workspace = true
 
 [dependencies]
+fieldx_derive_support = { workspace = true }
 quote = { workspace = true }
 syn = { workspace = true, features = ["extra-traits", "parsing"] }
 darling = { workspace = true, features = ["suggestions"] }
 proc-macro2 = { workspace = true }
 getset = { workspace = true }
+
+
+[features]
+diagnostics = []
+serde = []

@@ -1,3 +1,5 @@
+use crate::{FXAttributes, FXPubMode};
+
 pub trait FXTriggerHelper {
     fn is_true(&self) -> bool;
 }
@@ -19,6 +21,13 @@ pub trait FXBoolHelper {
     // fn not_true_opt(&self) -> Option<bool> {
     //     self.is_true_opt().map(|b| !b)
     // }
+}
+
+pub trait FXHelperTrait: FXTriggerHelper {
+    fn name(&self) -> Option<&str>;
+    fn public_mode(&self) -> Option<FXPubMode>;
+    fn attributes(&self) -> Option<&FXAttributes>;
+    fn attributes_fn(&self) -> Option<&FXAttributes>;
 }
 
 impl<T, U> FXInto<U> for T

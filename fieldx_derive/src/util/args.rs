@@ -1,15 +1,16 @@
 // #[cfg(feature = "diagnostics")]
 // use crate::helper::FXOrig;
-#[cfg(feature = "serde")]
-use crate::helper::FXSerde;
 use crate::{
-    helper::{
-        FXAccessor, FXAccessorMode, FXAttributes, FXBoolArg, FXBoolHelper, FXBuilder, FXHelper, FXHelperContainer,
-        FXHelperKind, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXTriggerHelper,
-    },
-    util::{needs_helper, validate_exclusives},
+    helper::{FXHelperContainer, FXHelperKind},
+    util::needs_helper,
 };
 use darling::FromMeta;
+#[cfg(feature = "serde")]
+use fieldx_aux::FXSerde;
+use fieldx_aux::{
+    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBoolArg, FXBoolHelper, FXBuilder, FXHelper,
+    FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXTriggerHelper,
+};
 use getset::Getters;
 use proc_macro2::Span;
 
@@ -210,7 +211,7 @@ impl FXSArgs {
 
     #[inline(always)]
     pub fn public_mode(&self) -> Option<FXPubMode> {
-        crate::util::public_mode(&self.public, &self.private)
+        fieldx_aux::public_mode(&self.public, &self.private)
     }
 }
 

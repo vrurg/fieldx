@@ -33,4 +33,4 @@ proc-macro = true
 [features]
 tracing = []
 diagnostics = ["darling/diagnostics"]
-serde = ["dep:serde"]
+serde = ["dep:serde", "fieldx_aux/serde"]

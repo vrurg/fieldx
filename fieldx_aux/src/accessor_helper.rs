@@ -1,4 +1,7 @@
-use super::{FXInto, FromNestAttr};
+use crate::{
+    FXAttributes, FXBoolArg, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXStringArg, FXTriggerHelper,
+    FromNestAttr,
+};
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
@@ -6,7 +9,7 @@ use quote::ToTokens;
 use syn::Lit;
 
 #[derive(FromMeta, Debug, Clone, Copy, Default, PartialEq)]
-pub(crate) enum FXAccessorMode {
+pub enum FXAccessorMode {
     Copy,
     Clone,
     AsRef,
@@ -17,7 +20,7 @@ pub(crate) enum FXAccessorMode {
 
 #[fxhelper]
 #[derive(Default, Debug)]
-pub(crate) struct FXAccessorHelper<const BOOL_ONLY: bool = false> {
+pub struct FXAccessorHelper<const BOOL_ONLY: bool = false> {
     // Unfortunately, darling(flatten) over a FXAccessorMode field will break support for arguments that are implicitly
     // added by `fxhelper` attribute. Therefore we fall back to separate fields here.
     #[fxhelper(exclusive = "accessor mode")]
@@ -29,7 +32,7 @@ pub(crate) struct FXAccessorHelper<const BOOL_ONLY: bool = false> {
 }
 
 impl<const BOOL_ONLY: bool> FXAccessorHelper<BOOL_ONLY> {
-    pub(crate) fn mode(&self) -> Option<FXAccessorMode> {
+    pub fn mode(&self) -> Option<FXAccessorMode> {
         if self.clone.is_present() {
             Some(FXAccessorMode::Clone)
         }

@@ -1,16 +1,14 @@
-use super::{
-    FXAccessorMode, FXAttributes, FXBoolArg, FXBuilder, FXHelperContainer, FXHelperKind, FXHelperTrait, FXPubMode,
-};
-#[cfg(feature = "serde")]
-use crate::helper::FXSerde;
 use crate::{
     fields::FXField,
-    helper::FXOrig,
+    helper::{FXHelperContainer, FXHelperKind, FXOrig},
     input_receiver::FXInputReceiver,
     util::args::{self, FXSArgs},
 };
 use darling::ast::NestedMeta;
 use delegate::delegate;
+#[cfg(feature = "serde")]
+use fieldx_aux::FXSerde;
+use fieldx_aux::{FXAccessorMode, FXAttributes, FXBoolArg, FXBuilder, FXHelperTrait, FXPubMode};
 use getset::{CopyGetters, Getters};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};

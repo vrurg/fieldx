@@ -794,12 +794,12 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         ]
     }
 
-    fn myself_field(&self, rc_helper: &FXHelper) -> Ident {
+    fn myself_field(&self, rc_helper: &fieldx_aux::FXHelper) -> Ident {
         let (myself_name, _) = self.myself_names(rc_helper);
         format_ident!("__weak_{}", myself_name)
     }
 
-    fn myself_names(&self, rc_helper: &FXHelper) -> (Ident, Ident) {
+    fn myself_names(&self, rc_helper: &fieldx_aux::FXHelper) -> (Ident, Ident) {
         let myself_name = rc_helper.name().unwrap_or("myself");
         (
             format_ident!("{}", myself_name),

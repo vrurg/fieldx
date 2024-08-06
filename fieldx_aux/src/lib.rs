@@ -1,13 +1,29 @@
+pub mod accessor_helper;
 pub mod attributes;
+pub mod base_helper;
+pub mod builder_helper;
+pub mod default_helper;
 pub mod nesting_attr;
+#[cfg(feature = "serde")]
+pub mod serde_helper;
+pub mod setter_helper;
 pub mod traits;
+pub mod util;
 pub mod value;
 pub mod with_origin;
 
+#[cfg(feature = "serde")]
+pub use crate::serde_helper::FXSerdeHelper;
 pub use crate::{
+    accessor_helper::{FXAccessorHelper, FXAccessorMode},
     attributes::FXAttributes,
+    base_helper::FXBaseHelper,
+    builder_helper::FXBuilderHelper,
+    default_helper::FXDefault,
     nesting_attr::{FXNestingAttr, FromNestAttr},
-    traits::{FXBoolHelper, FXFrom, FXInto, FXTriggerHelper},
+    setter_helper::FXSetterHelper,
+    traits::{FXBoolHelper, FXFrom, FXHelperTrait, FXInto, FXTriggerHelper},
+    util::public_mode,
     value::FXValueArg,
     with_origin::FXOrig,
 };
@@ -49,6 +65,13 @@ impl ToTokens for FXPubMode {
     }
 }
 
+pub type FXHelper<const BOOL_ONLY: bool = false> = FXNestingAttr<FXBaseHelper<BOOL_ONLY>>;
 pub type FXValue<T, const BOOL_ONLY: bool = false> = FXNestingAttr<FXValueArg<T, BOOL_ONLY>>;
 pub type FXStringArg = FXNestingAttr<FXValueArg<String>>;
 pub type FXBoolArg = FXNestingAttr<FXValueArg<(), true>>;
+pub type FXAccessor<const BOOL_ONLY: bool = false> = FXNestingAttr<FXAccessorHelper<BOOL_ONLY>>;
+pub type FXSetter<const BOOL_ONLY: bool = false> = FXNestingAttr<FXSetterHelper<BOOL_ONLY>>;
+#[allow(dead_code)]
+pub type FXBuilder = FXNestingAttr<FXBuilderHelper>;
+#[cfg(feature = "serde")]
+pub type FXSerde = FXNestingAttr<FXSerdeHelper>;

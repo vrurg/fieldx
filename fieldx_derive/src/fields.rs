@@ -1,14 +1,14 @@
-#[cfg(feature = "serde")]
-use crate::helper::FXSerde;
 use crate::{
-    helper::{
-        FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXBoolHelper, FXBuilder, FXDefault,
-        FXHelper, FXHelperContainer, FXHelperKind, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg,
-        FXTriggerHelper, FromNestAttr,
-    },
-    util::{needs_helper, validate_exclusives},
+    helper::{FXHelperContainer, FXHelperKind},
+    util::needs_helper,
 };
 use darling::{util::Flag, FromField};
+#[cfg(feature = "serde")]
+use fieldx_aux::FXSerde;
+use fieldx_aux::{
+    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXBoolHelper, FXBuilder,
+    FXDefault, FXHelper, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg, FXTriggerHelper, FromNestAttr,
+};
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote_spanned, ToTokens};
@@ -137,7 +137,7 @@ impl FXFieldReceiver {
 
     #[inline(always)]
     pub fn public_mode(&self) -> Option<FXPubMode> {
-        crate::util::public_mode(&self.public, &self.private)
+        fieldx_aux::public_mode(&self.public, &self.private)
     }
 
     pub fn ident(&self) -> darling::Result<syn::Ident> {

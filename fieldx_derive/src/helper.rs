@@ -1,20 +1,6 @@
-pub(crate) mod accessor;
-pub(crate) mod base;
-pub(crate) mod builder;
-pub(crate) mod default;
-#[cfg(feature = "serde")]
-pub(crate) mod serde;
-pub(crate) mod setter;
-
-pub(crate) use self::{
-    accessor::{FXAccessorHelper, FXAccessorMode},
-    base::FXBaseHelper,
-    default::FXDefault,
-};
-use self::{builder::FXBuilderHelper, setter::FXSetterHelper};
 pub(crate) use fieldx_aux::{
-    FXAttributes, FXBoolArg, FXBoolHelper, FXInto, FXNestingAttr, FXOrig, FXPubMode, FXStringArg, FXTriggerHelper,
-    FromNestAttr,
+    FXAccessorMode, FXAttributes, FXBoolArg, FXBoolHelper, FXDefault, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode,
+    FXStringArg, FXTriggerHelper, FromNestAttr,
 };
 use proc_macro2::Span;
 
@@ -34,13 +20,6 @@ pub(crate) enum FXHelperKind {
 pub(crate) trait FXHelperContainer {
     fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait>;
     fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span>;
-}
-
-pub(crate) trait FXHelperTrait: FXTriggerHelper {
-    fn name(&self) -> Option<&str>;
-    fn public_mode(&self) -> Option<FXPubMode>;
-    fn attributes(&self) -> Option<&FXAttributes>;
-    fn attributes_fn(&self) -> Option<&FXAttributes>;
 }
 
 impl ToString for FXHelperKind {
@@ -92,11 +71,3 @@ impl FXHelperKind {
         }
     }
 }
-
-pub(crate) type FXHelper<const BOOL_ONLY: bool = false> = FXNestingAttr<FXBaseHelper<BOOL_ONLY>>;
-pub(crate) type FXAccessor<const BOOL_ONLY: bool = false> = FXNestingAttr<FXAccessorHelper<BOOL_ONLY>>;
-pub(crate) type FXSetter<const BOOL_ONLY: bool = false> = FXNestingAttr<FXSetterHelper<BOOL_ONLY>>;
-#[allow(dead_code)]
-pub(crate) type FXBuilder = FXNestingAttr<FXBuilderHelper>;
-#[cfg(feature = "serde")]
-pub(crate) type FXSerde = FXNestingAttr<serde::FXSerdeHelper>;

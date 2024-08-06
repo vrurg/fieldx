@@ -1,5 +1,7 @@
-use super::{FXInto, FXTriggerHelper, FromNestAttr};
-use crate::util::set_literals;
+use crate::{
+    set_literals, FXAttributes, FXBoolArg, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXStringArg,
+    FXTriggerHelper, FromNestAttr,
+};
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
@@ -7,7 +9,7 @@ use syn::Lit;
 
 #[fxhelper]
 #[derive(Default, Debug)]
-pub(crate) struct FXBaseHelper<const BOOL_ONLY: bool = false> {}
+pub struct FXBaseHelper<const BOOL_ONLY: bool = false> {}
 
 impl<const BOOL_ONLY: bool> FXBaseHelper<BOOL_ONLY> {
     fn allowed_literals(&self, literals: &Vec<Lit>) -> darling::Result<()> {

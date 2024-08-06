@@ -113,14 +113,14 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
         .is_some()
     {
         quote![
-            fn attributes(&self) -> Option<&crate::helper::FXAttributes> {
+            fn attributes(&self) -> Option<&FXAttributes> {
                 self.attributes.as_ref()
             }
         ]
     }
     else {
         quote![
-            fn attributes(&self) -> Option<&crate::helper::FXAttributes> {
+            fn attributes(&self) -> Option<&FXAttributes> {
                 None
             }
         ]
@@ -177,26 +177,26 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
         #getters_derive
         #vis struct #ident #generics #where_clause {
             #[getset(skip)]
-            name:        Option<crate::helper::FXStringArg>,
+            name:        Option<FXStringArg>,
             #[getset(get = #getset_vis)]
             off:           Flag,
             #[getset(skip)]
-            attributes_fn: Option<crate::helper::FXAttributes>,
+            attributes_fn: Option<FXAttributes>,
             #[getset(skip)]
-            public: Option<crate::helper::FXNestingAttr<crate::helper::FXPubMode>>,
+            public: Option<FXNestingAttr<FXPubMode>>,
             #[getset(skip)]
-            private: Option<crate::helper::FXBoolArg>,
+            private: Option<FXBoolArg>,
 
             #( #fields_tt ),*
         }
 
-        impl #impl_generics crate::helper::FXTriggerHelper for #ident #ty_generics #where_clause {
+        impl #impl_generics FXTriggerHelper for #ident #ty_generics #where_clause {
             fn is_true(&self) -> bool {
                 !self.off.is_present()
             }
         }
 
-        impl #impl_generics crate::helper::FXHelperTrait for #ident #ty_generics #where_clause {
+        impl #impl_generics FXHelperTrait for #ident #ty_generics #where_clause {
             #[inline]
             fn name(&self) -> Option<&str> {
                 if let Some(ref name) = self.name {
@@ -208,12 +208,12 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
             }
 
             #[inline]
-            fn attributes_fn(&self) -> Option<&crate::helper::FXAttributes> {
+            fn attributes_fn(&self) -> Option<&FXAttributes> {
                 self.attributes_fn.as_ref()
             }
 
             #[inline(always)]
-            fn public_mode(&self) -> Option<crate::helper::FXPubMode> {
+            fn public_mode(&self) -> Option<FXPubMode> {
                 crate::util::public_mode(&self.public, &self.private)
             }
 

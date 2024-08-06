@@ -177,6 +177,7 @@ name = "fieldx_aux"
 version = "0.1.4-beta.1"
 dependencies = [
  "darling",
+ "fieldx_derive_support",
  "getset",
  "proc-macro2",
  "quote",

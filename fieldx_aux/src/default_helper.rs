@@ -1,4 +1,4 @@
-use super::{FXOrig, FXTriggerHelper};
+use crate::{FXOrig, FXTriggerHelper};
 use darling::{ast::NestedMeta, FromMeta};
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
@@ -6,8 +6,8 @@ use quote::ToTokens;
 use syn::{spanned::Spanned, Meta};
 
 #[derive(Debug, Clone, Getters)]
-#[getset(get = "pub(crate)")]
-pub(crate) struct FXDefault<const OPTIONAL: bool = false> {
+#[getset(get = "pub")]
+pub struct FXDefault<const OPTIONAL: bool = false> {
     #[getset(skip)]
     off:   bool,
     value: Option<NestedMeta>,
