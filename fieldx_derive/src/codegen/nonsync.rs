@@ -294,32 +294,34 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         let field_ident = fctx.ident_tok();
         let field_default = self.field_default_wrap(fctx)?;
 
-        Ok(if fctx.is_ignorable() || !fctx.needs_builder() {
-            quote![]
-        }
-        else if fctx.is_lazy() {
-            quote_spanned![span=>
-                #field_ident: if self.#field_ident.is_some() {
-                    ::fieldx::OnceCell::from(self.#field_ident.take().unwrap())
-                }
-                else {
-                    #field_default
-                }
-            ]
-        }
-        else if fctx.is_optional() {
-            quote_spanned![span=>
-                #field_ident: if self.#field_ident.is_some() {
-                    self.#field_ident.take()
-                }
-                else {
-                    #field_default
-                }
-            ]
-        }
-        else {
-            self.simple_field_build_setter(fctx, field_ident, &span)
-        })
+        Ok(
+            if !fctx.forced_builder() && (fctx.is_ignorable() || !fctx.needs_builder()) {
+                quote![]
+            }
+            else if fctx.is_lazy() {
+                quote_spanned![span=>
+                    #field_ident: if self.#field_ident.is_some() {
+                        ::fieldx::OnceCell::from(self.#field_ident.take().unwrap())
+                    }
+                    else {
+                        #field_default
+                    }
+                ]
+            }
+            else if fctx.is_optional() {
+                quote_spanned![span=>
+                    #field_ident: if self.#field_ident.is_some() {
+                        self.#field_ident.take()
+                    }
+                    else {
+                        #field_default
+                    }
+                ]
+            }
+            else {
+                self.simple_field_build_setter(fctx, field_ident, &span)
+            },
+        )
     }
 
     fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {

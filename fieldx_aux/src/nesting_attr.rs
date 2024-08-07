@@ -64,7 +64,6 @@ impl<T: FromNestAttr> FromMeta for FXNestingAttr<T> {
         for item in items {
             match item {
                 NestedMeta::Meta(ref meta) => {
-                    // eprintln!("??? NESTED META: {}\n{:#?}", meta.to_token_stream(), meta);
                     non_lit.push(NestedMeta::Meta(meta.clone()));
                 }
                 NestedMeta::Lit(ref lit) => {

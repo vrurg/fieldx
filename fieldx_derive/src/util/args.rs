@@ -135,6 +135,11 @@ impl FXSArgs {
         self.builder.as_ref().and_then(|h| h.is_into())
     }
 
+    #[inline]
+    pub fn is_builder_required(&self) -> Option<bool> {
+        self.builder.as_ref().and_then(|h| h.is_required())
+    }
+
     #[cfg(feature = "serde")]
     #[inline]
     pub fn is_serde(&self) -> bool {

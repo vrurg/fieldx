@@ -16,11 +16,17 @@ pub struct FXBuilderHelper {
     attributes_impl: Option<FXAttributes>,
     #[getset(get = "pub")]
     into:            Option<FXBoolArg>,
+    #[getset(get = "pub")]
+    required:        Option<FXBoolArg>,
 }
 
 impl FXBuilderHelper {
     pub fn is_into(&self) -> Option<bool> {
-        self.into
+        self.into.as_ref().map(|i| i.is_true())
+    }
+
+    pub fn is_required(&self) -> Option<bool> {
+        self.required.as_ref().map(|r| r.is_true())
     }
 
     pub fn attributes_impl(&self) -> Option<&FXAttributes> {

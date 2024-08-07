@@ -524,8 +524,25 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         Ok(())
     }
 
+    fn field_builder_value_required(&self, fctx: &FXFieldCtx) {
+        if fctx.is_builder_required()
+            || !(fctx.is_lazy() || fctx.is_ignorable() || fctx.is_optional() || fctx.has_default_value())
+        {
+            let field_ident = fctx.ident();
+            let field_name = field_ident.to_string();
+            let span = self.helper_span(fctx, FXHelperKind::Builder);
+            fctx.set_builder_checker(quote_spanned![span=>
+                if self.#field_ident.is_none() {
+                    return ::std::result::Result::Err(
+                        ::std::convert::Into::into(
+                            ::fieldx::errors::FieldXError::uninitialized_field(#field_name.into()) )
+                    )
+                }
+            ]);
+        }
+    }
+
     fn field_builder_value_for_set(&self, fctx: &FXFieldCtx, field_ident: &TokenStream, span: &Span) -> TokenStream {
-        let field_name = field_ident.to_string();
         let ctx = self.ctx();
         let alternative = if fctx.has_default_value() {
             self.field_default_wrap(fctx).map_or_else(
@@ -536,7 +553,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
                 |tt| Some(tt),
             )
         }
-        else if fctx.is_optional() {
+        else if fctx.is_optional() && !fctx.is_builder_required() {
             self.field_value_wrap(
                 fctx,
                 FXValueRepr::Exact(quote_spanned![*span=> ::std::option::Option::None]),
@@ -550,14 +567,6 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
             )
         }
         else {
-            fctx.set_builder_checker(quote_spanned![*span=>
-                if self.#field_ident.is_none() {
-                    return ::std::result::Result::Err(
-                        ::std::convert::Into::into(
-                            ::fieldx::errors::FieldXError::uninitialized_field(#field_name.into()) )
-                    )
-                }
-            ]);
             None
         };
 
@@ -638,7 +647,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
             let span = *fctx.span();
             let ty = fctx.ty();
             let attributes = fctx.builder().as_ref().and_then(|b| b.attributes());
-            if fctx.is_ignorable() {
+            if fctx.is_ignorable() && !fctx.forced_builder() {
                 Ok(quote_spanned![span=> #attributes #ident: #ty])
             }
             else {
@@ -651,7 +660,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
     }
 
     fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        if !fctx.is_ignorable() && fctx.needs_builder() {
+        if fctx.forced_builder() || (!fctx.is_ignorable() && fctx.needs_builder()) {
             let ident = fctx.ident_tok();
             let mut builder_name = self.helper_name(fctx, FXHelperKind::Builder)?;
             // .builder_name(fctx)?;
@@ -748,6 +757,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
         let mut builder_checkers = vec![];
         for fctx in self.builder_field_ctxs() {
             if let Ok(fctx) = fctx {
+                self.field_builder_value_required(&fctx);
                 let fsetter = self.ok_or_empty(self.field_builder_setter(&fctx));
                 if fsetter.is_empty() {
                     use_default = true;

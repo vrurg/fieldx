@@ -144,27 +144,3 @@ from_nest_attr_val!(Lit::Str => String);
 from_nest_attr_val!(Lit::ByteStr => Vec<u8>);
 from_nest_attr_val!(Lit::Char => char);
 from_nest_attr_val!(Lit::Bool => bool);
-
-// #[cfg(test)]
-// mod test {
-//     use darling::ast::NestedMeta;
-//     use syn::parse_quote;
-
-//     use super::*;
-
-//     #[derive(Debug, Default, FromMeta)]
-//     struct Foo {
-//         some: Option<FXValueArg<String>>,
-//     }
-
-//     #[test]
-//     fn test_from_nest_attr_num() {
-//         let meta: NestedMeta = parse_quote![some("aa")];
-//         let NestedMeta::Meta(meta) = meta else { panic!("expected meta") };
-//         eprintln!("META: {:#?}", meta);
-//         let foo = Foo::from_meta(&meta).unwrap();
-//         // // let nest = <FXNestingAttr<FXValueArg<String>>>::from_list(&[meta]).expect("FXValueArg parsed");
-//         // eprintln!("nest: {:?}", foo);
-//         // // assert_eq!(nest.value(), &Some("aa".to_string()));
-//     }
-// }

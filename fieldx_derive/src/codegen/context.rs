@@ -397,6 +397,11 @@ impl<'f> FXFieldCtx<'f> {
             .unwrap_or_else(|| self.codegen_ctx().args().is_serde())
     }
 
+    #[inline]
+    pub fn forced_builder(&self) -> bool {
+        self.builder().as_ref().map_or(false, |b| b.name().is_some())
+    }
+
     pub fn is_copy(&self) -> bool {
         self.field
             .is_accessor_copy()
@@ -440,6 +445,14 @@ impl<'f> FXFieldCtx<'f> {
                 .is_optional()
                 .or_else(|| self.codegen_ctx.args.is_optional())
                 .unwrap_or_else(|| (!self.is_lazy() && (self.needs_clearer() || self.needs_predicate())))
+    }
+
+    pub fn is_builder_required(&self) -> bool {
+        self.builder()
+            .as_ref()
+            .and_then(|h| h.is_required())
+            .or_else(|| self.codegen_ctx().args().is_builder_required())
+            .unwrap_or(false)
     }
 
     #[cfg(feature = "serde")]

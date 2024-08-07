@@ -425,32 +425,34 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             quote![]
         };
 
-        Ok(if fctx.is_ignorable() || !fctx.needs_builder() {
-            quote![]
-        }
-        else if fctx.is_lazy() {
-            quote_spanned![span=>
-                #field_ident: <#field_type>::new_default(
-                    <#input_type>::#lazy_builder_name,
-                    self.#field_ident.take()#or_default
-                )
-            ]
-        }
-        else if fctx.needs_lock() {
-            let set_value = self.field_builder_value_for_set(fctx, field_ident, &span);
-            quote_spanned![span=>
-                // Optional can simply pickup and own either Some() or None from the builder.
-                #field_ident: #set_value
-            ]
-        }
-        else if is_optional {
-            quote_spanned! [span=>
-                #field_ident: self.#field_ident.take()#or_default
-            ]
-        }
-        else {
-            self.simple_field_build_setter(fctx, field_ident, &span)
-        })
+        Ok(
+            if !fctx.forced_builder() && (fctx.is_ignorable() || !fctx.needs_builder()) {
+                quote![]
+            }
+            else if fctx.is_lazy() {
+                quote_spanned![span=>
+                    #field_ident: <#field_type>::new_default(
+                        <#input_type>::#lazy_builder_name,
+                        self.#field_ident.take()#or_default
+                    )
+                ]
+            }
+            else if fctx.needs_lock() {
+                let set_value = self.field_builder_value_for_set(fctx, field_ident, &span);
+                quote_spanned![span=>
+                    // Optional can simply pickup and own either Some() or None from the builder.
+                    #field_ident: #set_value
+                ]
+            }
+            else if is_optional {
+                quote_spanned! [span=>
+                    #field_ident: self.#field_ident.take()#or_default
+                ]
+            }
+            else {
+                self.simple_field_build_setter(fctx, field_ident, &span)
+            },
+        )
     }
 
     fn field_lazy_initializer(
@@ -534,7 +536,6 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     }
 
     fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        // eprintln!("??? FIELD {} needs setter (from field:{:?}, args:{:?}): {:?}", fctx.ident_str(), fctx.field().needs_setter(), fctx.codegen_ctx().args().needs_setter(), fctx.needs_setter());
         if fctx.needs_setter() {
             let span = self.helper_span(fctx, FXHelperKind::Setter);
             let set_name = self.setter_name(fctx)?;
