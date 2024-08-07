@@ -15,7 +15,7 @@ pub struct FXBuilderHelper {
     #[getset(skip)]
     attributes_impl: Option<FXAttributes>,
     #[getset(get = "pub")]
-    into:            Option<bool>,
+    into:            Option<FXBoolArg>,
 }
 
 impl FXBuilderHelper {
