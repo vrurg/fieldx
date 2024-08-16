@@ -213,6 +213,18 @@ impl<T> FXRwLock<T> {
     }
 }
 
+impl<T> PartialEq for FXRwLock<T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        let myguard = self.0.read();
+        let otherguard = other.0.read();
+
+        myguard.eq(&otherguard)
+    }
+}
+
 impl<T> From<T> for FXRwLock<T> {
     fn from(value: T) -> Self {
         Self(RwLock::new(value))
