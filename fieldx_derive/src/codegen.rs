@@ -18,6 +18,13 @@ use std::{
 };
 use syn::{parse_quote, spanned::Spanned, Ident, Lit};
 
+#[allow(dead_code)]
+pub enum FXInlining {
+    Default,
+    Inline,
+    Always,
+}
+
 #[derive(PartialEq)]
 pub(crate) enum FXValueRepr<T> {
     None,
@@ -250,8 +257,14 @@ pub(crate) trait FXCGenContextual<'f> {
         self.helper_name_tok(fctx, FXHelperKind::Writer)
     }
 
-    fn attributes_fn<'s>(&'s self, fctx: &'s FXFieldCtx, helper_kind: FXHelperKind) -> Option<&'s FXAttributes> {
-        fctx.get_helper(helper_kind)
+    fn attributes_fn<'s>(
+        &'s self,
+        fctx: &'s FXFieldCtx,
+        helper_kind: FXHelperKind,
+        inlining: FXInlining,
+    ) -> Option<TokenStream> {
+        let attrs = fctx
+            .get_helper(helper_kind)
             .and_then(|h| h.attributes_fn())
             .or_else(|| fctx.attributes_fn().as_ref())
             .or_else(|| {
@@ -259,7 +272,13 @@ pub(crate) trait FXCGenContextual<'f> {
                     .args()
                     .get_helper(helper_kind)
                     .and_then(|h| h.attributes_fn())
-            })
+            });
+
+        match inlining {
+            FXInlining::Default => attrs.map(|a| quote![#a]),
+            FXInlining::Inline => Some(quote![#[inline] #attrs]),
+            FXInlining::Always => Some(quote![#[inline(always)] #attrs]),
+        }
     }
 
     fn generic_params(&self) -> TokenStream {
@@ -667,7 +686,7 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
             // .unwrap_or(format_ident!("{}", fctx.helper_base_name().expect("Field name")).to_token_stream());
             let span = fctx.helper_span(FXHelperKind::Builder);
             let (gen_params, val_type, into_tok) = self.into_toks(fctx, fctx.is_builder_into());
-            let attributes = self.attributes_fn(fctx, FXHelperKind::Builder);
+            let attributes = self.attributes_fn(fctx, FXHelperKind::Builder, FXInlining::Always);
             builder_name.set_span(span);
             Ok(quote_spanned![span=>
                 #attributes

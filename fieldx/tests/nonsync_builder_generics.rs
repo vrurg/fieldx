@@ -21,6 +21,9 @@ where
     #[fieldx(lazy, clearer)]
     bar: T,
 
+    #[fieldx(inner_mut, get)]
+    modifiable: T,
+
     _p1: PhantomData<&'a T>,
     _p2: PhantomData<&'b T>,
 }
@@ -50,9 +53,11 @@ fn basic() {
     let mut nonsync = NonSync::<String>::builder()
         .foo("Foo manual")
         .bar("Bar manual")
+        .modifiable("from builder".to_string())
         .build()
         .expect("NonSync instance");
 
+    assert_eq!(*nonsync.modifiable(), "from builder".to_string());
     assert_eq!(nonsync.bar(), &"Bar manual".to_string(), "manually set value for bar");
     assert_eq!(
         nonsync.clear_foo(),

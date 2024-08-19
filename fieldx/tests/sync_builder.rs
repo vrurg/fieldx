@@ -15,6 +15,9 @@ mod foo {
 
         #[fieldx(lazy, clearer, default(Self::default_string()))]
         lazy_default: String,
+
+        #[fieldx(inner_mut, set, get, get_mut, builder(into))]
+        modifiable: String,
     }
 
     impl Foo {
@@ -43,6 +46,7 @@ fn basics() {
         .foo("це користувацьке значення".to_string())
         .real(1u16)
         .locked_bar("custom set")
+        .modifiable("from builder")
         .build()
         .unwrap();
 
@@ -65,11 +69,18 @@ fn basics() {
     assert_eq!(foo.locked_bar(), "custom set", "locked_bar accessor");
     foo.set_locked_bar("with setter".to_string());
     assert_eq!(foo.locked_bar(), "with setter", "locked_bar setter works");
+
+    assert_eq!(*foo.modifiable(), "from builder".to_string());
+    let old = foo.set_modifiable("set manually".to_string());
+    assert_eq!(old, "from builder".to_string());
+    assert_eq!(*foo.modifiable(), "set manually".to_string());
+    *foo.modifiable_mut() = "via get_mut".to_string();
+    assert_eq!(*foo.modifiable(), "via get_mut".to_string());
 }
 
 #[test]
 fn empties() {
-    let foo = foo::Foo::builder().build().unwrap();
+    let foo = foo::Foo::builder().modifiable("non-skippable").build().unwrap();
 
     assert_eq!(
         *foo.foo(),
@@ -93,6 +104,7 @@ fn empties() {
 
     let foo = foo::Foo::builder()
         .lazy_default("non-lazy, non-default".to_string())
+        .modifiable("non-skippable")
         .build()
         .expect("NonSync instance");
 

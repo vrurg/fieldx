@@ -1,4 +1,4 @@
-error: The following options from group 'lazy/optional' cannot be used together: `lazy`, `optional`
+error: The following options from group 'lazy/optional/inner_mut' cannot be used together: `lazy`, `optional`
  --> tests/uncompilable/incompat_args.rs
   |
   | #[fxstruct(lazy, optional)]

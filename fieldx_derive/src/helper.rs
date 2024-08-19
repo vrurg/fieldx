@@ -1,4 +1,4 @@
-pub(crate) use fieldx_aux::{FXAccessorMode, FXAttributes, FXHelperTrait, FXOrig, FXTriggerHelper};
+pub(crate) use fieldx_aux::{FXAccessorMode, FXHelperTrait, FXOrig, FXTriggerHelper};
 use proc_macro2::Span;
 
 #[derive(Debug, Clone, Copy)]

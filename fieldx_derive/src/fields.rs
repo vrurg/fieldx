@@ -54,6 +54,7 @@ pub(crate) struct FXFieldReceiver {
     clone:         Option<FXBoolArg>,
     copy:          Option<FXBoolArg>,
     lock:          Option<FXBoolArg>,
+    inner_mut:     Option<FXBoolArg>,
     #[cfg(feature = "serde")]
     serde:         Option<FXSerde>,
 
@@ -213,6 +214,11 @@ impl FXFieldReceiver {
     #[inline]
     pub fn is_skipped(&self) -> bool {
         self.skip.is_present()
+    }
+
+    #[inline]
+    pub fn is_inner_mut(&self) -> Option<bool> {
+        self.inner_mut.is_true_opt()
     }
 
     #[inline]

@@ -46,6 +46,9 @@ struct Foo {
     // Of the two defaults serde wins when deserializing.
     #[fieldx(serde( default(-987.654) ), default(12.34), rename("sssimple"))]
     simple2: f64,
+
+    #[fieldx(inner_mut, get)]
+    modifiable: String,
 }
 
 impl Foo {
@@ -74,12 +77,17 @@ impl Foo {
 
 #[test]
 fn basics() {
-    let mut foo = Foo::builder().simple(666.13).build().expect("Foo builder failed");
+    let mut foo = Foo::builder()
+        .simple(666.13)
+        .modifiable("from builder".to_string())
+        .build()
+        .expect("Foo builder failed");
 
     let json = serde_json::to_string(&foo).expect("Foo serialization failure");
 
     assert_eq!(
-        json, r#"{"baz":{"cnt":123},"count":13,"pi":3.141592653589793,"opt":null,"simple":666.13,"sssimple":12.34}"#,
+        json,
+        r#"{"baz":{"cnt":123},"count":13,"pi":3.141592653589793,"opt":null,"simple":666.13,"sssimple":12.34,"modifiable":"from builder"}"#,
         "serialized"
     );
 
@@ -89,11 +97,12 @@ fn basics() {
     let json = serde_json::to_string(&foo).expect("Foo serialization failure");
 
     assert_eq!(
-        json, r#"{"baz":{"cnt":123},"count":1,"pi":3.141592653589793,"opt":12,"simple":666.13,"sssimple":12.34}"#,
+        json,
+        r#"{"baz":{"cnt":123},"count":1,"pi":3.141592653589793,"opt":12,"simple":666.13,"sssimple":12.34,"modifiable":"from builder"}"#,
         "serialized after changes"
     );
 
-    let json_src = r#"{"baz":{"cnt":9876},"count":112233,"pi":3.141,"opt":null,"simple":-13.666,"sssimple":999.111}"#;
+    let json_src = r#"{"baz":{"cnt":9876},"count":112233,"pi":3.141,"opt":null,"simple":-13.666,"sssimple":999.111,"modifiable":"from deserialize"}"#;
     let foo_de = serde_json::from_str::<Foo>(&json_src).expect("Foo deserialization failure");
 
     assert_eq!(
@@ -121,6 +130,7 @@ fn basics() {
     );
     assert_eq!(foo_de.simple, -13.666, "a plain field – deserialized");
     assert_eq!(foo_de.simple2, 999.111, "a renamed plain field – deserialized");
+    assert_eq!(*foo_de.modifiable(), "from deserialize".to_string());
 
     let json_src = r#"{"baz":{"cnt":9876},"opt":31415926}"#;
     let foo_de = serde_json::from_str::<Foo>(&json_src).expect("Foo deserialization failure");

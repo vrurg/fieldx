@@ -1,9 +1,9 @@
 #[cfg(feature = "serde")]
 use super::FXCGenSerde;
 use super::{FXAccessorMode, FXCGen, FXCGenContextual, FXHelperKind, FXValueRepr};
-use crate::{
-    codegen::context::{FXCodeGenCtx, FXFieldCtx},
-    // util::fxtrace,
+use crate::codegen::{
+    context::{FXCodeGenCtx, FXFieldCtx},
+    FXInlining,
 };
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
@@ -173,6 +173,9 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             else if field_ctx.is_optional() {
                 quote_spanned! [span=> ::std::option::Option<#ty>]
             }
+            else if field_ctx.is_inner_mut() {
+                quote_spanned! [span=> ::std::cell::RefCell<#ty>]
+            }
             else {
                 field_ctx.ty_tok().clone()
             };
@@ -203,7 +206,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let vis_tok = fctx.vis_tok(FXHelperKind::Accessor);
             let ty = fctx.ty();
             let accessor_name = self.accessor_name(fctx)?;
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Accessor);
+            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Accessor, FXInlining::Always);
 
             let (reference, deref, meth) = match fctx.accessor_mode() {
                 FXAccessorMode::Copy => (quote![], quote![*], quote![]),
@@ -235,6 +238,14 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                     #vis_tok fn #accessor_name(&self) -> #reference #ty_tok { #reference self.#ident #meth }
                 ])
             }
+            else if fctx.is_inner_mut() {
+                Ok(quote_spanned![span=>
+                    #attributes_fn
+                    #vis_tok fn #accessor_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::std::cell::Ref<'fx_reader_lifetime, #ty> {
+                        self.#ident.borrow() #meth
+                    }
+                ])
+            }
             else {
                 Ok(quote_spanned![span=>
                     #attributes_fn
@@ -248,45 +259,51 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     }
 
     fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        if fctx.needs_accessor_mut() {
+        Ok(if fctx.needs_accessor_mut() {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok(FXHelperKind::AccessorMut);
             let ty = fctx.ty();
             let accessor_name = self.accessor_mut_name(fctx)?;
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::AccessorMut);
+            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::AccessorMut, FXInlining::Always);
             let span = self.helper_span(fctx, FXHelperKind::AccessorMut);
 
             if fctx.is_lazy() {
                 let lazy_name = self.lazy_name(fctx)?;
                 let builder_self = self.maybe_ref_counted_self(fctx);
 
-                Ok(quote_spanned![span=>
+                quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty {
                         self.#ident.get_or_init( || #builder_self.#lazy_name() );
                         self.#ident.get_mut().unwrap()
                     }
-                ])
+                ]
             }
             else if fctx.is_optional() {
                 let ty_tok = self.type_tokens(fctx);
-                Ok(quote_spanned![span=>
-                    #[inline]
+                quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty_tok { &mut self.#ident }
-                ])
+                ]
+            }
+            else if fctx.is_inner_mut() {
+                quote_spanned![span=>
+                    #attributes_fn
+                    #vis_tok fn #accessor_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::std::cell::RefMut<'fx_reader_lifetime, #ty> {
+                        self.#ident.borrow_mut()
+                    }
+                ]
             }
             else {
-                Ok(quote_spanned![span=>
-                    #[inline]
+                quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&mut self) -> &mut #ty { &mut self.#ident }
-                ])
+                ]
             }
         }
         else {
-            Ok(TokenStream::new())
-        }
+            TokenStream::new()
+        })
     }
 
     fn field_builder_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
@@ -325,46 +342,54 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     }
 
     fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        if fctx.needs_setter() {
+        Ok(if fctx.needs_setter() {
             let setter_name = self.setter_name(fctx)?;
             let span = self.helper_span(fctx, FXHelperKind::Setter);
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok(FXHelperKind::Setter);
             let ty = fctx.ty();
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Setter);
-
+            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Setter, FXInlining::Always);
             let (gen_params, val_type, into_tok) = self.into_toks(fctx, fctx.is_setter_into());
 
             if fctx.is_lazy() {
-                Ok(quote_spanned![span=>
+                quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> ::std::option::Option<#ty> {
                         let old = self.#ident.take();
                         let _ = self.#ident.set(value #into_tok);
                         old
                     }
-                ])
+                ]
             }
             else if fctx.is_optional() {
-                Ok(quote_spanned! [span=>
+                quote_spanned! [span=>
                     #attributes_fn
                     #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> ::std::option::Option<#ty> {
                         self.#ident.replace(value #into_tok)
                     }
-                ])
+                ]
+            }
+            else if fctx.is_inner_mut() {
+                quote_spanned! [span=>
+                    #attributes_fn
+                    #vis_tok fn #setter_name #gen_params(&self, value: #val_type) -> #ty {
+                        self.#ident.replace(value #into_tok)
+                    }
+
+                ]
             }
             else {
-                Ok(quote_spanned![span=>
+                quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> #ty {
                         ::std::mem::replace(&mut self.#ident, value #into_tok)
                     }
-                ])
+                ]
             }
         }
         else {
-            Ok(TokenStream::new())
-        }
+            TokenStream::new()
+        })
     }
 
     fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
@@ -373,7 +398,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok(FXHelperKind::Clearer);
             let ty = fctx.ty();
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Clearer);
+            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Clearer, FXInlining::Always);
             let span = self.helper_span(fctx, FXHelperKind::Clearer);
 
             Ok(quote_spanned! [span=>
@@ -394,7 +419,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let span = self.helper_span(fctx, FXHelperKind::Predicate);
             let ident = fctx.ident_tok();
             let vis_tok = fctx.vis_tok(FXHelperKind::Predicate);
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Predicate);
+            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Predicate, FXInlining::Always);
 
             if fctx.is_lazy() {
                 return Ok(quote_spanned! [span=>
@@ -432,6 +457,19 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 FXValueRepr::None => quote_spanned![ident_span=> ::std::option::Option::None],
                 FXValueRepr::Exact(v) => quote_spanned![ident_span=> #v],
                 FXValueRepr::Versatile(v) => quote_spanned![ident_span=> ::std::option::Option::Some(#v)],
+            }
+        }
+        else if fctx.is_inner_mut() {
+            match value {
+                FXValueRepr::None => {
+                    return Err(darling::Error::custom(format!(
+                        "No value was supplied for internally mutable field {}",
+                        fctx.ident_str()
+                    ))
+                    .with_span(&ident_span))
+                }
+                FXValueRepr::Exact(v) => quote_spanned![ident_span=> #v],
+                FXValueRepr::Versatile(v) => quote_spanned![ident_span=> ::std::cell::RefCell::from(#v)],
             }
         }
         else {
@@ -472,6 +510,10 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             let shadow_value = self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![v]))?;
             quote![ #shadow_var.#field_ident.map_or_else(|| #default_value, |v| #shadow_value) ]
         }
+        else if fctx.is_inner_mut() {
+            let shadow_value = self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![#shadow_var.#field_ident]))?;
+            quote![ #shadow_value ]
+        }
         else {
             quote![ #shadow_var.#field_ident ]
         })
@@ -482,7 +524,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
         let field_ident = fctx.ident_tok();
         let me_var = self.ctx().me_var_ident();
 
-        Ok(if fctx.is_lazy() {
+        Ok(if fctx.is_lazy() || fctx.is_inner_mut() {
             quote![ #me_var.#field_ident.take() ]
         }
         else if fctx.is_optional() {

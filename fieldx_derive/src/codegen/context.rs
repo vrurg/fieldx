@@ -315,11 +315,11 @@ impl<'f> FXFieldCtx<'f> {
         }
     }
 
-    helper_fn_ctx! { is: lazy }
+    helper_fn_ctx! { is: lazy, inner_mut }
 
     helper_fn_ctx! { needs: accessor_mut, builder, setter, writer }
 
-    arg_accessor! { optional: FXBoolArg, lock: FXBoolArg }
+    arg_accessor! { optional: FXBoolArg, lock: FXBoolArg, inner_mut: FXBoolArg }
 
     pub fn new(field: FXField, codegen_ctx: &'f FXCodeGenCtx) -> Self {
         Self {
@@ -608,6 +608,12 @@ impl<'f> FXFieldCtx<'f> {
                 .or_else(|| self.get_helper_span(FXHelperKind::Writer))
                 .unwrap_or_else(|| self.optional_span())
         })
+    }
+
+    pub fn inner_mut_span(&self) -> Span {
+        self.inner_mut()
+            .and_then(|im| im.span())
+            .unwrap_or_else(|| Span::call_site())
     }
 
     pub fn all_attrs(&self) -> Vec<syn::Attribute> {

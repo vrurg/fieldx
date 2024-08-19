@@ -27,6 +27,9 @@ struct NonSync {
 
     #[fieldx(lazy, clearer, default(Self::default_string()))]
     lazy_default: String,
+
+    #[fieldx(inner_mut, set, get, into)]
+    modifiable: String,
 }
 
 impl NonSync {
@@ -52,6 +55,7 @@ fn basic() {
     let mut nonsync = NonSync::builder()
         .dummy("as banal as it gets".into())
         .pi(-1.2)
+        .modifiable("from builder")
         .build()
         .expect("NonSync instance");
 
@@ -72,6 +76,7 @@ fn basic() {
         "baz is set with its default by the builder"
     );
     assert_eq!(nonsync.fubar(), &None, "fubar has no default and was not set");
+    assert_eq!(*nonsync.modifiable(), "from builder".to_string());
 
     assert_eq!(
         nonsync.lazy_default(),
@@ -81,6 +86,7 @@ fn basic() {
 
     let mut nonsync = NonSync::builder()
         .lazy_default("non-lazy, non-default".to_string())
+        .modifiable("from builder".to_string())
         .build()
         .expect("NonSync instance");
     assert_eq!(
@@ -94,4 +100,8 @@ fn basic() {
         "this is a lazy default",
         "lazy field gets set by its builder when cleared"
     );
+
+    let old = nonsync.set_modifiable("set manually");
+    assert_eq!(old, "from builder");
+    assert_eq!(*nonsync.modifiable(), "set manually".to_string());
 }

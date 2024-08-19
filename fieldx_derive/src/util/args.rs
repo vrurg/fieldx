@@ -48,6 +48,7 @@ pub(crate) struct FXSArgs {
     clone:        Option<FXBoolArg>,
     copy:         Option<FXBoolArg>,
     lock:         Option<FXBoolArg>,
+    inner_mut:    Option<FXBoolArg>,
     #[cfg(feature = "serde")]
     serde:        Option<FXSerde>,
 }
@@ -57,7 +58,7 @@ impl FXSArgs {
     validate_exclusives!(
         "visibility" => public, private;
         "accessor mode" => copy, clone;
-        "lazy/optional" => lazy, optional;
+        "lazy/optional/inner_mut" => lazy, optional, inner_mut;
         "serde/ref.counting" => serde, rc
     );
 
@@ -65,7 +66,7 @@ impl FXSArgs {
     validate_exclusives!(
         "visibility" => public, private;
         "accessor mode" => copy, clone;
-        "lazy/optional" => lazy, optional
+        "lazy/optional/inner_mut" => lazy, optional, inner_mut
     );
 
     // Generate needs_<helper> methods
@@ -191,6 +192,11 @@ impl FXSArgs {
     #[inline]
     pub fn is_lazy(&self) -> Option<bool> {
         self.lazy.is_true_opt()
+    }
+
+    #[inline]
+    pub fn is_inner_mut(&self) -> Option<bool> {
+        self.inner_mut.is_true_opt()
     }
 
     #[inline]

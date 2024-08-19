@@ -16,6 +16,9 @@ struct NonSync {
 
     #[fieldx(lazy, clearer, rename("piquant"), default(off, "this won't be used"))]
     fubar: String,
+
+    #[fieldx(inner_mut, set, get, get_mut)]
+    modifiable: String,
 }
 
 impl NonSync {
@@ -106,4 +109,23 @@ fn basic_nonlazy() {
         "new baz",
         "manually set value for field baz"
     );
+}
+
+#[test]
+fn inner_mut() {
+    let non_sync = NonSync::new();
+
+    {
+        let old = non_sync.set_modifiable("new value".to_string());
+        // There is a Default::default() initially
+        assert_eq!(old, "");
+        let ms = non_sync.modifiable();
+        assert_eq!(*ms, "new value".to_string());
+    }
+
+    {
+        *non_sync.modifiable_mut() = "modified value".to_string();
+        let ms = non_sync.modifiable();
+        assert_eq!(*ms, "modified value".to_string());
+    }
 }
