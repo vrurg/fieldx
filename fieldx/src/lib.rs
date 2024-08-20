@@ -180,6 +180,32 @@
 //! [^only_via_method]: Apparently, the access has to be made by calling a corresponding method. Mostly it'd be field's
 //! accessor, but for `sync` structs it's more likely to be a reader.
 //!
+//! # Field Interior Mutability
+//!
+//! Marking fields with `inner_mut` flag is a shortcut for using `RefCell` wrapper. It doesn't matter if an `inner_mut`
+//! field belongs to a sync or a non-sync struct, it will always be a `RefCell`.
+//!
+//! ```
+//! # use fieldx::fxstruct;
+//! #[fxstruct]
+//! struct Foo {
+//!     #[fieldx(inner_mut, get, get_mut, set, default(String::from("initial")))]
+//!     modifiable: String,
+//! }
+//!
+//! # fn main() {
+//! let foo = Foo::new();
+//! let old = foo.set_modifiable(String::from("manual"));
+//! assert_eq!(old, String::from("initial"));
+//! assert_eq!(*foo.modifiable(), String::from("manual"));
+//! *foo.modifiable_mut() = String::from("via mutable accessor");
+//! assert_eq!(*foo.modifiable(), String::from("via mutable accessor"));
+//! # }
+//! ```
+//!
+//! Note that this pattern is only useful when the field must not be neither optional nor lock-protected in
+//! `sync`-declared structs.
+//!
 //! # Builder Pattern
 //!
 //! **IMPORTANT!** First of all, it is necessary to mention unintended terminological ambiguity here. The terms `build`
@@ -352,6 +378,12 @@
 //! **Type**: helper
 //!
 //! Enables lazy mode for all fields except those marked with `lazy(off)`.
+//!
+//! ### ***inner_mut***
+//!
+//! **Type**: keyword
+//!
+//! Turns on interior mutability for struct fields by default.
 //!
 //! ### **`builder`**
 //!
@@ -647,6 +679,12 @@
 //! **Type**: helper
 //!
 //! Mark field as lazy.
+//!
+//! ### **inner_mut***
+//!
+//! **Type**: keyword
+//!
+//! Enables field interior mutability.
 //!
 //! ### **`rename`**
 //!
