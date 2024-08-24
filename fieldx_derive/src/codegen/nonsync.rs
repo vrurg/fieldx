@@ -239,7 +239,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 ]
             }
             else if fctx.is_inner_mut() {
-                let (deref, ty) = if fctx.is_clone() || fctx.is_copy() {
+                let (deref, ty_tok) = if fctx.is_clone() || fctx.is_copy() {
                     (quote![*], quote![#ty])
                 }
                 else {
@@ -247,7 +247,8 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 };
                 quote_spanned![span=>
                     #attributes_fn
-                    #vis_tok fn #accessor_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> #ty {
+                    #vis_tok fn #accessor_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> #ty_tok {
+                        #[allow(unused_parens)]
                         (#deref self.#ident.borrow()) #meth
                     }
                 ]
