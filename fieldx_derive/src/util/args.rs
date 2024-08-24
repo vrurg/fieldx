@@ -127,6 +127,11 @@ impl FXSArgs {
     }
 
     #[inline]
+    pub fn is_builder_opt_in(&self) -> bool {
+        self.builder().as_ref().map_or(false, |b| b.is_builder_opt_in())
+    }
+
+    #[inline]
     pub fn is_setter_into(&self) -> Option<bool> {
         self.setter.as_ref().and_then(|h| h.is_into())
     }

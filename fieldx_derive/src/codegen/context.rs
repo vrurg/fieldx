@@ -317,7 +317,7 @@ impl<'f> FXFieldCtx<'f> {
 
     helper_fn_ctx! { is: lazy, inner_mut }
 
-    helper_fn_ctx! { needs: accessor_mut, builder, setter, writer }
+    helper_fn_ctx! { needs: accessor_mut, setter, writer }
 
     arg_accessor! { optional: FXBoolArg, lock: FXBoolArg, inner_mut: FXBoolArg }
 
@@ -345,7 +345,17 @@ impl<'f> FXFieldCtx<'f> {
         self.field
             .needs_accessor()
             .or_else(|| self.codegen_ctx.args.needs_accessor())
-            .unwrap_or_else(|| self.needs_clearer() || self.needs_predicate() || self.is_lazy())
+            .unwrap_or_else(|| self.needs_clearer() || self.needs_predicate() || self.is_lazy() || self.is_inner_mut())
+    }
+
+    #[inline]
+    pub fn needs_builder(&self) -> bool {
+        self.field.needs_builder().unwrap_or_else(|| {
+            let args = self.codegen_ctx().args();
+            args.needs_builder()
+                .as_ref()
+                .map_or(false, |needs| *needs && !args.is_builder_opt_in())
+        })
     }
 
     #[inline]

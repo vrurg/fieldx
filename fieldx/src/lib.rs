@@ -414,6 +414,7 @@
 //! - **`attributes`** (see the [section above](#attrs_family)) – builder struct attributes
 //! - **`attributes_impl`** - attributes of the struct implementation
 //! - **`into`** – force all builder setter methods to attempt automatic type conversion using `.into()` method
+//! - **`opt_in`** - struct-level only argument; with it only fields with explicit `builder` can get their values from the builder
 //!
 //!   With `into` the example above wouldn't need `String::from` and the call could look like this:
 //!   `.description("some description")`
@@ -743,9 +744,13 @@
 //!
 //! Mostly identical to the [struct-level `builder`](#builder). Field specifics are:
 //!
-//! - no `attributes_impl` (consumed, but ignored)
+//! - no `attributes_impl` and `opt_in` (consumed, but ignored)
 //! - string literal specifies setter method name if the builder type for this field
 //! - `attributes` and `attributes_fn` are correspondingly applies to builder field and builder setter method
+//!
+//! Field level only argument:
+//!
+//! - **`required`** – this field must always get a value from the builder even if otherwise it'd be optional
 //!
 //! <a id="about_default"></a>
 //! # Do We Need The `Default` Trait?

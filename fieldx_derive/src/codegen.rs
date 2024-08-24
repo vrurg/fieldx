@@ -545,7 +545,8 @@ pub(crate) trait FXCGen<'f>: FXCGenContextual<'f> {
 
     fn field_builder_value_required(&self, fctx: &FXFieldCtx) {
         if fctx.is_builder_required()
-            || !(fctx.is_lazy() || fctx.is_ignorable() || fctx.is_optional() || fctx.has_default_value())
+            || (fctx.needs_builder()
+                && !(fctx.is_lazy() || fctx.is_ignorable() || fctx.is_optional() || fctx.has_default_value()))
         {
             let field_ident = fctx.ident();
             let field_name = field_ident.to_string();
