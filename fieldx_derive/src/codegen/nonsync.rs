@@ -200,7 +200,7 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     }
 
     fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        if fctx.needs_accessor() {
+        Ok(if fctx.needs_accessor() {
             let span = self.helper_span(fctx, FXHelperKind::Accessor);
             let ident = fctx.ident();
             let vis_tok = fctx.vis_tok(FXHelperKind::Accessor);
@@ -219,12 +219,12 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             if fctx.is_lazy() {
                 let lazy_init = self.field_lazy_initializer(fctx, None)?;
 
-                Ok(quote_spanned![span=>
+                quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty {
                         #deref #lazy_init #meth
                     }
-                ])
+                ]
             }
             else if fctx.is_optional() {
                 let ty_tok = if fctx.accessor_mode() == FXAccessorMode::AsRef {
@@ -233,29 +233,35 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                 else {
                     self.type_tokens(fctx).clone()
                 };
-                Ok(quote_spanned![span=>
+                quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty_tok { #reference self.#ident #meth }
-                ])
+                ]
             }
             else if fctx.is_inner_mut() {
-                Ok(quote_spanned![span=>
+                let (deref, ty) = if fctx.is_clone() || fctx.is_copy() {
+                    (quote![*], quote![#ty])
+                }
+                else {
+                    (quote![], quote![::std::cell::Ref<'fx_reader_lifetime, #ty>])
+                };
+                quote_spanned![span=>
                     #attributes_fn
-                    #vis_tok fn #accessor_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::std::cell::Ref<'fx_reader_lifetime, #ty> {
-                        self.#ident.borrow() #meth
+                    #vis_tok fn #accessor_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> #ty {
+                        (#deref self.#ident.borrow()) #meth
                     }
-                ])
+                ]
             }
             else {
-                Ok(quote_spanned![span=>
+                quote_spanned![span=>
                     #attributes_fn
                     #vis_tok fn #accessor_name(&self) -> #reference #ty { #reference self.#ident #meth }
-                ])
+                ]
             }
         }
         else {
-            Ok(TokenStream::new())
-        }
+            TokenStream::new()
+        })
     }
 
     fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
