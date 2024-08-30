@@ -11,6 +11,7 @@ env:
 jobs:
   with_features:
     runs-on: ${{ matrix.os }}-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         os: [ubuntu, macos, windows]
