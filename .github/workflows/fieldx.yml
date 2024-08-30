@@ -20,7 +20,7 @@ jobs:
           - stable
           - beta
           - nightly
-        feature: [serde]
+        feature: [serde, send_guard]
         exclude:
           - os: windows
             toolchain: nightly
@@ -30,7 +30,7 @@ jobs:
       - run: cargo build --verbose --all --features ${{ matrix.feature }}
       - run: cargo test --verbose --all --features ${{ matrix.feature }}
         if: matrix.toolchain == 'nightly'
-      - run: cargo test --verbose --all --all-features
+      - run: cargo test --verbose --all --features serde,send_guard
         if: matrix.toolchain == 'nightly'
   no_features:
     runs-on: ${{ matrix.os }}-latest
