@@ -925,10 +925,10 @@
 //! [`serde`]: https://docs.rs/serde
 
 pub mod errors;
-pub mod fxproxy;
+pub mod sync;
 pub mod traits;
 
-pub use crate::fxproxy::*;
+pub use crate::sync::*;
 pub use fieldx_aux::FXOrig;
 pub use fieldx_derive::fxstruct;
 #[doc(hidden)]
