@@ -929,10 +929,15 @@ pub mod fxproxy;
 pub mod traits;
 
 pub use crate::fxproxy::*;
+pub use fieldx_aux::FXOrig;
 pub use fieldx_derive::fxstruct;
 #[doc(hidden)]
 pub use parking_lot::{
     MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard,
 };
 #[doc(hidden)]
-pub use std::{cell::OnceCell, fmt, sync::atomic::Ordering};
+pub use std::{
+    cell::{OnceCell, Ref, RefCell, RefMut},
+    fmt,
+    sync::atomic::Ordering,
+};

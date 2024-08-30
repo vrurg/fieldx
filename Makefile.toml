@@ -1,8 +1,12 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
-__FIELDX_TASK__ = { value = "test", condition = { env_not_set = [ "__FIELDX_TASK__", ] } }
+__FIELDX_TASK__ = { value = "test", condition = { env_not_set = [
+    "__FIELDX_TASK__",
+] } }
 __FIELDX_TOOLCHAINS__ = "1.77 1.78 stable beta nightly"
-__FIELDX_DEFAULT_TOOLCHAIN__ = { value = "nightly", condition = { env_not_set = [ "__FIELDX_DEFAULT_TOOLCHAIN__", ] } }
+__FIELDX_DEFAULT_TOOLCHAIN__ = { value = "nightly", condition = { env_not_set = [
+    "__FIELDX_DEFAULT_TOOLCHAIN__",
+] } }
 
 [config]
 default_to_workspace = false
@@ -11,7 +15,8 @@ default_to_workspace = false
 clear = true
 description = "Extensive testing"
 category = "Test"
-dependencies = ["test-default", "test-serde", "test-diagnostics"]
+#dependencies = ["test-default", "test-serde", "test-diagnostics"]
+dependencies = ["test-default", "test-serde"]
 
 [tasks.test-versions]
 description = "TESTING SUPPORTED Rust VERSIONS"

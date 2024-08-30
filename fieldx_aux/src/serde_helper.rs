@@ -46,7 +46,7 @@ impl FXTriggerHelper for FXSerdeHelper {
 }
 
 impl FXSerdeHelper {
-    validate_exclusives! {"visibility" => public, private}
+    validate_exclusives! {"visibility": public; private;}
 
     fn validate(self) -> darling::Result<Self> {
         self.validate_exclusives()

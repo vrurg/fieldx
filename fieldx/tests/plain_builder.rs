@@ -4,7 +4,7 @@ use fieldx::fxstruct;
 
 #[fxstruct(builder(public(crate), attributes(derive(Debug))), attributes_impl(allow(dead_code)))]
 #[derive(Debug)]
-struct NonSync {
+struct Plain {
     #[fieldx(lazy, clearer, predicate, rename("dummy"))]
     foo:    String,
     #[fieldx(lazy, private, predicate, clearer, set, builder(attributes_fn(allow(dead_code))))]
@@ -32,7 +32,7 @@ struct NonSync {
     modifiable: String,
 }
 
-impl NonSync {
+impl Plain {
     fn build_dummy(&self) -> String {
         format!("this is foo with bar={}", self.bar()).to_string()
     }
@@ -52,56 +52,56 @@ impl NonSync {
 
 #[test]
 fn basic() {
-    let mut nonsync = NonSync::builder()
+    let mut plain = Plain::builder()
         .dummy("as banal as it gets".into())
         .pi(-1.2)
         .modifiable("from builder")
         .build()
-        .expect("NonSync instance");
+        .expect("Plain instance");
 
-    assert_eq!(nonsync.pi, -1.2, "pi set manually");
+    assert_eq!(plain.pi, -1.2, "pi set manually");
     assert_eq!(
-        nonsync.clear_dummy(),
+        plain.clear_dummy(),
         Some("as banal as it gets".to_string()),
         "foo(dummy) was set manually"
     );
     assert_eq!(
-        nonsync.dummy(),
+        plain.dummy(),
         &"this is foo with bar=42".to_string(),
         "foo(dummy) was lazily set"
     );
     assert_eq!(
-        nonsync.baz(),
+        plain.baz(),
         &Some("bazzification".to_string()),
         "baz is set with its default by the builder"
     );
-    assert_eq!(nonsync.fubar(), &None, "fubar has no default and was not set");
-    assert_eq!(*nonsync.modifiable(), "from builder".to_string());
+    assert_eq!(plain.fubar(), &None, "fubar has no default and was not set");
+    assert_eq!(*plain.modifiable(), "from builder".to_string());
 
     assert_eq!(
-        nonsync.lazy_default(),
+        plain.lazy_default(),
         "this is default string value",
         "lazy field gets a default if not set"
     );
 
-    let mut nonsync = NonSync::builder()
+    let mut plain = Plain::builder()
         .lazy_default("non-lazy, non-default".to_string())
         .modifiable("from builder".to_string())
         .build()
-        .expect("NonSync instance");
+        .expect("Plain instance");
     assert_eq!(
-        nonsync.lazy_default(),
+        plain.lazy_default(),
         "non-lazy, non-default",
         "lazy field set manually, default is ignored"
     );
-    nonsync.clear_lazy_default();
+    plain.clear_lazy_default();
     assert_eq!(
-        nonsync.lazy_default(),
+        plain.lazy_default(),
         "this is a lazy default",
         "lazy field gets set by its builder when cleared"
     );
 
-    let old = nonsync.set_modifiable("set manually");
+    let old = plain.set_modifiable("set manually");
     assert_eq!(old, "from builder");
-    assert_eq!(*nonsync.modifiable(), "set manually".to_string());
+    assert_eq!(*plain.modifiable(), "set manually".to_string());
 }

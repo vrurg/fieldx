@@ -2,7 +2,7 @@ use fieldx::fxstruct;
 
 #[fxstruct(builder(opt_in, into), get)]
 #[derive(Debug)]
-struct FooNonsync {
+struct FooPlain {
     #[fieldx(builder)]
     buildable: String,
 
@@ -21,8 +21,8 @@ struct FooSync {
 }
 
 #[test]
-fn nonsync() {
-    let foo = FooNonsync::builder().buildable("from builder").build().unwrap();
+fn plain() {
+    let foo = FooPlain::builder().buildable("from builder").build().unwrap();
     assert_eq!(foo.buildable(), "from builder");
     assert_eq!(foo.unbuildable(), "explicit");
 }

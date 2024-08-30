@@ -48,27 +48,91 @@ macro_rules! set_literals {
 
 #[macro_export]
 macro_rules! validate_exclusives {
-    ($( $group:expr => $( $field:ident ),+ );+) => {
+    (or_alias: $name:expr, ) => {
+        $name
+    };
+    (or_alias: $name:expr, $or_as:literal) => {
+        $or_as
+    };
+
+    ( $( $group:literal: $( $( $field:ident $( as $alias:literal )? ),+ );+ ; )+ ) => {
         fn validate_exclusives(&self) -> ::darling::Result<()> {
+            // Though use of a HashMap is tempting but vectors allow to preserve the order declarations.
+            use ::quote::ToTokens;
+            let mut groups = vec![];
             $(
-                {
-                    let mut set_params: Vec<&str> = vec![];
+                groups.push( ($group, vec![]) );
+                let exclusives = &mut groups.last_mut().unwrap().1;
+                $(
+                    exclusives.push(vec![]);
+                    let subgroup = exclusives.last_mut().unwrap();
                     $(
-                        if self.$field.is_some() {
-                            set_params.push(stringify!($field));
-                        }
+                        let fref = self.$field.as_ref();
+                        subgroup.push( ( validate_exclusives!(or_alias:
+                                            stringify!($field), $( $alias )? ),
+                                            fref.map(|f| f.is_true()).unwrap_or(false),
+                                            fref.map(|f| f.to_token_stream()) ) );
                     )+
+                )+
+            )+
 
-                    if set_params.len() > 1 {
-                        let err = darling::Error::custom(
-                            format!("The following options from group '{}' cannot be used together: {}", $group, set_params.iter().map(|f| format!("`{}`", f)).collect::<Vec<String>>().join(", "))
-                        );
+            let mut all_errs = vec![];
 
-                        return Err(err);
+            for (group, exclusives) in groups {
+                let mut set_params = vec![];
+                let mut subgroups_set = 0;
+
+                for subgroup in exclusives {
+                    let mut subgroup_set = false;
+                    for (name, is_set, span) in subgroup {
+                        if is_set {
+                            subgroup_set = true;
+                            set_params.push((name, span));
+                        }
+                    }
+
+                    if subgroup_set {
+                        subgroups_set += 1;
                     }
                 }
-            )+
-            Ok(())
+
+
+                if subgroups_set > 1 {
+                    let mut errs = vec![];
+                    errs.push(
+                        darling::Error::custom(
+                            format!(
+                                "Conflicting arguments {} from group '{}' cannot be used at the same time",
+                                set_params
+                                    .iter()
+                                    .map(|f| format!("'{}'", f.0))
+                                    .collect::<Vec<String>>()
+                                    .join(", "),
+                                group,
+                            )
+                        )
+                    );
+
+                    for (name, span) in set_params {
+                            let err = darling::Error::custom(format!("Argument '{}' is located here", name));
+                            if let Some(span) = span {
+                                errs.push(err.with_span(&span));
+                            }
+                            else {
+                                errs.push(err);
+                            }
+                    }
+
+                    all_errs.push(darling::Error::multiple(errs));
+                }
+            }
+
+            if all_errs.len() > 0 {
+                Err(darling::Error::multiple(all_errs))
+            }
+            else {
+                Ok(())
+            }
         }
     };
 }

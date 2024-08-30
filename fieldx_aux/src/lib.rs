@@ -65,6 +65,12 @@ impl ToTokens for FXPubMode {
     }
 }
 
+impl FXTriggerHelper for FXPubMode {
+    fn is_true(&self) -> bool {
+        true
+    }
+}
+
 pub type FXHelper<const BOOL_ONLY: bool = false> = FXNestingAttr<FXBaseHelper<BOOL_ONLY>>;
 pub type FXValue<T, const BOOL_ONLY: bool = false> = FXNestingAttr<FXValueArg<T, BOOL_ONLY>>;
 pub type FXStringArg = FXNestingAttr<FXValueArg<String>>;

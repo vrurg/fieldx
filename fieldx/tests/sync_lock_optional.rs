@@ -7,7 +7,7 @@ struct Bar {
 
 #[fxstruct(sync, builder)]
 struct Foo {
-    #[fieldx(optional, get_mut, predicate, set)]
+    #[fieldx(lock, optional, get_mut, predicate, set)]
     b1: Bar,
     #[fieldx(optional, lock(off), get_mut, predicate, set)]
     b2: Bar,

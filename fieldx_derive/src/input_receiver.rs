@@ -7,12 +7,12 @@ use quote::ToTokens;
 #[derive(Debug, FromDeriveInput, Getters)]
 #[darling(attributes(fieldx), supports(struct_named), forward_attrs)]
 #[getset(get = "pub")]
-pub(crate) struct FXInputReceiver {
-    pub(crate) vis:      syn::Visibility,
-    pub(crate) ident:    syn::Ident,
-    pub(crate) data:     ast::Data<(), FXField>,
-    pub(crate) attrs:    Vec<syn::Attribute>,
-    pub(crate) generics: syn::Generics,
+pub struct FXInputReceiver {
+    pub vis:      syn::Visibility,
+    pub ident:    syn::Ident,
+    pub data:     ast::Data<(), FXField>,
+    pub attrs:    Vec<syn::Attribute>,
+    pub generics: syn::Generics,
 }
 
 impl FXInputReceiver {

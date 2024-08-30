@@ -15,6 +15,7 @@ exclude.workspace = true
 
 [dependencies]
 fieldx_derive = { workspace = true, features = ["tracing"] }
+fieldx_aux = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = { workspace = true }
 getset = { workspace = true }

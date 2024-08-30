@@ -12,7 +12,7 @@ impl From<&str> for Bar {
 }
 
 #[fxstruct(get(public), builder, default(off))]
-struct NonSync {
+struct Plain {
     #[fieldx(set)]
     bar: Bar,
 
@@ -23,15 +23,15 @@ struct NonSync {
     b3: Bar,
 }
 
-impl NonSync {
+impl Plain {
     fn new(bar: Bar) -> Self {
         Self {
             bar: bar.into(),
-            b2:  (Bar {
+            b2: (Bar {
                 note: "from new".to_string(),
             })
             .into(),
-            b3:  Bar {
+            b3: Bar {
                 note: "b3 from new".to_string(),
             },
         }
@@ -49,7 +49,7 @@ struct IsSync {
     #[fieldx(set)]
     bar: Bar,
 
-    #[fieldx(clearer)]
+    #[fieldx(lock, clearer)]
     b2: Bar,
 }
 
@@ -57,37 +57,37 @@ impl IsSync {
     fn new(bar: Bar) -> Self {
         Self {
             bar: bar.into(),
-            b2:  Default::default(),
+            b2: Default::default(),
         }
     }
 }
 
 #[test]
-fn nonsync() {
-    let mut nonsync = NonSync::new(Bar { note: "manual".into() });
-    assert_eq!(nonsync.bar().note, "manual".to_string());
-    assert_eq!(nonsync.b2().note, "from new".to_string());
-    nonsync.clear_b2();
-    assert_eq!(nonsync.b2().note, "from build".to_string());
+fn plain() {
+    let mut plain = Plain::new(Bar { note: "manual".into() });
+    assert_eq!(plain.bar().note, "manual".to_string());
+    assert_eq!(plain.b2().note, "from new".to_string());
+    plain.clear_b2();
+    assert_eq!(plain.b2().note, "from build".to_string());
 
-    nonsync.set_b3("set+into");
-    assert_eq!(nonsync.b3().note, "set+into".to_string());
+    plain.set_b3("set+into");
+    assert_eq!(plain.b3().note, "set+into".to_string());
 
-    let mut nonsync = NonSync::builder()
+    let mut plain = Plain::builder()
         .bar(Bar {
             note: "from builder".into(),
         })
         .b3("builder+into")
         .build()
-        .expect("NonSync::builder() failed");
+        .expect("Plain::builder() failed");
 
-    assert_eq!(nonsync.bar().note, "from builder".to_string());
-    assert_eq!(nonsync.b3().note, "builder+into".to_string());
+    assert_eq!(plain.bar().note, "from builder".to_string());
+    assert_eq!(plain.b3().note, "builder+into".to_string());
 
-    nonsync.set_bar(Bar {
+    plain.set_bar(Bar {
         note: "manual".to_string(),
     });
-    assert_eq!(nonsync.bar().note, "manual".to_string());
+    assert_eq!(plain.bar().note, "manual".to_string());
 }
 
 #[test]

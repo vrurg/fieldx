@@ -25,7 +25,7 @@ impl FooS {
 
 impl FooN {
     fn build_bar(&self) -> String {
-        "test nonsync".to_string()
+        "test plain".to_string()
     }
 }
 
@@ -36,6 +36,6 @@ fn basic() {
     assert_eq!(foo.bare_field, 3.1415926);
 
     let foo = FooN::new();
-    assert_eq!(foo.bar(), "test nonsync");
+    assert_eq!(foo.bar(), "test plain");
     assert_eq!(foo.bare_field, 321.654);
 }

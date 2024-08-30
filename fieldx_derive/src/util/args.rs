@@ -18,7 +18,11 @@ use proc_macro2::Span;
 #[darling(and_then = Self::validate)]
 #[getset(get = "pub")]
 pub(crate) struct FXSArgs {
-    sync:    Option<FXBoolArg>,
+    #[darling(rename = "sync")]
+    mode_sync:  Option<FXBoolArg>,
+    #[darling(rename = "async")]
+    mode_async: Option<FXBoolArg>,
+
     builder: Option<FXBuilder>,
     into:    Option<FXBoolArg>,
 
@@ -56,17 +60,19 @@ pub(crate) struct FXSArgs {
 impl FXSArgs {
     #[cfg(feature = "serde")]
     validate_exclusives!(
-        "visibility" => public, private;
-        "accessor mode" => copy, clone;
-        "lazy/optional/inner_mut" => lazy, optional, inner_mut;
-        "serde/ref.counting" => serde, rc
+        "visibility": public; private;
+        "accessor mode": copy; clone;
+        "concurrency mode": mode_sync, reader, writer, lock; mode_async; inner_mut;
+        "field mode": lazy; optional, inner_mut;
+        "serde/ref.counting": serde; rc;
     );
 
     #[cfg(not(feature = "serde"))]
     validate_exclusives!(
-        "visibility" => public, private;
-        "accessor mode" => copy, clone;
-        "lazy/optional/inner_mut" => lazy, optional, inner_mut
+        "visibility": public; private;
+        "accessor mode": copy, clone;
+        "concurrency mode": mode_sync, reader, writer, lock; mode_async; inner_mut;
+        "field mode": lazy; optional, inner_mut;
     );
 
     // Generate needs_<helper> methods
@@ -80,8 +86,19 @@ impl FXSArgs {
     }
 
     #[inline]
-    pub fn is_sync(&self) -> bool {
-        self.sync.is_true()
+    pub fn is_sync(&self) -> Option<bool> {
+        self.mode_sync()
+            .as_ref()
+            .map(|th| th.is_true())
+            .or_else(|| self.mode_async().as_ref().map(|th| th.is_true()))
+            .or_else(|| self.lock().as_ref().map(|th| th.is_true()))
+            .or_else(|| self.reader().as_ref().map(|th| th.is_true()))
+            .or_else(|| self.writer().as_ref().map(|th| th.is_true()))
+    }
+
+    #[inline]
+    pub fn is_async(&self) -> bool {
+        self.mode_async.is_true()
     }
 
     #[inline]
@@ -124,11 +141,6 @@ impl FXSArgs {
     #[inline]
     pub fn is_accessor_clone(&self) -> Option<bool> {
         self.accessor_mode().map(|m| m == FXAccessorMode::Clone)
-    }
-
-    #[inline]
-    pub fn is_builder_opt_in(&self) -> bool {
-        self.builder().as_ref().map_or(false, |b| b.is_builder_opt_in())
     }
 
     #[inline]

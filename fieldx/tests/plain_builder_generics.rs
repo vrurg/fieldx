@@ -10,7 +10,7 @@ trait Newish {
 
 #[fxstruct(builder, into)]
 #[derive(Debug)]
-struct NonSync<'a, 'b, T>
+struct Plain<'a, 'b, T>
 where
     T: Display + Debug + Default + Newish,
     'b: 'a,
@@ -28,7 +28,7 @@ where
     _p2: PhantomData<&'b T>,
 }
 
-impl<'a, 'b, T> NonSync<'a, 'b, T>
+impl<'a, 'b, T> Plain<'a, 'b, T>
 where
     T: Display + Debug + Default + Newish,
     'b: 'a,
@@ -50,32 +50,32 @@ impl Newish for String {
 
 #[test]
 fn basic() {
-    let mut nonsync = NonSync::<String>::builder()
+    let mut plain = Plain::<String>::builder()
         .foo("Foo manual")
         .bar("Bar manual")
         .modifiable("from builder".to_string())
         .build()
-        .expect("NonSync instance");
+        .expect("Plain instance");
 
-    assert_eq!(*nonsync.modifiable(), "from builder".to_string());
-    assert_eq!(nonsync.bar(), &"Bar manual".to_string(), "manually set value for bar");
+    assert_eq!(*plain.modifiable(), "from builder".to_string());
+    assert_eq!(plain.bar(), &"Bar manual".to_string(), "manually set value for bar");
     assert_eq!(
-        nonsync.clear_foo(),
+        plain.clear_foo(),
         Some("Foo manual".to_string()),
         "foo was set manually"
     );
     assert_eq!(
-        nonsync.foo(),
+        plain.foo(),
         &String::from("my default string"),
         "foo lazily set to our override"
     );
     assert_eq!(
-        nonsync.clear_bar(),
+        plain.clear_bar(),
         Some("Bar manual".to_string()),
         "bar was set manually"
     );
     assert_eq!(
-        nonsync.bar(),
+        plain.bar(),
         &String::from("my default string"),
         "bar lazily set to our override"
     );

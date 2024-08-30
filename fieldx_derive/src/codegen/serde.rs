@@ -1,11 +1,11 @@
-use super::{FXCGenContextual, FXFieldCtx, FXValueRepr};
+use super::{FXCodeGenContextual, FXFieldCtx, FXValueRepr};
 use crate::helper::FXOrig;
 use darling::ast::NestedMeta;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{spanned::Spanned, Meta};
 
-pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
+pub trait FXCGenSerde: FXCodeGenContextual {
     // Field is an Option in the shadow struct if it is optional or lazy and has no default value
     fn is_serde_optional(&self, fctx: &FXFieldCtx) -> bool {
         fctx.is_optional() || fctx.is_lazy()
@@ -17,24 +17,6 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
         fctx.attrs()
             .iter()
             .filter(move |a| a.path().is_ident("serde") || serde_helper.map_or(false, |sh| sh.accepts_attr(a)))
-    }
-
-    fn serde_derive_traits(&self) -> Vec<TokenStream> {
-        let mut traits: Vec<TokenStream> = vec![];
-        let ctx = self.ctx();
-        if ctx.args().is_serde() {
-            let serde_arg = ctx.args().serde().as_ref();
-            let serde_helper = serde_arg.unwrap();
-            let serde_helper_span = serde_helper.to_token_stream().span();
-
-            if serde_helper.needs_serialize().unwrap_or(true) {
-                traits.push(quote_spanned![serde_helper_span=> Serialize]);
-            }
-            if serde_helper.needs_deserialize().unwrap_or(true) {
-                traits.push(quote_spanned![serde_helper_span=> Deserialize]);
-            }
-        }
-        return traits;
     }
 
     fn serde_skip_toks(&self, field_ctx: &FXFieldCtx) -> TokenStream {
@@ -59,38 +41,6 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
             }
         }
         quote![]
-    }
-
-    fn serde_struct_attribute(&self) -> darling::Result<()> {
-        let ctx = self.ctx();
-        let args = ctx.args();
-
-        ctx.add_attr_from(if args.is_serde() {
-            let mut serde_args: Vec<TokenStream> = vec![];
-
-            let serde_helper = args.serde().as_ref().unwrap();
-            let generics = ctx.input().generics();
-            let shadow_ident = format!("{}{}", ctx.shadow_ident(), generics.to_token_stream());
-
-            if serde_helper.needs_deserialize().unwrap_or(true) {
-                serde_args.push(quote![from = #shadow_ident]);
-            }
-            if serde_helper.needs_serialize().unwrap_or(true) {
-                serde_args.push(quote![into = #shadow_ident]);
-            }
-
-            if serde_args.len() > 0 {
-                quote![ #[serde( #( #serde_args ),*  )] ]
-            }
-            else {
-                quote![]
-            }
-        }
-        else {
-            quote![]
-        });
-
-        Ok(())
     }
 
     fn serde_field_attribute(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
@@ -188,7 +138,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
             .or_else(|| self.ctx().args().attributes().as_ref());
         let ty = self.serde_shadow_field_type(fctx);
 
-        self.add_shadow_field_decl(quote_spanned! [*fctx.span()=>
+        self.ctx().add_shadow_field_decl(quote_spanned! [*fctx.span()=>
             #serde_attr
             #user_attrs
             #( #attrs )*
@@ -208,7 +158,98 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
 
         let field_ident = fctx.ident_tok();
 
-        self.add_shadow_default_decl(quote![ #field_ident: #default_tok ]);
+        self.ctx().add_shadow_default_decl(quote![ #field_ident: #default_tok ]);
+    }
+
+    fn serde_field_default_fn(&self, fctx: &FXFieldCtx) -> darling::Result<syn::Ident> {
+        let fn_ident = fctx.default_fn_ident()?;
+        let field_type = self.serde_shadow_field_type(fctx);
+        let Some(serde_helper) = fctx.serde()
+        else {
+            return Err(darling::Error::custom(format!(
+                "Can't generate default function for non-serde field {}",
+                fctx.ident_str()
+            )));
+        };
+        let Some(serde_default) = serde_helper
+            .default_value()
+            .map(|dv| self.serde_shadow_field_value(fctx, dv.to_token_stream()))
+        else {
+            return Err(darling::Error::custom(format!(
+                "There is no serde 'default' for field {}",
+                fctx.ident_str()
+            )));
+        };
+
+        self.ctx().add_method_decl(quote![
+            fn #fn_ident() -> #field_type {
+                #serde_default
+            }
+        ]);
+        Ok(fn_ident.clone())
+    }
+}
+
+pub trait FXRewriteSerde {
+    fn serde_derive_traits(&self) -> Vec<TokenStream>;
+    fn serde_struct_attribute(&self) -> darling::Result<()>;
+    fn serde_shadow_struct(&self) -> darling::Result<()>;
+    fn serde_struct_from_shadow(&self);
+    fn serde_struct_into_shadow(&self);
+    fn serde_prepare_struct(&self);
+    fn serde_rewrite_struct(&self);
+    fn serde_shadow_default_fn(&self) -> darling::Result<Option<TokenStream>>;
+}
+
+impl FXRewriteSerde for super::FXRewriter {
+    fn serde_derive_traits(&self) -> Vec<TokenStream> {
+        let mut traits: Vec<TokenStream> = vec![];
+        let ctx = self.ctx();
+        if ctx.args().is_serde() {
+            let serde_arg = ctx.args().serde().as_ref();
+            let serde_helper = serde_arg.unwrap();
+            let serde_helper_span = serde_helper.to_token_stream().span();
+
+            if serde_helper.needs_serialize().unwrap_or(true) {
+                traits.push(quote_spanned![serde_helper_span=> Serialize]);
+            }
+            if serde_helper.needs_deserialize().unwrap_or(true) {
+                traits.push(quote_spanned![serde_helper_span=> Deserialize]);
+            }
+        }
+        return traits;
+    }
+
+    fn serde_struct_attribute(&self) -> darling::Result<()> {
+        let ctx = self.ctx();
+        let args = ctx.args();
+
+        ctx.add_attr_from(if args.is_serde() {
+            let mut serde_args: Vec<TokenStream> = vec![];
+
+            let serde_helper = args.serde().as_ref().unwrap();
+            let generics = ctx.input().generics();
+            let shadow_ident = format!("{}{}", ctx.shadow_ident(), generics.to_token_stream());
+
+            if serde_helper.needs_deserialize().unwrap_or(true) {
+                serde_args.push(quote![from = #shadow_ident]);
+            }
+            if serde_helper.needs_serialize().unwrap_or(true) {
+                serde_args.push(quote![into = #shadow_ident]);
+            }
+
+            if serde_args.len() > 0 {
+                quote![ #[serde( #( #serde_args ),*  )] ]
+            }
+            else {
+                quote![]
+            }
+        }
+        else {
+            quote![]
+        });
+
+        Ok(())
     }
 
     fn serde_shadow_struct(&self) -> darling::Result<()> {
@@ -217,10 +258,10 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
         if args.is_serde() {
             let serde_helper = args.serde().as_ref().unwrap();
             let shadow_ident = ctx.shadow_ident();
-            let fields = self.shadow_fields();
+            let fields = ctx.shadow_fields();
             let mut attrs = vec![];
-            let derive_attr = self.derive_toks(&self.serde_derive_traits());
-            let shadow_defaults = self.shadow_defaults();
+            let derive_attr = crate::util::derive_toks(&self.serde_derive_traits());
+            let shadow_defaults = ctx.shadow_defaults();
             let generics = ctx.input().generics();
             let where_clause = &generics.where_clause;
             let vis = serde_helper.public_mode().map(|pm| pm.to_token_stream());
@@ -255,7 +296,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
     }
 
     // Impl From for the shadow struct
-    fn serde_struct_from_shadow(&'f self) {
+    fn serde_struct_from_shadow(&self) {
         let ctx = self.ctx();
         let args = ctx.args();
         if args.is_serde() && args.needs_deserialize() {
@@ -267,16 +308,18 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
             let where_clause = &generics.where_clause;
 
             for field in ctx.all_fields() {
-                let fctx = self.field_ctx(field);
+                let fctx = ctx.field_ctx(field);
                 if let Ok(fctx) = fctx {
                     if fctx.is_serde() && fctx.needs_deserialize() {
-                        let field_ident = fctx.ident_tok();
-                        match self.field_from_shadow(&fctx) {
-                            Ok(fetch_shadow_field) => fields.push(quote_spanned![*fctx.span()=>
+                        ctx.exec_or_record(|| {
+                            let cgen = self.field_codegen(&fctx)?;
+                            let field_ident = fctx.ident_tok();
+                            let fetch_shadow_field = cgen.field_from_shadow(&fctx)?;
+                            fields.push(quote_spanned![*fctx.span()=>
                                 #field_ident: #fetch_shadow_field
-                            ]),
-                            Err(err) => ctx.push_error(err),
-                        }
+                            ]);
+                            Ok(())
+                        });
                     }
                 }
                 else {
@@ -297,7 +340,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
         }
     }
 
-    fn serde_struct_into_shadow(&'f self) {
+    fn serde_struct_into_shadow(&self) {
         let ctx = self.ctx();
         let args = ctx.args();
         if args.is_serde() && args.needs_serialize() {
@@ -310,26 +353,25 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
             let where_clause = &generics.where_clause;
 
             for field in ctx.all_fields() {
-                let fctx = self.field_ctx(field);
+                let fctx = ctx.field_ctx(field);
                 if let Ok(fctx) = fctx {
                     if fctx.is_serde() && fctx.needs_serialize() {
                         let field_ident = fctx.ident_tok();
                         let is_lazy = fctx.is_lazy();
-                        let fetch_struct_field = match self.field_from_struct(&fctx) {
-                            Ok(f) => f,
-                            Err(err) => {
-                                ctx.push_error(err);
-                                continue;
+
+                        ctx.exec_or_record(|| {
+                            let cgen = self.field_codegen(&fctx)?;
+                            let fetch_struct_field = cgen.field_from_struct(&fctx)?;
+
+                            if is_lazy {
+                                let init_call = cgen.field_lazy_initializer(&fctx, Some(quote![(&#me_var)]))?;
+                                lazy_inits.push(quote![ let _ = #init_call; ]);
                             }
-                        };
 
-                        if is_lazy {
-                            let init_call =
-                                self.ok_or_empty(self.field_lazy_initializer(&fctx, Some(quote![(&#me_var)])));
-                            lazy_inits.push(quote![ let _ = #init_call; ]);
-                        }
+                            fields.push(quote_spanned![*fctx.span()=> #field_ident: #fetch_struct_field ]);
 
-                        fields.push(quote_spanned![*fctx.span()=> #field_ident: #fetch_struct_field ]);
+                            Ok(())
+                        });
                     }
                 }
                 else {
@@ -350,26 +392,32 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
         }
     }
 
-    fn serde_prepare_struct(&'f self) {
-        for field in self.ctx().all_fields() {
-            let Ok(fctx) = self.field_ctx(field)
+    fn serde_prepare_struct(&self) {
+        let ctx = self.ctx();
+        for field in ctx.all_fields() {
+            let Ok(fctx) = ctx.field_ctx(field)
             else {
                 continue;
             };
 
             if fctx.is_serde() {
-                self.serde_shadow_field(&fctx);
-                self.serde_shadow_field_default(&fctx);
+                match self.field_codegen(&fctx) {
+                    Ok(cgen) => {
+                        cgen.serde_shadow_field(&fctx);
+                        cgen.serde_shadow_field_default(&fctx);
+                    }
+                    Err(err) => ctx.push_error(err),
+                }
             }
         }
 
-        self.ctx().add_attr_from(self.derive_toks(&self.serde_derive_traits()));
+        ctx.add_attr_from(crate::util::derive_toks(&self.serde_derive_traits()));
 
-        self.ok_or_record(self.serde_struct_attribute());
+        ctx.ok_or_record(self.serde_struct_attribute());
     }
 
-    fn serde_rewrite_struct(&'f self) {
-        self.ok_or_record(self.serde_shadow_struct());
+    fn serde_rewrite_struct(&self) {
+        self.ctx().ok_or_record(self.serde_shadow_struct());
         self.serde_struct_from_shadow();
         self.serde_struct_into_shadow();
     }
@@ -413,7 +461,7 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
                 let generics = ctx.input().generics();
                 let shadow_ident = ctx.shadow_ident();
                 let fn_ident = ctx.unique_ident_pfx(&format!("{}_default", shadow_ident.to_string()));
-                self.add_method_decl(quote![
+                ctx.add_method_decl(quote![
                     fn #fn_ident() -> #shadow_ident #generics {
                         #serde_default.into()
                     }
@@ -430,34 +478,6 @@ pub(crate) trait FXCGenSerde<'f>: FXCGenContextual<'f> {
 
         Ok(None)
     }
-
-    fn serde_field_default_fn(&self, fctx: &FXFieldCtx) -> darling::Result<syn::Ident> {
-        let fn_ident = fctx.default_fn_ident()?;
-        let field_type = self.serde_shadow_field_type(fctx);
-        let Some(serde_helper) = fctx.serde()
-        else {
-            return Err(darling::Error::custom(format!(
-                "Can't generate default function for non-serde field {}",
-                fctx.ident_str()
-            )));
-        };
-        let Some(serde_default) = serde_helper
-            .default_value()
-            .map(|dv| self.serde_shadow_field_value(fctx, dv.to_token_stream()))
-        else {
-            return Err(darling::Error::custom(format!(
-                "There is no serde 'default' for field {}",
-                fctx.ident_str()
-            )));
-        };
-
-        self.add_method_decl(quote![
-            fn #fn_ident() -> #field_type {
-                #serde_default
-            }
-        ]);
-        Ok(fn_ident.clone())
-    }
 }
 
-impl<'f, T> FXCGenSerde<'f> for T where T: FXCGenContextual<'f> {}
+impl<T> FXCGenSerde for T where T: FXCodeGenContextual {}

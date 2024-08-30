@@ -1,57 +1,24 @@
+use super::{FXCodeGenCtx, FXFieldCtx, FXInlining};
 #[cfg(feature = "serde")]
-use crate::codegen::FXCGenSerde;
-use crate::codegen::{
-    context::{FXCodeGenCtx, FXFieldCtx},
-    FXInlining,
-};
+use crate::codegen::serde::FXCGenSerde;
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens};
-use std::{
-    cell::{Ref, RefCell, RefMut},
-    collections::HashMap,
-    iter::Iterator,
-};
+use std::rc::Rc;
 use syn::spanned::Spanned;
 
-use super::{FXCGen, FXCGenContextual, FXHelperKind, FXValueRepr};
+use super::{FXCodeGenContextual, FXHelperKind, FXValueRepr};
 
-pub(crate) struct FXCodeGen<'f> {
-    ctx:                 FXCodeGenCtx,
-    field_ctx_table:     RefCell<HashMap<syn::Ident, FXFieldCtx<'f>>>,
-    field_toks:          RefCell<Vec<TokenStream>>,
-    default_toks:        RefCell<Vec<TokenStream>>,
-    method_toks:         RefCell<Vec<TokenStream>>,
-    builder_field_toks:  RefCell<Vec<TokenStream>>,
-    builder_toks:        RefCell<Vec<TokenStream>>,
-    builder_field_ident: RefCell<Vec<syn::Ident>>,
-    copyable_types:      RefCell<Vec<syn::Type>>,
-    #[cfg(feature = "serde")]
-    shadow_field_toks:   RefCell<Vec<TokenStream>>,
-    #[cfg(feature = "serde")]
-    shadow_default_toks: RefCell<Vec<TokenStream>>,
+pub struct FXCodeGenSync {
+    ctx: Rc<FXCodeGenCtx>,
 }
 
-impl<'f> FXCodeGen<'f> {
-    pub fn new(ctx: FXCodeGenCtx) -> Self {
-        Self {
-            ctx,
-            field_ctx_table: RefCell::new(HashMap::new()),
-            field_toks: RefCell::new(vec![]),
-            default_toks: RefCell::new(vec![]),
-            method_toks: RefCell::new(vec![]),
-            builder_field_toks: RefCell::new(vec![]),
-            builder_field_ident: RefCell::new(vec![]),
-            builder_toks: RefCell::new(vec![]),
-            copyable_types: RefCell::new(vec![]),
-            #[cfg(feature = "serde")]
-            shadow_field_toks: RefCell::new(vec![]),
-            #[cfg(feature = "serde")]
-            shadow_default_toks: RefCell::new(vec![]),
-        }
+impl FXCodeGenSync {
+    pub fn new(ctx: Rc<FXCodeGenCtx>) -> Self {
+        Self { ctx }
     }
 }
 
-impl<'f> FXCodeGen<'f> {
+impl FXCodeGenSync {
     #[inline]
     fn field_proxy_type(&self, _fctx: &FXFieldCtx) -> TokenStream {
         quote![FXProxy]
@@ -82,14 +49,6 @@ impl<'f> FXCodeGen<'f> {
                 }
             ]
         }
-        else if fctx.is_inner_mut() {
-            quote_spanned! [span=>
-                #attributes_fn
-                #vis_tok fn #method_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::std::cell::Ref<'fx_reader_lifetime, #ty> {
-                    self.#ident.borrow()
-                }
-            ]
-        }
         else {
             quote_spanned! [span=>
                 #attributes_fn
@@ -106,10 +65,6 @@ impl<'f> FXCodeGen<'f> {
             let span = fctx.optional_span();
             quote_spanned![span=> ::std::option::Option<#ty>]
         }
-        else if fctx.is_inner_mut() {
-            let span = fctx.inner_mut_span();
-            quote_spanned![span=> ::std::cell::RefCell<#ty>]
-        }
         else {
             quote![#ty]
         }
@@ -125,116 +80,25 @@ impl<'f> FXCodeGen<'f> {
             quote![#ty]
         }
     }
+
+    fn input_type_toks(&self) -> TokenStream {
+        let ident = self.ctx().input_ident();
+        let generic_params = self.generic_params();
+        quote::quote! {
+            #ident #generic_params
+        }
+    }
 }
 
-impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
+impl FXCodeGenContextual for FXCodeGenSync {
     #[inline(always)]
-    fn ctx(&self) -> &FXCodeGenCtx {
+    fn ctx(&self) -> &Rc<FXCodeGenCtx> {
         &self.ctx
     }
 
     #[inline(always)]
     fn fxstruct_trait(&self) -> TokenStream {
         quote![::fieldx::traits::FXStructSync]
-    }
-
-    #[inline(always)]
-    fn field_ctx_table(&'f self) -> Ref<HashMap<syn::Ident, FXFieldCtx<'f>>> {
-        self.field_ctx_table.borrow()
-    }
-
-    #[inline(always)]
-    fn field_ctx_table_mut(&'f self) -> RefMut<HashMap<syn::Ident, FXFieldCtx<'f>>> {
-        self.field_ctx_table.borrow_mut()
-    }
-
-    #[inline(always)]
-    fn builder_field_ident(&self) -> &RefCell<Vec<syn::Ident>> {
-        &self.builder_field_ident
-    }
-
-    fn copyable_types(&self) -> std::cell::Ref<Vec<syn::Type>> {
-        self.copyable_types.borrow()
-    }
-
-    #[cfg(feature = "serde")]
-    fn shadow_fields(&self) -> std::cell::Ref<Vec<TokenStream>> {
-        self.shadow_field_toks.borrow()
-    }
-
-    #[cfg(feature = "serde")]
-    fn shadow_defaults(&self) -> std::cell::Ref<Vec<TokenStream>> {
-        self.shadow_default_toks.borrow()
-    }
-
-    fn add_field_decl(&self, field: TokenStream) {
-        self.field_toks.borrow_mut().push(field);
-    }
-
-    fn add_defaults_decl(&self, defaults: TokenStream) {
-        self.default_toks.borrow_mut().push(defaults);
-    }
-
-    fn add_method_decl(&self, method: TokenStream) {
-        if !method.is_empty() {
-            self.method_toks.borrow_mut().push(method);
-        }
-    }
-
-    fn add_builder_decl(&self, builder: TokenStream) {
-        if !builder.is_empty() {
-            self.builder_toks.borrow_mut().push(builder);
-        }
-    }
-
-    fn add_builder_field_decl(&self, builder_field: TokenStream) {
-        if !builder_field.is_empty() {
-            self.builder_field_toks.borrow_mut().push(builder_field);
-        }
-    }
-
-    fn add_builder_field_ident(&self, field_ident: syn::Ident) {
-        self.builder_field_ident.borrow_mut().push(field_ident);
-    }
-
-    fn add_for_copy_trait_check(&self, fctx: &FXFieldCtx) {
-        self.copyable_types.borrow_mut().push(fctx.ty().clone());
-    }
-
-    #[cfg(feature = "serde")]
-    fn add_shadow_field_decl(&self, field: TokenStream) {
-        self.shadow_field_toks.borrow_mut().push(field);
-    }
-
-    #[cfg(feature = "serde")]
-    fn add_shadow_default_decl(&self, field: TokenStream) {
-        self.shadow_default_toks.borrow_mut().push(field);
-    }
-
-    fn methods_combined(&self) -> TokenStream {
-        let method_toks = self.method_toks.borrow();
-        quote! [ #( #method_toks )* ]
-    }
-
-    fn struct_fields(&self) -> Ref<Vec<TokenStream>> {
-        self.field_toks.borrow()
-    }
-
-    fn defaults_combined(&self) -> TokenStream {
-        let default_toks = self.default_toks.borrow();
-        quote! [ #( #default_toks ),* ]
-    }
-
-    fn builders_combined(&self) -> TokenStream {
-        let builder_toks = &*self.builder_toks.borrow();
-        quote![
-            #( #builder_toks )*
-        ]
-    }
-
-    fn builder_fields_combined(&self) -> TokenStream {
-        let build_field_toks = &*self.builder_field_toks.borrow();
-        quote! [ #( #build_field_toks ),* ]
     }
 
     fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> &'s TokenStream {
@@ -325,14 +189,6 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                         }
                     ]
                 }
-                else if fctx.is_inner_mut() {
-                    quote_spanned![span=>
-                        #attributes_fn
-                        #vis_tok fn #accessor_name(&self) -> #ty {
-                            (*self.#ident.borrow()) #cmethod
-                        }
-                    ]
-                }
                 else {
                     let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
                     quote_spanned![span=>
@@ -345,14 +201,6 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             }
             else if is_lazy || fctx.needs_lock() {
                 self.field_reader_method(fctx, FXHelperKind::Accessor)?
-            }
-            else if fctx.is_inner_mut() {
-                quote_spanned![span=>
-                    #attributes_fn
-                    #vis_tok fn #accessor_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::std::cell::Ref<'fx_reader_lifetime, #ty> {
-                        self.#ident.borrow()
-                    }
-                ]
             }
             else {
                 let ty = self.maybe_optional_ty(fctx, ty);
@@ -386,14 +234,6 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                     #attributes_fn
                     #vis_tok fn #accessor_name<'fx_get_mut>(&'fx_get_mut self) -> ::fieldx::MappedRwLockWriteGuard<'fx_get_mut, #ty> {
                         self.#ident.read_mut(&#read_arg)
-                    }
-                ]
-            }
-            else if fctx.is_inner_mut() {
-                quote_spanned![span=>
-                    #attributes_fn
-                    #vis_tok fn #accessor_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> ::std::cell::RefMut<'fx_reader_lifetime, #ty> {
-                        self.#ident.borrow_mut()
                     }
                 ]
             }
@@ -501,26 +341,19 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
     fn field_from_shadow(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let field_ident = fctx.ident_tok();
         let shadow_var = self.ctx().shadow_var_ident();
-        if fctx.is_inner_mut() {
-            self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![#shadow_var.#field_ident ]))
-        }
-        else {
-            self.field_value_wrap(fctx, FXValueRepr::Exact(quote![#shadow_var.#field_ident ]))
-        }
+        self.field_value_wrap(fctx, FXValueRepr::Exact(quote![#shadow_var.#field_ident ]))
     }
 
     #[cfg(feature = "serde")]
     fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let field_ident = fctx.ident_tok();
         let me_var = self.ctx().me_var_ident();
-        Ok(
-            if self.is_serde_optional(fctx) || fctx.needs_lock() || fctx.is_inner_mut() {
-                quote![ #me_var.#field_ident.into_inner() ]
-            }
-            else {
-                quote![ #me_var.#field_ident ]
-            },
-        )
+        Ok(if self.is_serde_optional(fctx) || fctx.needs_lock() {
+            quote![ #me_var.#field_ident.into_inner() ]
+        }
+        else {
+            quote![ #me_var.#field_ident ]
+        })
     }
 
     fn field_reader(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
@@ -603,15 +436,6 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
                     #vis_tok fn #set_name #gen_params(& #mutable self, value: #val_type) -> ::std::option::Option<#ty> {
                         self.#ident #lock_method .replace(value #into_tok)
                     }
-                ]
-            }
-            else if fctx.is_inner_mut() {
-                quote_spanned! [span=>
-                    #attributes_fn
-                    #vis_tok fn #set_name #gen_params(&self, value: #val_type) -> #ty {
-                        self.#ident.replace(value #into_tok)
-                    }
-
                 ]
             }
             else if fctx.needs_lock() {
@@ -724,9 +548,6 @@ impl<'f> FXCGenContextual<'f> for FXCodeGen<'f> {
             FXValueRepr::Versatile(v) => {
                 if is_optional || is_lazy {
                     quote_spanned![ident_span=> ::std::option::Option::Some(#v)]
-                }
-                else if fctx.is_inner_mut() {
-                    quote_spanned![ident_span=> ::std::cell::RefCell::from(#v)]
                 }
                 else {
                     quote_spanned![ident_span=> #v]

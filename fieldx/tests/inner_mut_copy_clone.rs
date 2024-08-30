@@ -1,11 +1,13 @@
+// Make sure inner_mut doesn't break copy and clone getters
+
 use fieldx::fxstruct;
 
 #[fxstruct(sync, builder)]
 struct Foo {
-    #[fieldx(get(copy))]
+    #[fieldx(inner_mut, get(copy))]
     m1: u32,
 
-    #[fieldx(get(clone))]
+    #[fieldx(inner_mut, get(clone))]
     m2: String,
 }
 

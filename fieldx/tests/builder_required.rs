@@ -2,7 +2,7 @@ use fieldx::fxstruct;
 
 #[fxstruct(builder)]
 #[derive(Debug)]
-struct FooNonsync {
+struct FooPlain {
     #[fieldx(optional, get, builder(required, attributes_fn(allow(dead_code))))]
     #[allow(dead_code)]
     v: i32,
@@ -17,9 +17,9 @@ struct FooSync {
 }
 
 #[test]
-fn nonsync() {
-    let foo = FooNonsync::builder().build();
-    println!("nonsync: {:?}", foo);
+fn plain() {
+    let foo = FooPlain::builder().build();
+    println!("plain: {:?}", foo);
 }
 
 #[test]

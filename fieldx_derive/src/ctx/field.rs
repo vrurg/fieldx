@@ -1,18 +1,19 @@
+use super::FXCodeGenCtx;
 use crate::{
     fields::FXField,
-    helper::{FXHelperContainer, FXHelperKind, FXOrig},
-    input_receiver::FXInputReceiver,
-    util::args::{self, FXSArgs},
+    helper::{FXHelperContainer, FXHelperKind},
 };
 use darling::ast::NestedMeta;
 use delegate::delegate;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXSerde;
-use fieldx_aux::{FXAccessorMode, FXAttributes, FXBoolArg, FXBuilder, FXHelperTrait, FXPubMode};
-use getset::{CopyGetters, Getters};
+use fieldx_aux::{FXAccessorMode, FXAttributes, FXBoolArg, FXBuilder, FXHelperTrait, FXOrig, FXPubMode};
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, ToTokens};
-use std::cell::{OnceCell, RefCell};
+use quote::{quote, ToTokens};
+use std::{
+    cell::{OnceCell, RefCell},
+    rc::Rc,
+};
 
 // For FXFieldCtx
 macro_rules! helper_fn_ctx {
@@ -42,54 +43,10 @@ macro_rules! arg_accessor {
     };
 }
 
-struct Attributizer(Option<syn::Attribute>);
-
-impl Attributizer {
-    fn into_inner(self) -> Option<syn::Attribute> {
-        self.0
-    }
-}
-
-impl<T> From<T> for Attributizer
-where
-    T: ToTokens,
-{
-    fn from(attr: T) -> Self {
-        let toks = attr.to_token_stream();
-        if toks.is_empty() {
-            Self(None)
-        }
-        else {
-            Self(Some(syn::parse_quote!(#attr)))
-        }
-    }
-}
-
-// --- Contexts ---
-
-#[derive(Debug, Getters, CopyGetters)]
-pub(crate) struct FXCodeGenCtx {
-    errors:               RefCell<OnceCell<darling::error::Accumulator>>,
-    needs_builder_struct: RefCell<Option<bool>>,
-    tokens:               RefCell<OnceCell<TokenStream>>,
-    #[cfg(feature = "serde")]
-    shadow_var_ident:     OnceCell<syn::Ident>,
-    #[cfg(feature = "serde")]
-    me_var_ident:         OnceCell<syn::Ident>,
-    #[getset(get = "pub")]
-    args:                 FXSArgs,
-    #[getset(get = "pub")]
-    input:                FXInputReceiver,
-    extra_attrs:          RefCell<Vec<syn::Attribute>>,
-    extra_fields:         RefCell<Vec<FXField>>,
-    unique_id:            RefCell<u32>,
-    needs_default:        RefCell<OnceCell<bool>>,
-}
-
 #[derive(Debug)]
-pub(crate) struct FXFieldCtx<'f> {
+pub struct FXFieldCtx {
     field:            FXField,
-    codegen_ctx:      &'f FXCodeGenCtx,
+    codegen_ctx:      Rc<FXCodeGenCtx>,
     ty_tok:           OnceCell<TokenStream>,
     ty_wrapped:       OnceCell<TokenStream>,
     ident:            OnceCell<syn::Ident>,
@@ -99,202 +56,7 @@ pub(crate) struct FXFieldCtx<'f> {
     builder_checker:  RefCell<Option<TokenStream>>,
 }
 
-impl FXCodeGenCtx {
-    pub fn new(input: FXInputReceiver, args: args::FXSArgs) -> Self {
-        Self {
-            input,
-            args,
-            errors: RefCell::new(OnceCell::new()),
-            tokens: RefCell::new(OnceCell::new()),
-            #[cfg(feature = "serde")]
-            me_var_ident: OnceCell::new(),
-            #[cfg(feature = "serde")]
-            shadow_var_ident: OnceCell::new(),
-            needs_builder_struct: RefCell::new(None),
-            extra_attrs: RefCell::new(vec![]),
-            extra_fields: RefCell::new(vec![]),
-            unique_id: RefCell::new(0),
-            needs_default: RefCell::new(OnceCell::new()),
-        }
-    }
-
-    pub fn push_error(&self, err: darling::Error) {
-        let mut errors = self.errors.borrow_mut();
-        errors.get_or_init(|| darling::Error::accumulator());
-        errors.get_mut().unwrap().push(err);
-    }
-
-    pub fn input_ident(&self) -> &syn::Ident {
-        &self.input.ident()
-    }
-
-    pub fn tokens_extend(&self, toks: TokenStream) {
-        let mut tokens = self.tokens.borrow_mut();
-        tokens.get_or_init(|| TokenStream::new());
-        tokens.get_mut().unwrap().extend(toks);
-    }
-
-    #[inline]
-    pub fn finalize(&self) -> TokenStream {
-        let mut errors = self.errors.borrow_mut();
-        match errors.take() {
-            Some(errs) => match errs.finish() {
-                Ok(_) => (),
-                Err(err) => {
-                    self.tokens_extend(TokenStream::from(darling::Error::from(err).write_errors()));
-                }
-            },
-            None => (),
-        };
-
-        self.tokens.borrow_mut().take().unwrap_or_else(|| TokenStream::new())
-    }
-
-    #[inline]
-    pub fn needs_builder_struct(&self) -> Option<bool> {
-        (*self.needs_builder_struct.borrow()).or(self.args.needs_builder())
-    }
-
-    #[inline]
-    pub fn require_builder(&self) {
-        let mut nb_ref = self.needs_builder_struct.borrow_mut();
-        if nb_ref.is_none() {
-            *nb_ref = Some(true);
-        }
-    }
-
-    #[cfg(feature = "serde")]
-    #[inline]
-    pub fn shadow_ident(&self) -> syn::Ident {
-        if let Some(custom_name) = self.args.serde().as_ref().and_then(|s| s.shadow_name()) {
-            quote::format_ident!("{}", custom_name)
-        }
-        else {
-            quote::format_ident!("__{}Shadow", self.input_ident())
-        }
-    }
-
-    #[cfg(feature = "serde")]
-    #[inline]
-    // How to reference shadow instance in an associated function
-    pub fn shadow_var_ident(&self) -> &syn::Ident {
-        self.shadow_var_ident.get_or_init(|| format_ident!("__shadow"))
-    }
-
-    // How to reference struct instance in an associated function
-    #[cfg(feature = "serde")]
-    #[inline]
-    pub fn me_var_ident(&self) -> &syn::Ident {
-        self.me_var_ident.get_or_init(|| format_ident!("__me"))
-    }
-
-    #[allow(dead_code)]
-    #[inline]
-    pub fn add_attr_from<ATTR: ToTokens>(&self, attr: ATTR) {
-        let Some(attr) = Attributizer::from(attr).into_inner()
-        else {
-            return;
-        };
-        self.extra_attrs.borrow_mut().push(attr);
-    }
-
-    #[allow(dead_code)]
-    #[inline]
-    pub fn add_attr(&self, attr: syn::Attribute) {
-        self.extra_attrs.borrow_mut().push(attr);
-    }
-
-    #[inline]
-    pub fn add_field(&self, field: FXField) {
-        self.extra_fields.borrow_mut().push(field);
-    }
-
-    #[inline]
-    pub fn all_attrs(&self) -> Vec<syn::Attribute> {
-        let mut attrs: Vec<syn::Attribute> = self
-            .extra_attrs
-            .borrow()
-            .iter()
-            .chain(self.input().attrs().iter())
-            .cloned()
-            .collect();
-        attrs.sort_by(|a, b| {
-            if a.path().is_ident("derive") && !b.path().is_ident("derive") {
-                std::cmp::Ordering::Less
-            }
-            else if !a.path().is_ident("derive") && b.path().is_ident("derive") {
-                std::cmp::Ordering::Greater
-            }
-            else {
-                std::cmp::Ordering::Equal
-            }
-        });
-        attrs
-    }
-
-    pub fn all_fields(&self) -> Vec<FXField> {
-        self.extra_fields
-            .borrow()
-            .iter()
-            .chain(self.input().fields().iter().cloned())
-            .cloned()
-            .collect()
-    }
-
-    #[allow(dead_code)]
-    #[inline]
-    pub fn unique_ident_pfx(&self, prefix: &str) -> syn::Ident {
-        let new_count = *self.unique_id.borrow() + 1;
-        let _ = self.unique_id.replace(new_count);
-        format_ident!("{}_{}", prefix, new_count)
-    }
-
-    #[allow(dead_code)]
-    #[inline]
-    pub fn unique_ident(&self) -> syn::Ident {
-        self.unique_ident_pfx(&format!("__{}_fxsym", self.input_ident()))
-    }
-
-    #[inline]
-    pub fn helper_span(&self, helper_kind: FXHelperKind) -> Span {
-        self.args()
-            .get_helper_span(helper_kind)
-            .unwrap_or_else(|| Span::call_site())
-    }
-
-    pub fn needs_default(&self) -> bool {
-        let args = self.args();
-
-        *self.needs_default.borrow_mut().get_or_init(|| {
-            if let Some(needs_default) = args.needs_default() {
-                return needs_default;
-            }
-
-            if args.needs_new() {
-                return true;
-            }
-
-            let is_sync = args.is_sync();
-
-            if is_sync && args.is_lazy().unwrap_or(false) {
-                return true;
-            }
-
-            if self
-                .input()
-                .fields()
-                .iter()
-                .any(|f| f.has_default_value() || (is_sync && f.is_lazy().unwrap_or(false)))
-            {
-                return true;
-            }
-
-            false
-        })
-    }
-}
-
-impl<'f> FXFieldCtx<'f> {
+impl FXFieldCtx {
     delegate! {
         to self.field {
             pub fn attributes_fn(&self) -> &Option<FXAttributes>;
@@ -321,7 +83,8 @@ impl<'f> FXFieldCtx<'f> {
 
     arg_accessor! { optional: FXBoolArg, lock: FXBoolArg, inner_mut: FXBoolArg }
 
-    pub fn new(field: FXField, codegen_ctx: &'f FXCodeGenCtx) -> Self {
+    pub fn new(field: FXField, codegen_ctx: &Rc<FXCodeGenCtx>) -> Self {
+        let codegen_ctx = Rc::clone(codegen_ctx);
         Self {
             field,
             codegen_ctx,
@@ -344,17 +107,19 @@ impl<'f> FXFieldCtx<'f> {
     pub fn needs_accessor(&self) -> bool {
         self.field
             .needs_accessor()
-            .or_else(|| self.codegen_ctx.args.needs_accessor())
+            .or_else(|| self.codegen_ctx.args().needs_accessor())
             .unwrap_or_else(|| self.needs_clearer() || self.needs_predicate() || self.is_lazy() || self.is_inner_mut())
     }
 
     #[inline]
     pub fn needs_builder(&self) -> bool {
+        let codegen_ctx = self.codegen_ctx();
         self.field.needs_builder().unwrap_or_else(|| {
-            let args = self.codegen_ctx().args();
-            args.needs_builder()
+            codegen_ctx
+                .args()
+                .needs_builder()
                 .as_ref()
-                .map_or(false, |needs| *needs && !args.is_builder_opt_in())
+                .map_or(false, |needs| *needs && !codegen_ctx.is_builder_opt_in())
         })
     }
 
@@ -370,7 +135,7 @@ impl<'f> FXFieldCtx<'f> {
     pub fn needs_predicate(&self) -> bool {
         self.field
             .needs_predicate()
-            .or_else(|| self.codegen_ctx.args.needs_predicate())
+            .or_else(|| self.codegen_ctx.args().needs_predicate())
             .unwrap_or(false)
     }
 
@@ -378,7 +143,7 @@ impl<'f> FXFieldCtx<'f> {
     pub fn needs_reader(&self) -> bool {
         self.field
             .needs_reader()
-            .or_else(|| self.codegen_ctx.args.needs_reader())
+            .or_else(|| self.codegen_ctx.args().needs_reader())
             .unwrap_or(false)
         // .unwrap_or_else(|| self.codegen_ctx.args().is_sync() && (self.is_lazy() || self.is_optional()))
     }
@@ -412,6 +177,22 @@ impl<'f> FXFieldCtx<'f> {
         self.builder().as_ref().map_or(false, |b| b.name().is_some())
     }
 
+    #[inline]
+    pub fn is_sync(&self) -> bool {
+        self.field
+            .is_sync()
+            .unwrap_or_else(|| self.codegen_ctx().is_rather_sync())
+    }
+
+    #[inline]
+    #[allow(dead_code)] // XXX Temporaryly, until asyncs are implemented
+    pub fn is_async(&self) -> bool {
+        self.field
+            .is_async()
+            .unwrap_or_else(|| self.codegen_ctx().args().is_async())
+    }
+
+    #[inline]
     pub fn is_copy(&self) -> bool {
         self.field
             .is_accessor_copy()
@@ -421,6 +202,7 @@ impl<'f> FXFieldCtx<'f> {
             .unwrap_or(false)
     }
 
+    #[inline]
     pub fn is_clone(&self) -> bool {
         self.field
             .is_accessor_clone()
@@ -430,21 +212,23 @@ impl<'f> FXFieldCtx<'f> {
             .unwrap_or(false)
     }
 
+    #[inline]
     pub fn is_builder_into(&self) -> bool {
         self.field
             .is_builder_into()
             .or_else(|| self.field.is_into())
             .or_else(|| self.codegen_ctx().args().is_builder_into())
-            .or_else(|| self.codegen_ctx.args.is_into())
+            .or_else(|| self.codegen_ctx.args().is_into())
             .unwrap_or(false)
     }
 
+    #[inline]
     pub fn is_setter_into(&self) -> bool {
         self.field
             .is_setter_into()
             .or_else(|| self.field.is_into())
             .or_else(|| self.codegen_ctx().args().is_setter_into())
-            .or_else(|| self.codegen_ctx.args.is_into())
+            .or_else(|| self.codegen_ctx.args().is_into())
             .unwrap_or(false)
     }
 
@@ -453,7 +237,7 @@ impl<'f> FXFieldCtx<'f> {
             && self
                 .field
                 .is_optional()
-                .or_else(|| self.codegen_ctx.args.is_optional())
+                .or_else(|| self.codegen_ctx.args().is_optional())
                 .unwrap_or_else(|| (!self.is_lazy() && (self.needs_clearer() || self.needs_predicate())))
     }
 
@@ -483,9 +267,9 @@ impl<'f> FXFieldCtx<'f> {
                     }
                 })
             })
-            .or_else(|| self.codegen_ctx.args.accessor_mode())
+            .or_else(|| self.codegen_ctx.args().accessor_mode())
             .or_else(|| {
-                self.codegen_ctx.args.is_copy().and_then(|is_copy| {
+                self.codegen_ctx.args().is_copy().and_then(|is_copy| {
                     if is_copy {
                         Some(FXAccessorMode::Copy)
                     }
@@ -507,7 +291,7 @@ impl<'f> FXFieldCtx<'f> {
     }
 
     #[inline]
-    pub fn field(&'f self) -> &'f FXField {
+    pub fn field(&self) -> &FXField {
         &self.field
     }
 

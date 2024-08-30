@@ -106,7 +106,7 @@ fn empties() {
         .lazy_default("non-lazy, non-default".to_string())
         .modifiable("non-skippable")
         .build()
-        .expect("NonSync instance");
+        .expect("Plain instance");
 
     assert_eq!(
         *foo.lazy_default(),

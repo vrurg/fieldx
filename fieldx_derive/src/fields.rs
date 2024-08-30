@@ -27,6 +27,11 @@ pub(crate) struct FXFieldReceiver {
 
     skip: Flag,
 
+    #[darling(rename = "sync")]
+    mode_sync:  Option<FXBoolArg>,
+    #[darling(rename = "async")]
+    mode_async: Option<FXBoolArg>,
+
     // Default method attributes for this field.
     attributes_fn: Option<FXAttributes>,
     lazy:          Option<FXHelper>,
@@ -116,14 +121,19 @@ impl ToTokens for FXField {
 }
 
 impl FXFieldReceiver {
-    validate_exclusives! {"visibility" => public, private; "accessor mode" => copy, clone; "field mode" => lazy, optional}
+    validate_exclusives! {
+        "visibility": public; private;
+        "accessor mode": copy; clone;
+        "field mode":  lazy; optional, inner_mut;
+        "concurrency mode": mode_sync as "sync", lock, reader, writer; mode_async as "async"; inner_mut;
+    }
 
     // Generate field-level needs_<helper> methods. The final decision of what's needed and what's not is done by
     // FXFieldCtx.
     needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
 
     pub fn validate(&self) -> darling::Result<()> {
-        self.validate_exclusives().map_err(|err| err.with_span(self.span()))
+        self.validate_exclusives() //.map_err(|err| err.with_span(self.span()))
     }
 
     #[inline]
@@ -154,6 +164,35 @@ impl FXFieldReceiver {
         else {
             None
         }
+    }
+
+    pub fn is_plain(&self) -> Option<bool> {
+        self.is_inner_mut()
+    }
+
+    pub fn is_sync(&self) -> Option<bool> {
+        self.mode_sync()
+            .as_ref()
+            .map(|th| th.is_true())
+            .or_else(|| self.mode_async().as_ref().map(|th| th.is_true()))
+            .or_else(|| self.lock().as_ref().map(|th| th.is_true()))
+            .or_else(|| self.is_plain().map(|b| !b))
+            .or_else(|| {
+                // Setting reader or writer to off doesn't mean the field becomes plain. It's better be decided at the
+                // struct level then.
+                if self.reader().as_ref().map_or(false, |th| th.is_true())
+                    || self.writer().as_ref().map_or(false, |th| th.is_true())
+                {
+                    Some(true)
+                }
+                else {
+                    None
+                }
+            })
+    }
+
+    pub fn is_async(&self) -> Option<bool> {
+        self.mode_async().as_ref().map(|th| th.is_true())
     }
 
     #[inline]
@@ -308,7 +347,7 @@ impl FXHelperContainer for FXFieldReceiver {
 
     fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span> {
         match kind {
-            FXHelperKind::Accessor => self.accessor().as_ref().map(|h| h.span()),
+            FXHelperKind::Accessor => self.accessor().as_ref().map(|h| (h.span())),
             FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| h.span()),
             FXHelperKind::Builder => self.builder().as_ref().map(|h| h.span()),
             FXHelperKind::Clearer => self.clearer().as_ref().map(|h| h.span()),

@@ -1,4 +1,15 @@
 pub(crate) mod args;
+use proc_macro2::TokenStream;
+use quote::quote;
+
+pub fn derive_toks(traits: &[TokenStream]) -> TokenStream {
+    if traits.len() > 0 {
+        quote!(#[derive(#( #traits ),*)])
+    }
+    else {
+        quote![]
+    }
+}
 
 #[cfg(not(debug_assertions))]
 #[allow(unused)]
