@@ -1,46 +1,44 @@
 [workspace.package]
-authors = ["Vadim Belman"]
-edition = "2021"
-repository = "https://github.com/vrurg/fieldx.git"
-license-file = "LICENSE"
-keywords = ["lazy", "field", "macro", "builder", "struct"]
-categories = [
-    "concurrency",
-    "development-tools::procedural-macro-helpers",
-    "rust-patterns",
-]
-exclude = ["Makefile.toml"]
+    authors      = ["Vadim Belman"]
+    categories   = ["concurrency", "development-tools::procedural-macro-helpers", "rust-patterns"]
+    edition      = "2021"
+    exclude      = ["Makefile.toml"]
+    keywords     = ["lazy", "field", "macro", "builder", "struct"]
+    license-file = "LICENSE"
+    repository   = "https://github.com/vrurg/fieldx.git"
 
 [workspace]
-resolver = "2"
-members = ["fieldx", "fieldx_aux", "fieldx_derive", "fieldx_derive_support"]
+    members  = ["fieldx", "fieldx_aux", "fieldx_derive", "fieldx_derive_support"]
+    resolver = "2"
 
 [workspace.dependencies]
-fieldx = { version = "0.1.4-beta.1", path = "fieldx" }
-fieldx_aux = { version = "0.1.4-beta.1", path = "fieldx_aux" }
-fieldx_derive = { version = "0.1.4-beta.1", path = "fieldx_derive" }
-fieldx_derive_support = { version = "0.1.4-beta.1", path = "fieldx_derive_support" }
-crossbeam = "0.8"
-darling = ">=0.20.7"
-delegate = "0.12"
-enum_dispatch = "0.3"
-getset = "0.1"
-num_cpus = "1.16"
-parking_lot = "0.12"
-paste = "1.0"
-proc-macro2 = "1.0"
-quote = "1.0"
-rust-format = "0.3"
-rustc_version = "0.4"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "=1.0.117"
-syn = "2.0"
-thiserror = "1.0"
-trybuild = "1.0"
-cargo-toolchain = "0.1"
+    async-lock            = "3.4"
+    cargo-toolchain       = "0.1"
+    crossbeam             = "0.8"
+    darling               = ">=0.20.7"
+    delegate              = "0.12"
+    enum_dispatch         = "0.3"
+    fieldx                = { version = "0.1.4-beta.1", path = "fieldx" }
+    fieldx_aux            = { version = "0.1.4-beta.1", path = "fieldx_aux" }
+    fieldx_derive         = { version = "0.1.4-beta.1", path = "fieldx_derive" }
+    fieldx_derive_support = { version = "0.1.4-beta.1", path = "fieldx_derive_support" }
+    getset                = "0.1"
+    num_cpus              = "1.16"
+    parking_lot           = "0.12"
+    paste                 = "1.0"
+    proc-macro2           = "1.0"
+    quote                 = "1.0"
+    rust-format           = "0.3"
+    rustc_version         = "0.4"
+    serde                 = { version = "1.0", features = ["derive"] }
+    serde_json            = "=1.0.117"
+    syn                   = "2.0"
+    thiserror             = "1.0"
+    tokio                 = { version = "1.39", default-features = false }
+    trybuild              = ">=1.0"
 
 [patch.crates-io]
-fieldx = { path = "fieldx" }
-fieldx_aux = { path = "fieldx_aux" }
-fieldx_derive = { path = "fieldx_derive" }
-fieldx_derive_support = { path = "fieldx_derive_support" }
+    fieldx                = { path = "fieldx" }
+    fieldx_aux            = { path = "fieldx_aux" }
+    fieldx_derive         = { path = "fieldx_derive" }
+    fieldx_derive_support = { path = "fieldx_derive_support" }

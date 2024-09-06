@@ -1,40 +1,42 @@
-use crate::traits::{FXNewDefault, FXStruct};
-use parking_lot::{
-    MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard,
-};
+use crate::traits::FXNewDefault;
+use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
 use std::{
     any,
     cell::RefCell,
     fmt,
+    future::Future,
     marker::PhantomData,
+    pin::Pin,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
 };
 
+type FXCallback<S, T> = Box<dyn Fn(&S) -> Pin<Box<dyn Future<Output = T> + Send>> + Send + Sync>;
+
 /// Container type for lazy fields
 ///
 /// Direct use of this struct is not recommended. See [reader and writer helpers](mod@crate#reader_writer_helpers).
-pub struct FXProxy<S, T> {
+pub struct FXProxyAsync<S, T> {
     value:   RwLock<Option<T>>,
     is_set:  AtomicBool,
-    builder: RwLock<Option<fn(&S) -> T>>,
+    builder: RwLock<Option<FXCallback<S, T>>>,
 }
 
 /// Write-lock returned by [`FXProxy::write`] method
 ///
 /// This type, in cooperation with the [`FXProxy`] type, takes care of safely updating lazy field status when data is
 /// being stored.
-pub struct FXWrLock<'a, S, T> {
+pub struct FXWrLockAsync<'a, S, T> {
     lock:     RefCell<RwLockWriteGuard<'a, Option<T>>>,
     fxproxy:  &'a FXProxy<S, T>,
     _phantom: PhantomData<S>,
 }
 
-impl<S, T: fmt::Debug> fmt::Debug for FXProxy<S, T> {
+impl<S, T: fmt::Debug> fmt::Debug for FXProxyAsync<S, T> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let vlock = self.value.read();
+        let vlock = self.value.read_blocking();
         formatter
             .debug_struct(any::type_name::<Self>())
             .field("value", &*vlock)
@@ -42,21 +44,25 @@ impl<S, T: fmt::Debug> fmt::Debug for FXProxy<S, T> {
     }
 }
 
-impl<S, T> FXNewDefault<S, T> for FXProxy<S, T>
+impl<S, T> FXNewDefault<S, T> for FXProxyAsync<S, T>
 where
     S: FXStruct,
 {
     #[doc(hidden)]
-    fn new_default(builder_method: fn(&S) -> T, value: Option<T>) -> Self {
+    fn new_default<F, Fut>(builder_method: F, value: Option<T>) -> Self
+    where
+        F: Fn(&S) -> Fut,
+        Fut: Future<Output = T> + Send,
+    {
         Self {
             is_set:  AtomicBool::new(value.is_some()),
             value:   RwLock::new(value),
-            builder: RwLock::new(Some(builder_method)),
+            builder: RwLock::new(Some(Box::new(move |s| Box::pin(callback(s))))),
         }
     }
 }
 
-impl<S, T> FXNewDefault<Arc<S>, T> for FXProxy<Arc<S>, T>
+impl<S, T> FXNewDefault<Arc<S>, T> for FXProxyAsync<Arc<S>, T>
 where
     S: FXStruct,
 {
@@ -176,7 +182,7 @@ impl<'a, S, T> FXWrLock<'a, S, T> {
 
 impl<S, T> Clone for FXProxy<S, T>
 where
-    S: FXStruct,
+    S: FXStructSync,
     T: Clone,
 {
     fn clone(&self) -> Self {

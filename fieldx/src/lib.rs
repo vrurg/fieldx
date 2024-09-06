@@ -924,20 +924,22 @@
 //! [`parking_lot`]: https://docs.rs/parking_lot
 //! [`serde`]: https://docs.rs/serde
 
+pub mod r#async;
 pub mod errors;
 pub mod sync;
 pub mod traits;
 
-pub use crate::sync::*;
 pub use fieldx_aux::FXOrig;
 pub use fieldx_derive::fxstruct;
 #[doc(hidden)]
 pub use parking_lot::{
     MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard,
 };
+pub use r#async::*;
 #[doc(hidden)]
 pub use std::{
     cell::{OnceCell, Ref, RefCell, RefMut},
     fmt,
     sync::atomic::Ordering,
 };
+pub use sync::*;

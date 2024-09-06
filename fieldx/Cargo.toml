@@ -1,36 +1,37 @@
 [package]
-name = "fieldx"
-version = "0.1.4-beta.1"
-description = "Procedural macro for constructing structs with lazily initialized fields, builder pattern, and serde support with a focus on declarative syntax."
-readme = "../README.md"
-edition.workspace = true
-license-file.workspace = true
-authors.workspace = true
-repository.workspace = true
-keywords.workspace = true
-categories.workspace = true
-exclude.workspace = true
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+    # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+    authors.workspace      = true
+    categories.workspace   = true
+    description            = "Procedural macro for constructing structs with lazily initialized fields, builder pattern, and serde support with a focus on declarative syntax."
+    edition.workspace      = true
+    exclude.workspace      = true
+    keywords.workspace     = true
+    license-file.workspace = true
+    name                   = "fieldx"
+    readme                 = "../README.md"
+    repository.workspace   = true
+    version                = "0.1.4-beta.1"
 
 [dependencies]
-fieldx_derive = { workspace = true, features = ["tracing"] }
-fieldx_aux = { workspace = true }
-parking_lot = { workspace = true }
-thiserror = { workspace = true }
-getset = { workspace = true }
-serde = { workspace = true, optional = true }
+    async-lock    = { workspace = true }
+    fieldx_aux    = { workspace = true }
+    fieldx_derive = { workspace = true, features = ["tracing"] }
+    getset        = { workspace = true }
+    parking_lot   = { workspace = true }
+    serde         = { workspace = true, optional = true }
+    thiserror     = { workspace = true }
 
 [dev-dependencies]
-trybuild = { workspace = true }
-parking_lot = { workspace = true }
-num_cpus = { workspace = true }
-crossbeam = { workspace = true }
-serde_json = { workspace = true }
-rustc_version = { workspace = true }
-cargo-toolchain = { workspace = true }
+    cargo-toolchain = { workspace = true }
+    crossbeam       = { workspace = true }
+    num_cpus        = { workspace = true }
+    parking_lot     = { workspace = true }
+    rustc_version   = { workspace = true }
+    serde_json      = { workspace = true }
+    tokio           = { workspace = true, default-features = false, features = ["macros", "rt"] }
+    trybuild        = { workspace = true }
 
 [features]
-diagnostics = ["fieldx_derive/diagnostics"]
-serde = ["fieldx_derive/serde", "parking_lot/serde", "dep:serde"]
-send_guard = ["parking_lot/send_guard"]
+    diagnostics = ["fieldx_derive/diagnostics"]
+    send_guard  = ["parking_lot/send_guard"]
+    serde       = ["fieldx_derive/serde", "parking_lot/serde", "dep:serde"]
