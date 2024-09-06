@@ -2,7 +2,10 @@ use crate::{
     helper::{FXHelperContainer, FXHelperKind},
     util::needs_helper,
 };
-use darling::{util::Flag, FromField};
+use darling::{
+    util::{Flag, PathList},
+    FromField,
+};
 #[cfg(feature = "serde")]
 use fieldx_aux::FXSerde;
 use fieldx_aux::{
@@ -49,6 +52,8 @@ pub(crate) struct FXFieldReceiver {
     clearer:       Option<FXHelper>,
     predicate:     Option<FXHelper>,
     optional:      Option<FXBoolArg>,
+    // Attributes of the field to be used with the shadow struct.
+    forward_attrs: Option<PathList>,
 
     public:        Option<FXNestingAttr<FXPubMode>>,
     private:       Option<FXBoolArg>,

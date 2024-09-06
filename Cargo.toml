@@ -12,6 +12,7 @@
     resolver = "2"
 
 [workspace.dependencies]
+    async-lock            = "3.4"
     cargo-toolchain       = "0.1"
     crossbeam             = "0.8"
     darling               = ">=0.20.7"
@@ -33,7 +34,8 @@
     serde_json            = "=1.0.117"
     syn                   = "2.0"
     thiserror             = "1.0"
-    trybuild              = "1.0"
+    tokio                 = { version = "1.39", default-features = false }
+    trybuild              = ">=1.0"
 
 [patch.crates-io]
     fieldx                = { path = "fieldx" }
