@@ -40,8 +40,6 @@ pub trait FXCodeGenContextual {
     // How to move field from the struct itself
     fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
 
-    fn fxstruct_trait(&self) -> TokenStream;
-
     // fn add_field_decl(&self, field: TokenStream);
     // fn add_defaults_decl(&self, defaults: TokenStream);
     // fn add_method_decl(&self, method: TokenStream);

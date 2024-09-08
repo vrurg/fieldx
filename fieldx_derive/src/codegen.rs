@@ -236,18 +236,8 @@ impl FXRewriter {
     fn struct_extras(&self) {
         let ctx = self.ctx();
         let cgen = self.struct_codegen();
-        // let initializers = self.initializers_combined(); // self.initializer_toks.borrow_mut();
-        let generics = ctx.input().generics();
-        let generic_params = ctx.struct_generic_params();
-        let input = ctx.input_ident();
-        let where_clause = &generics.where_clause;
-        let struct_trait = cgen.fxstruct_trait();
 
         self.myself_methods();
-
-        ctx.tokens_extend(quote![
-            impl #generics #struct_trait for #input #generic_params #where_clause {}
-        ]);
 
         if ctx.needs_default() {
             // Generate fn new()

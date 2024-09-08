@@ -24,11 +24,6 @@ impl FXCodeGenContextual for FXCodeGenPlain {
         &self.ctx
     }
 
-    #[inline(always)]
-    fn fxstruct_trait(&self) -> TokenStream {
-        quote![::fieldx::traits::FXStructNonSync]
-    }
-
     // fn initializers_combined(&self) -> TokenStream {
     //     TokenStream::new()
     // }

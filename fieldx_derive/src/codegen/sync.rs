@@ -96,11 +96,6 @@ impl FXCodeGenContextual for FXCodeGenSync {
         &self.ctx
     }
 
-    #[inline(always)]
-    fn fxstruct_trait(&self) -> TokenStream {
-        quote![::fieldx::traits::FXStructSync]
-    }
-
     fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> &'s TokenStream {
         fctx.ty_wrapped(|| {
             let ty = fctx.ty_tok().clone();

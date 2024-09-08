@@ -1,4 +1,4 @@
-use crate::traits::{FXNewDefault, FXStructSync};
+use crate::traits::{FXNewDefault, FXStruct};
 use parking_lot::{
     MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard,
 };
@@ -44,7 +44,7 @@ impl<S, T: fmt::Debug> fmt::Debug for FXProxy<S, T> {
 
 impl<S, T> FXNewDefault<S, T> for FXProxy<S, T>
 where
-    S: FXStructSync,
+    S: FXStruct,
 {
     #[doc(hidden)]
     fn new_default(builder_method: fn(&S) -> T, value: Option<T>) -> Self {
@@ -58,7 +58,7 @@ where
 
 impl<S, T> FXNewDefault<Arc<S>, T> for FXProxy<Arc<S>, T>
 where
-    S: FXStructSync,
+    S: FXStruct,
 {
     #[doc(hidden)]
     fn new_default(builder_method: fn(&Arc<S>) -> T, value: Option<T>) -> Self {
@@ -175,7 +175,7 @@ impl<'a, S, T> FXWrLock<'a, S, T> {
 
 impl<S, T> Clone for FXProxy<S, T>
 where
-    S: FXStructSync,
+    S: FXStruct,
     T: Clone,
 {
     fn clone(&self) -> Self {
