@@ -1,6 +1,8 @@
 use parking_lot::RwLock;
 use std::{borrow::Borrow, fmt, fmt::Debug, ops::Deref};
 
+use super::FXWrLock;
+
 /// Lock-protected container
 ///
 /// This is a wrapper around [`RwLock`] sync primitive. It provides safe means of cloning the lock and the data it
@@ -31,6 +33,8 @@ where
         myguard.eq(&otherguard)
     }
 }
+
+impl<T> Eq for FXRwLock<T> where T: Eq {}
 
 impl<T> From<T> for FXRwLock<T> {
     fn from(value: T) -> Self {

@@ -17,8 +17,8 @@ use std::{
 ///
 /// Direct use of this struct is not recommended. See [reader and writer helpers](mod@crate#reader_writer_helpers).
 pub struct FXProxy<S, T> {
-    value: RwLock<Option<T>>,
-    is_set: AtomicBool,
+    value:   RwLock<Option<T>>,
+    is_set:  AtomicBool,
     builder: RwLock<Option<fn(&S) -> T>>,
 }
 
@@ -27,8 +27,8 @@ pub struct FXProxy<S, T> {
 /// This type, in cooperation with the [`FXProxy`] type, takes care of safely updating lazy field status when data is
 /// being stored.
 pub struct FXWrLock<'a, S, T> {
-    lock: RefCell<RwLockWriteGuard<'a, Option<T>>>,
-    fxproxy: &'a FXProxy<S, T>,
+    lock:     RefCell<RwLockWriteGuard<'a, Option<T>>>,
+    fxproxy:  &'a FXProxy<S, T>,
     _phantom: PhantomData<S>,
 }
 
@@ -49,8 +49,8 @@ where
     #[doc(hidden)]
     fn new_default(builder_method: fn(&S) -> T, value: Option<T>) -> Self {
         Self {
-            is_set: AtomicBool::new(value.is_some()),
-            value: RwLock::new(value),
+            is_set:  AtomicBool::new(value.is_some()),
+            value:   RwLock::new(value),
             builder: RwLock::new(Some(builder_method)),
         }
     }
@@ -63,8 +63,8 @@ where
     #[doc(hidden)]
     fn new_default(builder_method: fn(&Arc<S>) -> T, value: Option<T>) -> Self {
         Self {
-            is_set: AtomicBool::new(value.is_some()),
-            value: RwLock::new(value),
+            is_set:  AtomicBool::new(value.is_some()),
+            value:   RwLock::new(value),
             builder: RwLock::new(Some(builder_method)),
         }
     }
@@ -109,7 +109,8 @@ impl<S, T> FXProxy<S, T> {
                 }
             }
             RwLockWriteGuard::downgrade_to_upgradable(wguard)
-        } else {
+        }
+        else {
             guard
         }
     }
@@ -182,9 +183,28 @@ where
         let vguard = self.value.read();
         let bguard = self.builder.read();
         Self {
-            value: RwLock::new((*vguard).as_ref().cloned()),
-            is_set: AtomicBool::new(self.is_set()),
+            value:   RwLock::new((*vguard).as_ref().cloned()),
+            is_set:  AtomicBool::new(self.is_set()),
             builder: RwLock::new(bguard.clone()),
         }
     }
+}
+
+impl<S, T> PartialEq for FXProxy<S, T>
+where
+    S: FXStruct,
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        let myguard = self.value.read();
+        let otherguard = other.value.read();
+        myguard.eq(&otherguard)
+    }
+}
+
+impl<S, T> Eq for FXProxy<S, T>
+where
+    S: FXStruct,
+    T: Eq,
+{
 }
