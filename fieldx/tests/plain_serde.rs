@@ -34,8 +34,11 @@ struct Foo {
     )]
     count: i32,
 
-    #[fieldx(lazy, get(copy), serde)]
+    #[fieldx(lazy, get(copy), serde(default(0f64)))]
     pi: f64,
+
+    #[fieldx(lazy, get(copy), serde)]
+    e: f64,
 
     #[fieldx(optional, set, get(copy))]
     opt: u64,
@@ -70,6 +73,10 @@ impl Foo {
         std::f64::consts::PI
     }
 
+    fn build_e(&self) -> f64 {
+        std::f64::consts::E
+    }
+
     fn init_count() -> i32 {
         13
     }
@@ -87,7 +94,7 @@ fn basics() {
 
     assert_eq!(
         json,
-        r#"{"baz":{"cnt":123},"count":13,"pi":3.141592653589793,"opt":null,"simple":666.13,"sssimple":12.34,"modifiable":"from builder"}"#,
+        r#"{"baz":{"cnt":123},"count":13,"pi":3.141592653589793,"e":2.718281828459045,"opt":null,"simple":666.13,"sssimple":12.34,"modifiable":"from builder"}"#,
         "serialized"
     );
 
@@ -98,7 +105,7 @@ fn basics() {
 
     assert_eq!(
         json,
-        r#"{"baz":{"cnt":123},"count":1,"pi":3.141592653589793,"opt":12,"simple":666.13,"sssimple":12.34,"modifiable":"from builder"}"#,
+        r#"{"baz":{"cnt":123},"count":1,"pi":3.141592653589793,"e":2.718281828459045,"opt":12,"simple":666.13,"sssimple":12.34,"modifiable":"from builder"}"#,
         "serialized after changes"
     );
 
@@ -138,7 +145,12 @@ fn basics() {
     // eprintln!("{:#?}", foo_de);
 
     assert_eq!(foo_de.opt(), Some(31415926), "an optional u64 field - deserialized");
-    assert_eq!(foo_de.pi(), 0f64);
+    assert_eq!(foo_de.pi(), 0f64, "a missing lazy field with serde default");
+    assert_eq!(
+        foo_de.e(),
+        std::f64::consts::E,
+        "a missing lazy field gets its lazy value"
+    );
     assert_eq!(
         foo_de.simple, -1122.3344,
         "a plain field gets its default after deserialization if missing from JSON"

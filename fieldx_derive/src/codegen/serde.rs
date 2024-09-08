@@ -148,13 +148,15 @@ pub trait FXCGenSerde: FXCodeGenContextual {
 
     fn serde_shadow_field_default(&self, fctx: &FXFieldCtx) {
         let mut default_tok = self.fixup_self_type(
-            self.ok_or_else(self.field_default_value(fctx), || FXValueRepr::None)
-                .unwrap_or(quote![::std::default::Default::default()]),
+            self.field_default_value(fctx)
+                .map(|v| self.serde_shadow_field_value(fctx, v.to_token_stream()))
+                .unwrap_or(if self.is_serde_optional(fctx) {
+                    quote![::std::option::Option::None]
+                }
+                else {
+                    quote![::std::default::Default::default()]
+                }),
         );
-
-        if self.is_serde_optional(fctx) {
-            default_tok = self.serde_shadow_field_value(fctx, default_tok);
-        }
 
         let field_ident = fctx.ident_tok();
 

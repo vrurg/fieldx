@@ -408,7 +408,7 @@ impl FXCodeGenContextual for FXCodeGenPlain {
     }
 
     fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.field_value_wrap(fctx, self.field_default_value(fctx)?.map(|dv| self.fixup_self_type(dv)))
+        self.field_value_wrap(fctx, self.field_default_value(fctx).map(|dv| self.fixup_self_type(dv)))
     }
 
     // Reader/writer make no sense for non-sync. Hence do nothing.

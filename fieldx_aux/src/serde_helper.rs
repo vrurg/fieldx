@@ -91,6 +91,7 @@ impl FXSerdeHelper {
         crate::util::public_mode(&self.public, &self.private)
     }
 
+    #[inline(always)]
     pub fn accepts_attr(&self, attr: &syn::Attribute) -> bool {
         self.forward_attrs.as_ref().map_or(true, |fa| fa.contains(attr.path()))
     }

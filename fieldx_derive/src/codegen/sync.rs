@@ -281,7 +281,7 @@ impl FXCodeGenContextual for FXCodeGenSync {
         let is_optional = fctx.is_optional();
         let is_lazy = fctx.is_lazy();
         let or_default = if fctx.has_default_value() {
-            let default = self.fixup_self_type(self.field_default_value(fctx)?.expect(&format!(
+            let default = self.fixup_self_type(self.field_default_value(fctx).expect(&format!(
                 "Internal problem: expected default value for field {}",
                 fctx.ident_str()
             )));
@@ -580,6 +580,6 @@ impl FXCodeGenContextual for FXCodeGenSync {
     }
 
     fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.field_value_wrap(fctx, self.field_default_value(fctx)?)
+        self.field_value_wrap(fctx, self.field_default_value(fctx))
     }
 }

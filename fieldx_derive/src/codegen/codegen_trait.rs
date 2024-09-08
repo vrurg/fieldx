@@ -306,10 +306,10 @@ pub trait FXCodeGenContextual {
         Ok(())
     }
 
-    fn field_default_value(&self, fctx: &FXFieldCtx) -> darling::Result<FXValueRepr<TokenStream>> {
+    fn field_default_value(&self, fctx: &FXFieldCtx) -> FXValueRepr<TokenStream> {
         let field = fctx.field();
 
-        Ok(if let Some(def_meta) = fctx.default_value() {
+        if let Some(def_meta) = fctx.default_value() {
             let mut is_str = false;
             let span = def_meta.span();
 
@@ -329,7 +329,7 @@ pub trait FXCodeGenContextual {
         }
         else {
             FXValueRepr::Exact(quote_spanned! [field.span()=> ::std::default::Default::default() ])
-        })
+        }
     }
 
     fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
