@@ -359,7 +359,9 @@
 //!
 //! **Type**: `list`
 //!
-//! Fallback [attributes](#attrs_family) for structs produced by the `builder` and `serde` arguments.
+//! Fallback [attributes](#attrs_family) for structs produced by the `builder` and `serde` arguments. I.e. when
+//! [`builder`](#builder_struct) or [`serde`](#serde_struct) are requested but don't have their own `attributes`
+//! then this one will be used.
 //!
 //! ### **`attributes_impl`**
 //!
@@ -385,6 +387,7 @@
 //!
 //! Turns on interior mutability for struct fields by default.
 //!
+//! <a id="builder_struct"></a>
 //! ### **`builder`**
 //!
 //! **Type**: helper
