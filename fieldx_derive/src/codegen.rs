@@ -489,6 +489,7 @@ impl FXRewriter {
         };
 
         ctx.tokens_extend(quote! [
+            #[allow(unused_imports)]
             use ::fieldx::traits::*;
 
             #( #attributes )*
