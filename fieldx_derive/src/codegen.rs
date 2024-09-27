@@ -462,6 +462,8 @@ impl FXRewriter {
             ..
         } = ctx.input();
 
+        let span = ctx.input().ident().span();
+
         // ctx.add_attr(self.derive_toks(&self.derive_traits()));
 
         let attributes = ctx.all_attrs();
@@ -488,7 +490,7 @@ impl FXRewriter {
             None
         };
 
-        ctx.tokens_extend(quote! [
+        ctx.tokens_extend(quote_spanned! [span=>
             #[allow(unused_imports)]
             use ::fieldx::traits::*;
 

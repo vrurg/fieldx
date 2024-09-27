@@ -75,11 +75,13 @@ impl FXCodeGenContextual for FXCodeGenPlain {
             let ty_tok = fctx.ty_tok().clone();
             let accessor_name = self.accessor_name(fctx)?;
             let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Accessor, FXInlining::Always);
+            let mode_span = fctx.accessor_mode_span().unwrap_or(span);
 
+            #[rustfmt::skip]
             let (opt_ref, ty_ref, deref, meth) = match fctx.accessor_mode() {
-                FXAccessorMode::Copy => (quote![], quote![], quote![*], quote![]),
-                FXAccessorMode::Clone => (quote![], quote![], quote![], quote![.clone()]),
-                FXAccessorMode::AsRef => (quote![], quote![&], quote![], quote![.as_ref()]),
+                FXAccessorMode::Copy => (quote![], quote![], quote_spanned![mode_span=> *], quote![]),
+                FXAccessorMode::Clone => (quote![], quote![], quote![], quote_spanned![mode_span=> .clone()]),
+                FXAccessorMode::AsRef => ( quote![], quote_spanned![mode_span=> &], quote![], quote_spanned![mode_span=> .as_ref()]),
                 FXAccessorMode::None => (quote![&], quote![], quote![], quote![]),
             };
 

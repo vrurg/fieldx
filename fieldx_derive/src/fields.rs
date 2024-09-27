@@ -56,7 +56,9 @@ pub(crate) struct FXFieldReceiver {
     default_value: Option<FXDefault>,
     builder:       Option<FXBuilder>,
     into:          Option<FXBoolArg>,
+    #[getset(get = "pub with_prefix")]
     clone:         Option<FXBoolArg>,
+    #[getset(get = "pub with_prefix")]
     copy:          Option<FXBoolArg>,
     lock:          Option<FXBoolArg>,
     inner_mut:     Option<FXBoolArg>,
@@ -327,6 +329,23 @@ impl FXFieldReceiver {
     #[inline]
     pub fn span(&self) -> &Span {
         self.span.get_or_init(|| Span::call_site())
+    }
+
+    #[inline]
+    pub fn accessor_mode_span(&self) -> Option<Span> {
+        self.accessor
+            .as_ref()
+            .and_then(|a| a.mode_span())
+            .or_else(|| {
+                self.copy
+                    .as_ref()
+                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).span())
+            })
+            .or_else(|| {
+                self.clone
+                    .as_ref()
+                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).span())
+            })
     }
 }
 

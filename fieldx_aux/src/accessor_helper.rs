@@ -5,6 +5,7 @@ use crate::{
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
+use proc_macro2::Span;
 use quote::ToTokens;
 use syn::Lit;
 
@@ -41,6 +42,21 @@ impl<const BOOL_ONLY: bool> FXAccessorHelper<BOOL_ONLY> {
         }
         else if self.as_ref.is_present() {
             Some(FXAccessorMode::AsRef)
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn mode_span(&self) -> Option<Span> {
+        if self.copy.is_present() {
+            self.copy.span().into()
+        }
+        else if self.clone.is_present() {
+            self.clone.span().into()
+        }
+        else if self.as_ref.is_present() {
+            self.as_ref.span().into()
         }
         else {
             None

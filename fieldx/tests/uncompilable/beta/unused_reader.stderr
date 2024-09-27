@@ -1,9 +1,8 @@
 error: method `read_tt` is never used
  --> tests/uncompilable/unused_reader.rs
   |
-  | #[fxstruct(sync)]
-  | ----------------- method in this implementation
   | struct TT {
+  |        -- method in this implementation
   |     #[fieldx(lazy, reader(attributes_fn(deny(dead_code))))]
   |                    ^^^^^^
   |

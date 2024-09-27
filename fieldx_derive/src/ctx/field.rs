@@ -404,6 +404,14 @@ impl FXFieldCtx {
         })
     }
 
+    // Origin of span information almost follows the rules of finding out the mode information:
+    // arguments of fieldx(get()) -> arguments of fieldx() -> arguments of fxstruct(get()) -> arguments of fxstruct()
+    pub fn accessor_mode_span(&self) -> Option<Span> {
+        self.field()
+            .accessor_mode_span()
+            .or_else(|| self.codegen_ctx().args().accessor_mode_span())
+    }
+
     pub fn inner_mut_span(&self) -> Span {
         self.inner_mut()
             .and_then(|im| im.span())

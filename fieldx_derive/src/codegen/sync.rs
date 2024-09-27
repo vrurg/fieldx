@@ -138,9 +138,11 @@ impl FXCodeGenContextual for FXCodeGenSync {
             let ty = fctx.ty();
 
             if is_clone || is_copy {
+                // unwrap won't panic because somewhere out there a copy/clone argument exists.
+                let cc_span = fctx.accessor_mode_span().unwrap();
                 let cmethod = if is_copy {
                     if is_optional {
-                        quote![.as_ref().copied()]
+                        quote_spanned![cc_span=> .as_ref().copied()]
                     }
                     else {
                         quote![]
@@ -148,10 +150,10 @@ impl FXCodeGenContextual for FXCodeGenSync {
                 }
                 else {
                     if is_optional {
-                        quote![.as_ref().cloned()]
+                        quote_spanned![cc_span=> .as_ref().cloned()]
                     }
                     else {
-                        quote![.clone()]
+                        quote_spanned![cc_span=> .clone()]
                     }
                 };
                 if is_lazy {
