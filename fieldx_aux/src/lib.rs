@@ -3,6 +3,7 @@ pub mod attributes;
 pub mod base_helper;
 pub mod builder_helper;
 pub mod default_helper;
+pub mod meta_value;
 pub mod nesting_attr;
 #[cfg(feature = "serde")]
 pub mod serde_helper;
@@ -20,6 +21,7 @@ pub use crate::{
     base_helper::FXBaseHelper,
     builder_helper::FXBuilderHelper,
     default_helper::FXDefault,
+    meta_value::{FXSynTupleArg, FXSynValueArg},
     nesting_attr::{FXNestingAttr, FromNestAttr},
     setter_helper::FXSetterHelper,
     traits::{FXBoolHelper, FXFrom, FXHelperTrait, FXInto, FXTriggerHelper},
@@ -73,6 +75,8 @@ impl FXTriggerHelper for FXPubMode {
 
 pub type FXHelper<const BOOL_ONLY: bool = false> = FXNestingAttr<FXBaseHelper<BOOL_ONLY>>;
 pub type FXValue<T, const BOOL_ONLY: bool = false> = FXNestingAttr<FXValueArg<T, BOOL_ONLY>>;
+pub type FXSynValue<T> = FXNestingAttr<FXSynValueArg<T>, false>;
+pub type FXSynTuple<T> = FXNestingAttr<FXSynTupleArg<T>, false>;
 pub type FXStringArg = FXNestingAttr<FXValueArg<String>>;
 pub type FXBoolArg = FXNestingAttr<FXValueArg<(), true>>;
 pub type FXAccessor<const BOOL_ONLY: bool = false> = FXNestingAttr<FXAccessorHelper<BOOL_ONLY>>;

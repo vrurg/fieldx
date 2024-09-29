@@ -1,20 +1,20 @@
 [package]
-name = "fieldx_derive_support"
-version = "0.1.4-beta.1"
-description = "Derive proc macros for fieldx_derive crate"
-edition.workspace = true
-license-file.workspace = true
-authors.workspace = true
-repository.workspace = true
-keywords.workspace = true
-categories.workspace = true
-exclude.workspace = true
+    authors.workspace      = true
+    categories.workspace   = true
+    description            = "Derive proc macros for fieldx_derive crate"
+    edition.workspace      = true
+    exclude.workspace      = true
+    keywords.workspace     = true
+    license-file.workspace = true
+    name                   = "fieldx_derive_support"
+    repository.workspace   = true
+    version                = "0.1.4-beta.1"
 
 [dependencies]
-quote = { workspace = true }
-syn = {workspace = true, features = ["extra-traits", "parsing"] }
-darling = { workspace = true, features = [ "suggestions"] }
-proc-macro2 = { workspace = true }
+    darling     = { workspace = true, features = ["suggestions"] }
+    proc-macro2 = { workspace = true }
+    quote       = { workspace = true }
+    syn         = { workspace = true, features = ["extra-traits", "parsing"] }
 
 [lib]
-proc-macro = true
+    proc-macro = true

@@ -13,10 +13,10 @@ pub struct FXBaseHelper<const BOOL_ONLY: bool = false> {}
 
 impl<const BOOL_ONLY: bool> FXBaseHelper<BOOL_ONLY> {
     fn allowed_literals(&self, literals: &Vec<Lit>) -> darling::Result<()> {
-        if !BOOL_ONLY {
-            return Ok(());
+        if BOOL_ONLY {
+            return Err(self.no_literals(literals).unwrap_err());
         }
-        self.no_literals(literals)
+        Ok(())
     }
 }
 

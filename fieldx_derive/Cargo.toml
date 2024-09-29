@@ -1,36 +1,36 @@
 [package]
-name = "fieldx_derive"
-version = "0.1.4-beta.1"
-description = "Derive proc macros for fieldx crate"
-edition.workspace = true
-license-file.workspace = true
-authors.workspace = true
-repository.workspace = true
-keywords.workspace = true
-categories.workspace = true
-exclude.workspace = true
+    authors.workspace      = true
+    categories.workspace   = true
+    description            = "Derive proc macros for fieldx crate"
+    edition.workspace      = true
+    exclude.workspace      = true
+    keywords.workspace     = true
+    license-file.workspace = true
+    name                   = "fieldx_derive"
+    repository.workspace   = true
+    version                = "0.1.4-beta.1"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+    # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-darling = { workspace = true, features = ["suggestions"] }
-delegate = { workspace = true }
-enum_dispatch = { workspace = true }
-fieldx_aux = { workspace = true }
-fieldx_derive_support = { workspace = true }
-getset = { workspace = true }
-paste = { workspace = true }
-proc-macro2 = { workspace = true }
-quote = { workspace = true }
-rust-format = { workspace = true }
-serde = { workspace = true, optional = true }
-syn = { workspace = true, features = ["extra-traits", "parsing"] }
-thiserror = { workspace = true }
+    darling               = { workspace = true, features = ["suggestions"] }
+    delegate              = { workspace = true }
+    enum_dispatch         = { workspace = true }
+    fieldx_aux            = { workspace = true }
+    fieldx_derive_support = { workspace = true }
+    getset                = { workspace = true }
+    paste                 = { workspace = true }
+    proc-macro2           = { workspace = true }
+    quote                 = { workspace = true }
+    rust-format           = { workspace = true }
+    serde                 = { workspace = true, optional = true }
+    syn                   = { workspace = true, features = ["extra-traits", "parsing"] }
+    thiserror             = { workspace = true }
 
 [lib]
-proc-macro = true
+    proc-macro = true
 
 [features]
-tracing = []
-diagnostics = ["darling/diagnostics"]
-serde = ["dep:serde", "fieldx_aux/serde"]
+    diagnostics = ["darling/diagnostics"]
+    serde       = ["dep:serde", "fieldx_aux/serde"]
+    tracing     = []

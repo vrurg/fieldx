@@ -1,24 +1,23 @@
 [package]
-name = "fieldx_aux"
-version = "0.1.4-beta.1"
-description = "Various types and tools useful for fieldx crates and, potentially, to users of fieldx"
-edition.workspace = true
-license-file.workspace = true
-authors.workspace = true
-repository.workspace = true
-keywords.workspace = true
-categories.workspace = true
-exclude.workspace = true
+    authors.workspace      = true
+    categories.workspace   = true
+    description            = "Various types and tools useful for fieldx crates and, potentially, to users of fieldx"
+    edition.workspace      = true
+    exclude.workspace      = true
+    keywords.workspace     = true
+    license-file.workspace = true
+    name                   = "fieldx_aux"
+    repository.workspace   = true
+    version                = "0.1.4-beta.1"
 
 [dependencies]
-fieldx_derive_support = { workspace = true }
-quote = { workspace = true }
-syn = { workspace = true, features = ["extra-traits", "parsing"] }
-darling = { workspace = true, features = ["suggestions"] }
-proc-macro2 = { workspace = true }
-getset = { workspace = true }
-
+    darling               = { workspace = true, features = ["suggestions"] }
+    fieldx_derive_support = { workspace = true }
+    getset                = { workspace = true }
+    proc-macro2           = { workspace = true }
+    quote                 = { workspace = true }
+    syn                   = { workspace = true, features = ["extra-traits", "parsing"] }
 
 [features]
-diagnostics = []
-serde = []
+    diagnostics = []
+    serde       = []
