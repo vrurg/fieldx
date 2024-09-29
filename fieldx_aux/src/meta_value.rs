@@ -10,9 +10,14 @@ pub struct FXSynValueArg<T> {
     value: T,
 }
 
+impl<T> FXSynValueArg<T> {
+    pub fn value(&self) -> &T {
+        &self.value
+    }
+}
+
 impl<T: syn::parse::Parse> FromMeta for FXSynValueArg<T> {
     fn from_meta(item: &Meta) -> darling::Result<Self> {
-        eprintln!("SYN VALUE META: {:#?}", item);
         Ok(Self {
             value: match item {
                 Meta::List(list) => syn::parse2(list.tokens.clone())?,
@@ -22,7 +27,6 @@ impl<T: syn::parse::Parse> FromMeta for FXSynValueArg<T> {
     }
 
     fn from_list(items: &[NestedMeta]) -> darling::Result<Self> {
-        eprintln!("SYN VALUE META: {:#?}", items);
         Err(darling::Error::unsupported_format("NYI"))
     }
 }
@@ -51,6 +55,12 @@ impl<T: syn::parse::Parse> FromNestAttr<false> for FXSynValueArg<T> {}
 #[allow(unused)]
 pub struct FXSynTupleArg<T> {
     value: T,
+}
+
+impl<T> FXSynTupleArg<T> {
+    pub fn value(&self) -> &T {
+        &self.value
+    }
 }
 
 macro_rules! from_tuple {
