@@ -1,8 +1,7 @@
 use super::{FXFrom, FromNestAttr};
 use darling::{ast::NestedMeta, FromMeta};
-use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{parse_macro_input, parse_quote, punctuated::Punctuated, Meta, Token};
+use syn::Meta;
 
 #[derive(Debug, Clone)]
 #[allow(unused)]
@@ -26,7 +25,7 @@ impl<T: syn::parse::Parse> FromMeta for FXSynValueArg<T> {
         })
     }
 
-    fn from_list(items: &[NestedMeta]) -> darling::Result<Self> {
+    fn from_list(_items: &[NestedMeta]) -> darling::Result<Self> {
         Err(darling::Error::unsupported_format("NYI"))
     }
 }

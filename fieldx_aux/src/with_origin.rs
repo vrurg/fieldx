@@ -1,6 +1,4 @@
-use darling::{FromField, FromMeta};
 use proc_macro2::Span;
-use std::ops::Deref;
 use syn::{self, spanned::Spanned};
 
 pub trait FXOrig<O>
