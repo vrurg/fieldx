@@ -97,7 +97,7 @@ impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> FXOrig<syn::Meta
 impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> FromMeta for FXNestingAttr<T, WITH_LITERALS> {
     fn from_meta(item: &Meta) -> darling::Result<Self> {
         Ok(match &item {
-            Meta::List(ref list) => {
+            Meta::List(_) => {
                 if T::with_literals() {
                     Self::extract_literals(item)?
                 }
