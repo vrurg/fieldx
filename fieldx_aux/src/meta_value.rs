@@ -1,7 +1,9 @@
+use std::{borrow::Borrow, marker::PhantomData, ops::Deref};
+
 use super::{FXFrom, FromNestAttr};
 use darling::{ast::NestedMeta, FromMeta};
 use quote::ToTokens;
-use syn::Meta;
+use syn::{punctuated::Punctuated, Meta};
 
 #[derive(Debug, Clone)]
 #[allow(unused)]
@@ -125,4 +127,56 @@ from_tuple! {
     (T1, T2, T3, T4, T5, T6, T7, T8),
     (T1, T2, T3, T4, T5, T6, T7, T8, T9),
     (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10),
+}
+
+#[allow(unused)]
+#[derive(Debug, Clone)]
+pub struct FXPunctuated<T, S> {
+    items: Vec<T>,
+    _p:    PhantomData<S>,
+}
+
+impl<T, S> FXPunctuated<T, S> {
+    pub fn items(&self) -> &Vec<T> {
+        &self.items
+    }
+}
+
+impl<T: syn::parse::Parse, S: syn::parse::Parse> syn::parse::Parse for FXPunctuated<T, S> {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let result = Punctuated::<T, S>::parse_terminated(input)?;
+        Ok(Self {
+            items: result.into_iter().collect(),
+            _p:    PhantomData::default(),
+        })
+    }
+}
+
+impl<T: syn::parse::Parse, S: syn::parse::Parse> FromMeta for FXPunctuated<T, S> {
+    fn from_meta(item: &Meta) -> darling::Result<Self> {
+        Ok(match item {
+            Meta::List(ref list) => syn::parse2(list.tokens.clone())?,
+            _ => syn::parse2(item.to_token_stream())?,
+        })
+    }
+}
+
+impl<T, S> Deref for FXPunctuated<T, S> {
+    type Target = Vec<T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.items
+    }
+}
+
+impl<T, S> AsRef<Vec<T>> for FXPunctuated<T, S> {
+    fn as_ref(&self) -> &Vec<T> {
+        &self.items
+    }
+}
+
+impl<T, S> Borrow<Vec<T>> for FXPunctuated<T, S> {
+    fn borrow(&self) -> &Vec<T> {
+        &self.items
+    }
 }

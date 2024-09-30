@@ -21,7 +21,7 @@ pub use crate::{
     base_helper::FXBaseHelper,
     builder_helper::FXBuilderHelper,
     default_helper::FXDefault,
-    meta_value::{FXSynTupleArg, FXSynValueArg},
+    meta_value::{FXPunctuated, FXSynTupleArg, FXSynValueArg},
     nesting_attr::{FXNestingAttr, FromNestAttr},
     setter_helper::FXSetterHelper,
     traits::{FXBoolHelper, FXFrom, FXHelperTrait, FXInto, FXTriggerHelper},
