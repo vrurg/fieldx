@@ -50,6 +50,26 @@ where
 
 impl<T: syn::parse::Parse> FromNestAttr<false> for FXSynValueArg<T> {}
 
+impl<T> Deref for FXSynValueArg<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.value
+    }
+}
+
+impl<T> AsRef<T> for FXSynValueArg<T> {
+    fn as_ref(&self) -> &T {
+        &self.value
+    }
+}
+
+impl<T> Borrow<T> for FXSynValueArg<T> {
+    fn borrow(&self) -> &T {
+        &self.value
+    }
+}
+
 #[derive(Debug, Clone)]
 #[allow(unused)]
 pub struct FXSynTupleArg<T> {
