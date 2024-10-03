@@ -19,5 +19,5 @@
     syn                   = { workspace = true, features = ["extra-traits", "parsing"] }
 
 [features]
-    diagnostics = []
+    diagnostics = ["darling/diagnostics"]
     serde       = []
