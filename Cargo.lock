@@ -187,7 +187,7 @@ dependencies = [
 
 [[package]]
 name = "fieldx_derive"
-version = "0.1.4-beta.1"
+version = "0.1.4"
 dependencies = [
  "darling",
  "delegate",
