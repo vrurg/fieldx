@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.5] - 2024-10-03
+## [fieldx-v0.1.5] - 2024-10-03
 
 ### Features
 
@@ -43,6 +43,7 @@
 - Release fieldx_derive_support version 0.1.5
 - Release fieldx_aux version 0.1.5
 - Release fieldx_derive version 0.1.5
+- Release fieldx version 0.1.5
 
 ## [fieldx-v0.1.3] - 2024-08-02
 
