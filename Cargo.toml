@@ -2,7 +2,7 @@
     authors      = ["Vadim Belman"]
     categories   = ["concurrency", "development-tools::procedural-macro-helpers", "rust-patterns"]
     edition      = "2021"
-    exclude      = ["Makefile.toml"]
+    exclude      = ["Makefile.toml", "release.toml"]
     keywords     = ["lazy", "field", "macro", "builder", "struct"]
     license-file = "LICENSE"
     repository   = "https://github.com/vrurg/fieldx.git"
