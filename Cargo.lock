@@ -175,7 +175,7 @@ dependencies = [
 
 [[package]]
 name = "fieldx_aux"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "darling",
  "fieldx_derive_support",
