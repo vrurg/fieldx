@@ -1,6 +1,45 @@
 # Changelog
 
-## [0.1.3] - 2024-08-02
+## [0.1.4] - 2024-10-03
+
+### Features
+
+- Complete implementation of reference counted objects
+- Make builder's `into` argument accept `into(off)` form
+- Add support for `builder(required)`
+- Implement inner mutability pattern
+- Implement struct-level `builder(opt_in)`
+- Allow better granularity over fields concurrency mode
+- Implement PartialEq and Eq
+- Added two convenice types: FXSynValueArg and FXSynTupleArg
+- Added implementation of FXPunctuated
+
+### Bug Fixes
+
+- Marshalling of optional fields
+- Fix a thinko in serde deserialization of optionals
+- Suppress a harmless warning
+- Remove unused import
+- Improve some error location reporting
+
+### Refactor
+
+- Make more types available via fieldx_aux
+- Split fxproxy proxy module into submodules
+- Get rid of FXStructSync and FXStructNonSync
+- Removed unused struct
+
+### Documentation
+
+- Describe interior mutability pattern
+
+### ️ Miscellaneous Tasks
+
+- Release fieldx_derive_support version 0.1.4
+- Release fieldx_aux version 0.1.4
+- Release fieldx_derive version 0.1.4
+
+## [fieldx-v0.1.3] - 2024-08-02
 
 ### Features
 
@@ -10,6 +49,10 @@
 ### Documentation
 
 - Document the new `rc` argument and crate features
+
+### ️ Miscellaneous Tasks
+
+- Release fieldx version 0.1.3
 
 ## [fieldx-v0.1.2] - 2024-06-19
 
