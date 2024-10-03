@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
 ![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
-# fieldx v0.1.3
+# fieldx v0.1.5
 
 Procedural macro for constructing structs with lazily initialized fields, builder pattern, and [`serde`] support
 with a focus on declarative syntax.
@@ -179,6 +179,29 @@ Here come the caveats:
 [^only_via_method]: Apparently, the access has to be made by calling a corresponding method. Mostly it'd be field's
 accessor, but for `sync` structs it's more likely to be a reader.
 
+## Field Interior Mutability
+
+Marking fields with `inner_mut` flag is a shortcut for using `RefCell` wrapper. It doesn't matter if an `inner_mut`
+field belongs to a sync or a non-sync struct, it will always be a `RefCell`.
+
+```rust
+#[fxstruct]
+struct Foo {
+    #[fieldx(inner_mut, get, get_mut, set, default(String::from("initial")))]
+    modifiable: String,
+}
+
+let foo = Foo::new();
+let old = foo.set_modifiable(String::from("manual"));
+assert_eq!(old, String::from("initial"));
+assert_eq!(*foo.modifiable(), String::from("manual"));
+*foo.modifiable_mut() = String::from("via mutable accessor");
+assert_eq!(*foo.modifiable(), String::from("via mutable accessor"));
+```
+
+Note that this pattern is only useful when the field must not be neither optional nor lock-protected in
+`sync`-declared structs.
+
 ## Builder Pattern
 
 **IMPORTANT!** First of all, it is necessary to mention unintended terminological ambiguity here. The terms `build`
@@ -329,7 +352,9 @@ Which ones are supported in a particular context is documented below.
 
 **Type**: `list`
 
-Fallback [attributes](#attrs_family) for structs produced by the `builder` and `serde` arguments.
+Fallback [attributes](#attrs_family) for structs produced by the `builder` and `serde` arguments. I.e. when
+[`builder`](#builder_struct) or [`serde`](#serde_struct) are requested but don't have their own `attributes`
+then this one will be used.
 
 #### **`attributes_impl`**
 
@@ -349,6 +374,13 @@ Declare a struct as thread-safe.
 
 Enables lazy mode for all fields except those marked with `lazy(off)`.
 
+#### ***inner_mut***
+
+**Type**: keyword
+
+Turns on interior mutability for struct fields by default.
+
+<a id="builder_struct"></a>
 #### **`builder`**
 
 **Type**: helper
@@ -374,6 +406,7 @@ Additional sub-arguments:
 - **`attributes`** (see the [section above](#attrs_family)) – builder struct attributes
 - **`attributes_impl`** - attributes of the struct implementation
 - **`into`** – force all builder setter methods to attempt automatic type conversion using `.into()` method
+- **`opt_in`** - struct-level only argument; with it only fields with explicit `builder` can get their values from the builder
 
   With `into` the example above wouldn't need `String::from` and the call could look like this:
   `.description("some description")`
@@ -620,6 +653,12 @@ Leave this field alone. The only respected argument of `fieldx` when skipped is 
 
 Mark field as lazy.
 
+#### **inner_mut***
+
+**Type**: keyword
+
+Enables field interior mutability.
+
 #### **`rename`**
 
 **Type**: function
@@ -677,9 +716,13 @@ Sets default for `set` and `builder` arguments.
 
 Mostly identical to the [struct-level `builder`](#builder). Field specifics are:
 
-- no `attributes_impl` (consumed, but ignored)
+- no `attributes_impl` and `opt_in` (consumed, but ignored)
 - string literal specifies setter method name if the builder type for this field
 - `attributes` and `attributes_fn` are correspondingly applies to builder field and builder setter method
+
+Field level only argument:
+
+- **`required`** – this field must always get a value from the builder even if otherwise it'd be optional
 
 <a id="about_default"></a>
 ## Do We Need The `Default` Trait?
