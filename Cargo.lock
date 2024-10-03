@@ -206,7 +206,7 @@ dependencies = [
 
 [[package]]
 name = "fieldx_derive_support"
-version = "0.1.4-beta.1"
+version = "0.1.4"
 dependencies = [
  "darling",
  "proc-macro2",

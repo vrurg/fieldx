@@ -8,7 +8,7 @@
     license-file.workspace = true
     name                   = "fieldx_derive_support"
     repository.workspace   = true
-    version                = "0.1.4-beta.1"
+    version                = "0.1.4"
 
 [dependencies]
     darling     = { workspace = true, features = ["suggestions"] }
