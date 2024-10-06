@@ -40,7 +40,7 @@ struct Foo {
     #[fieldx(default(-1122.3344))]
     simple: f64,
 
-    // Of the two defaults serde wins when deserializing.
+    // Of the two defaults serde's one wins when deserializing.
     #[fieldx(serde( default(-987.654) ), default(12.34), rename("sssimple"))]
     simple2: f64,
 

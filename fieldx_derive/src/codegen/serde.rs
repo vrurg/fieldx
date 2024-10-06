@@ -164,7 +164,7 @@ pub trait FXCGenSerde: FXCodeGenContextual {
     }
 
     fn serde_field_default_fn(&self, fctx: &FXFieldCtx) -> darling::Result<syn::Ident> {
-        let fn_ident = fctx.default_fn_ident()?;
+        let mut fn_ident = fctx.default_fn_ident()?.clone();
         let field_type = self.serde_shadow_field_type(fctx);
         let Some(serde_helper) = fctx.serde()
         else {
@@ -183,7 +183,11 @@ pub trait FXCGenSerde: FXCodeGenContextual {
             )));
         };
 
-        self.ctx().add_method_decl(quote![
+        let span = serde_helper.orig().span();
+        fn_ident.set_span(span);
+
+        self.ctx().add_method_decl(quote_spanned![span=>
+            #[allow(non_snake_case)]
             fn #fn_ident() -> #field_type {
                 #serde_default
             }
