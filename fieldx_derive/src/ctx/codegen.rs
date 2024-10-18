@@ -224,6 +224,10 @@ impl FXCodeGenCtx {
         quote! [ #( #build_field_toks ),* ]
     }
 
+    pub fn builder_field_toks(&self) -> Ref<Vec<TokenStream>> {
+        self.builder_field_toks.borrow()
+    }
+
     pub fn defaults_combined(&self) -> TokenStream {
         let default_toks = &*self.default_toks.borrow();
         quote! [ #( #default_toks ),* ]

@@ -331,7 +331,7 @@ pub trait FXCodeGenContextual {
     }
 
     fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        if fctx.forced_builder() || (!fctx.is_ignorable() && fctx.needs_builder()) {
+        if fctx.forced_builder() || fctx.needs_builder() {
             let ident = fctx.ident_tok();
             let mut builder_name = self.helper_name(fctx, FXHelperKind::Builder)?;
             // .builder_name(fctx)?;
@@ -359,12 +359,7 @@ pub trait FXCodeGenContextual {
             let span = *fctx.span();
             let ty = fctx.ty();
             let attributes = fctx.builder().as_ref().and_then(|b| b.attributes());
-            if fctx.is_ignorable() && !fctx.forced_builder() {
-                Ok(quote_spanned![span=> #attributes #ident: #ty])
-            }
-            else {
-                Ok(quote_spanned![span=> #attributes #ident: ::std::option::Option<#ty>])
-            }
+            Ok(quote_spanned![span=> #attributes #ident: ::std::option::Option<#ty>])
         }
         else {
             Ok(quote![])
@@ -373,8 +368,7 @@ pub trait FXCodeGenContextual {
 
     fn field_builder_value_required(&self, fctx: &FXFieldCtx) {
         if fctx.is_builder_required()
-            || (fctx.needs_builder()
-                && !(fctx.is_lazy() || fctx.is_ignorable() || fctx.is_optional() || fctx.has_default_value()))
+            || (fctx.needs_builder() && !(fctx.is_lazy() || fctx.is_optional() || fctx.has_default_value()))
         {
             let field_ident = fctx.ident();
             let field_name = field_ident.to_string();

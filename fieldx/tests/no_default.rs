@@ -27,11 +27,11 @@ impl Plain {
     fn new(bar: Bar) -> Self {
         Self {
             bar: bar.into(),
-            b2: (Bar {
+            b2:  (Bar {
                 note: "from new".to_string(),
             })
             .into(),
-            b3: Bar {
+            b3:  Bar {
                 note: "b3 from new".to_string(),
             },
         }
@@ -57,7 +57,7 @@ impl IsSync {
     fn new(bar: Bar) -> Self {
         Self {
             bar: bar.into(),
-            b2: Default::default(),
+            b2:  Default::default(),
         }
     }
 }

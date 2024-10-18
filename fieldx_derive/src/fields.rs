@@ -208,11 +208,6 @@ impl FXFieldReceiver {
     }
 
     #[inline]
-    pub fn is_ignorable(&self) -> bool {
-        self.ident.to_token_stream().to_string().starts_with("_")
-    }
-
-    #[inline]
     pub fn is_setter_into(&self) -> Option<bool> {
         self.setter.as_ref().and_then(|s| s.is_into())
     }

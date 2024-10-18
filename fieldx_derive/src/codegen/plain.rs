@@ -179,40 +179,38 @@ impl FXCodeGenContextual for FXCodeGenPlain {
         let field_ident = fctx.ident_tok();
         let field_default = self.field_default_wrap(fctx)?;
 
-        Ok(
-            if !fctx.forced_builder() && (fctx.is_ignorable() || !fctx.needs_builder()) {
-                quote![]
+        Ok(if !fctx.forced_builder() && !fctx.needs_builder() {
+            quote![]
+        }
+        else if fctx.is_lazy() {
+            quote_spanned![span=>
+                #field_ident: if self.#field_ident.is_some() {
+                    ::fieldx::OnceCell::from(self.#field_ident.take().unwrap())
+                }
+                else {
+                    #field_default
+                }
+            ]
+        }
+        else if fctx.is_optional() && !fctx.is_builder_required() {
+            // When there is a value from user then we use this code.
+            let mut some_value = quote![self.#field_ident.take()];
+            if fctx.is_inner_mut() {
+                some_value = quote![::fieldx::RefCell::from(#some_value)];
             }
-            else if fctx.is_lazy() {
-                quote_spanned![span=>
-                    #field_ident: if self.#field_ident.is_some() {
-                        ::fieldx::OnceCell::from(self.#field_ident.take().unwrap())
+
+            quote_spanned![span=>
+                #field_ident: if self.#field_ident.is_some() {
+                        #some_value
                     }
                     else {
                         #field_default
                     }
-                ]
-            }
-            else if fctx.is_optional() && !fctx.is_builder_required() {
-                // When there is a value from user then we use this code.
-                let mut some_value = quote![self.#field_ident.take()];
-                if fctx.is_inner_mut() {
-                    some_value = quote![::fieldx::RefCell::from(#some_value)];
-                }
-
-                quote_spanned![span=>
-                    #field_ident: if self.#field_ident.is_some() {
-                            #some_value
-                        }
-                        else {
-                            #field_default
-                        }
-                ]
-            }
-            else {
-                self.simple_field_build_setter(fctx, field_ident, &span)
-            },
-        )
+            ]
+        }
+        else {
+            self.simple_field_build_setter(fctx, field_ident, &span)
+        })
     }
 
     fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {

@@ -224,7 +224,7 @@ impl FXRewriter {
             ctx.add_method_decl(quote![
                 #[inline]
                 #vis fn builder() -> #builder_ident #generic_params {
-                    #builder_ident::default()
+                    #builder_ident::new()
                 }
             ])
         }
@@ -349,8 +349,16 @@ impl FXRewriter {
         let mut field_setters = Vec::<TokenStream>::new();
         let mut use_default = false;
         let mut builder_checkers = vec![];
+        let mut fields_new = vec![];
+        if let Some(myself_field) = ctx.myself_field() {
+            fields_new.push(quote! { #myself_field: ::std::default::Default::default() });
+        }
         for fctx in self.builder_field_ctxs() {
             if let Ok(fctx) = fctx {
+                if fctx.needs_builder() {
+                    let ident = fctx.ident();
+                    fields_new.push(quote! { #ident: None });
+                }
                 let fgen = match self.field_codegen(&fctx) {
                     Ok(fgen) => fgen,
                     Err(err) => {
@@ -385,6 +393,14 @@ impl FXRewriter {
         let cgen = self.struct_codegen();
         let builder_return_type = cgen.maybe_ref_counted(&cgen.builder_return_type());
 
+        let fn_new = quote! {
+            #vis fn new() -> Self {
+                Self {
+                    #( #fields_new ),*
+                }
+            }
+        };
+
         let construction = cgen.maybe_ref_counted_create(
             &input_ident.to_token_stream(),
             &quote![
@@ -398,6 +414,7 @@ impl FXRewriter {
             impl #generics #builder_ident #generic_params
             #where_clause
             {
+                #fn_new
                 #builders
                 #vis fn build(&mut self) -> ::std::result::Result<#builder_return_type, ::fieldx::errors::FieldXError> {
                     #( #builder_checkers );*
@@ -420,8 +437,9 @@ impl FXRewriter {
             let span = ctx.helper_span(FXHelperKind::Builder);
             let vis = self.builder_struct_visibility();
             let attributes = args.builder_attributes();
-            let traits = vec![quote![Default]];
-            let derive_attr = crate::util::derive_toks(&traits);
+            // let traits = vec![quote![Default]];
+            // let derive_attr = crate::util::derive_toks(&traits);
+            // eprintln!("BUILDER DERIVE: {}", derive_attr);
             let builder_ident = ctx.builder_ident();
 
             let myself_field = if args.is_ref_counted() {
@@ -435,7 +453,7 @@ impl FXRewriter {
             };
 
             quote_spanned![span=>
-                #derive_attr
+                // #derive_attr
                 #attributes
                 #vis struct #builder_ident #generics
                 #where_clause

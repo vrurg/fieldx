@@ -67,7 +67,6 @@ impl FXFieldCtx {
             pub fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait>;
             pub fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span>;
             pub fn has_default_value(&self) -> bool;
-            pub fn is_ignorable(&self) -> bool;
             pub fn is_skipped(&self) -> bool;
             pub fn span(&self) -> &Span;
             pub fn ty(&self) -> &syn::Type;
