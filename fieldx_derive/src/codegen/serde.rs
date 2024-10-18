@@ -468,6 +468,7 @@ impl FXRewriteSerde for super::FXRewriter {
                 let shadow_ident = ctx.shadow_ident();
                 let fn_ident = ctx.unique_ident_pfx(&format!("{}_default", shadow_ident.to_string()));
                 ctx.add_method_decl(quote![
+                    #[allow(non_snake_case)]
                     fn #fn_ident() -> #shadow_ident #generics {
                         #serde_default.into()
                     }
