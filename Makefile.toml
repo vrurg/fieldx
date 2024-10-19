@@ -133,7 +133,7 @@ end
 
 [tasks.pre-release]
     clear = true
-    dependencies = ["is-clean", "release-testing", "doc", "changelog"]
+    dependencies = ["is-clean", "release-testing"]
     description = "Pre-release tasks"
     script = '''
 diffed = exec git diff-index --exit-code HEAD
