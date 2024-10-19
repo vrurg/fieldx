@@ -104,10 +104,11 @@ exec --fail-on-error git cliff -o CHANGELOG.md --tag ${CARGO_RELEASE_VERSION}
     category = "Check"
     description = "Repository is clean"
     script = '''
-is_clean = exec --get-exit-code git diff-index --exit-code --quiet HEAD
-if not eq ${is_clean} 0 then
+is_clean = exec git diff-index --exit-code --stat HEAD
+if not eq ${is_clean.code} 0
     print -bgc red -c yellow "!!!"
     println -c bright_red " Repository is not clean."
+    echo ${is_clean.stdout}
     exit 1
 end
 '''
@@ -127,31 +128,47 @@ if is_path_exists ${__PREV_RELEASE_TESTING__}
     end
 end
 ''']
-    dependencies = ["test-versions"]
+    run_task = "test-versions"
     script_runner = "@duckscript"
 
-[tasks.pre-release]
+[tasks.version-patch-bump]
     clear = true
-    dependencies = ["is-clean", "release-testing", "doc", "changelog"]
-    description = "Pre-release tasks"
+    description = "Bump release version"
     script = '''
-    exit 1
-exec --fail-on-error git add README.md CHANGELOG.md
-exec --fail-on-error git commit -m "minor: Pre-release docs update"
-
-print -bgc red -c black " ► "
-print -bgc black -c white " Do you want to bump release version patch? "
-print -s bold "(y/N)"
-echo " "
-reply = read
+!include_files makefile.ds
+reply = ask_user "Do you want to bump release version patch?"
 reply = lowercase ${reply}
 if eq ${reply} "y"
-    exec --fail-on-error cargo release version patch --execute
-    exec --fail-on-error git add Cargo.toml fieldx/Cargo.toml fieldx_aux/Cargo.toml fieldx_derive/Cargo.toml fieldx_derive_support/Cargo.toml
-    exec --fail-on-error git commit -m "minor: version bump"
+    exec --fail-on-error cargo release version patch
+    reply = ask_user "Does this look good for you?"
+    reply = lowercase ${reply}
+    if eq ${reply} "y"
+        echo "Bumping the patch."
+        exec --fail-on-error cargo release version patch --execute --no-confirm
+        exec --fail-on-error git add Cargo.toml fieldx/Cargo.toml fieldx_aux/Cargo.toml fieldx_derive/Cargo.toml fieldx_derive_support/Cargo.toml
+        exec --fail-on-error git commit -m "minor: version bump"
+    end
 end
 '''
     script_runner = "@duckscript"
+
+[tasks.post-doc]
+    description = "Post-doc commit"
+    script = '''
+exec --fail-on-error git add README.md CHANGELOG.md
+diffed = exec git diff-index --cached HEAD
+if not eq ${diffed.code} 0
+    echo "Docs need committing."
+    exec --fail-on-error git commit -m "minor: Pre-release docs update"
+    exec --fail-on-error git push
+end
+'''
+    script_runner = "@duckscript"
+
+[tasks.pre-release]
+    clear        = true
+    dependencies = ["is-clean", "release-testing", "version-patch-bump", "doc", "changelog", "post-doc"]
+    description  = "Pre-release tasks"
 
 [tasks.publish]
     clear = true
