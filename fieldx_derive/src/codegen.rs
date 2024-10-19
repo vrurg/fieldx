@@ -33,7 +33,7 @@ pub enum FXInlining {
     Always,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub(crate) enum FXValueRepr<T> {
     None,
     Exact(T),
@@ -183,25 +183,6 @@ impl FXRewriter {
         }
 
         let codegen = self.field_codegen(&fctx)?;
-
-        // eprintln!(
-        //     "USING {} codegenerator for field {} of {}",
-        //     match codegen {
-        //         FXCodeGenerator::ModePlain(_) => "plain",
-        //         FXCodeGenerator::ModeSync(_) => "sync",
-        //     },
-        //     fctx.ident(),
-        //     ctx.input_ident()
-        // );
-        // let field = fctx.field();
-        // eprintln!(
-        //     "MODES: field is sync? {:?}; struct is sync? {:?}; fctx final is {}\n  mode_sync: {:?}\n  mode_async: {:?}",
-        //     fctx.field().is_sync(),
-        //     ctx.is_rather_sync(),
-        //     fctx.is_sync(),
-        //     field.mode_sync(),
-        //     field.mode_async(),
-        // );
 
         codegen.field_default(&fctx)?;
         codegen.field_methods(&fctx)?;
@@ -355,10 +336,9 @@ impl FXRewriter {
         }
         for fctx in self.builder_field_ctxs() {
             if let Ok(fctx) = fctx {
-                if fctx.needs_builder() {
-                    let ident = fctx.ident();
-                    fields_new.push(quote! { #ident: None });
-                }
+                let ident = fctx.ident();
+                fields_new.push(quote! { #ident: None });
+
                 let fgen = match self.field_codegen(&fctx) {
                     Ok(fgen) => fgen,
                     Err(err) => {
@@ -379,11 +359,11 @@ impl FXRewriter {
                 }
             }
             else {
-                self.ctx().push_error(fctx.unwrap_err());
+                ctx.push_error(fctx.unwrap_err());
             }
         }
 
-        let default_initializer = if use_default {
+        let default_initializer = if use_default && ctx.needs_default() {
             quote![..::std::default::Default::default()]
         }
         else {
@@ -437,9 +417,6 @@ impl FXRewriter {
             let span = ctx.helper_span(FXHelperKind::Builder);
             let vis = self.builder_struct_visibility();
             let attributes = args.builder_attributes();
-            // let traits = vec![quote![Default]];
-            // let derive_attr = crate::util::derive_toks(&traits);
-            // eprintln!("BUILDER DERIVE: {}", derive_attr);
             let builder_ident = ctx.builder_ident();
 
             let myself_field = if args.is_ref_counted() {

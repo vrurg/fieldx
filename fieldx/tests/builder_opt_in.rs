@@ -1,6 +1,6 @@
 use fieldx::fxstruct;
 
-#[fxstruct(builder(opt_in, into), get)]
+#[fxstruct(builder(opt_in, into), default(off), get)]
 #[derive(Debug)]
 struct FooPlain {
     #[fieldx(builder)]
@@ -10,7 +10,7 @@ struct FooPlain {
     unbuildable: String,
 }
 
-#[fxstruct(sync, builder(opt_in, into), get)]
+#[fxstruct(sync, builder(opt_in, into), default(off), get)]
 #[derive(Debug)]
 struct FooSync {
     #[fieldx(builder)]

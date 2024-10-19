@@ -277,8 +277,9 @@ impl FXCodeGenContextual for FXCodeGenSync {
         let lazy_builder_name = self.lazy_name(fctx)?;
         let is_optional = fctx.is_optional();
         let is_lazy = fctx.is_lazy();
+        let default = self.field_default_value(fctx);
         let or_default = if fctx.has_default_value() {
-            let default = self.fixup_self_type(self.field_default_value(fctx).expect(&format!(
+            let default = self.fixup_self_type(default.clone().expect(&format!(
                 "Internal problem: expected default value for field {}",
                 fctx.ident_str()
             )));
@@ -295,7 +296,8 @@ impl FXCodeGenContextual for FXCodeGenSync {
         };
 
         Ok(if !fctx.forced_builder() && !fctx.needs_builder() {
-            quote![]
+            let default = self.field_value_wrap(fctx, default)?;
+            quote![#field_ident: #default]
         }
         else if fctx.is_lazy() {
             quote_spanned![span=>

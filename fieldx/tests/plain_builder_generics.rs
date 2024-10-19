@@ -24,7 +24,9 @@ where
     #[fieldx(inner_mut, get)]
     modifiable: T,
 
+    #[fieldx(builder(off))]
     _p1: PhantomData<&'a T>,
+    #[fieldx(default)]
     _p2: PhantomData<&'b T>,
 }
 

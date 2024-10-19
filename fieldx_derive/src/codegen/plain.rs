@@ -180,7 +180,7 @@ impl FXCodeGenContextual for FXCodeGenPlain {
         let field_default = self.field_default_wrap(fctx)?;
 
         Ok(if !fctx.forced_builder() && !fctx.needs_builder() {
-            quote![]
+            quote![#field_ident: #field_default]
         }
         else if fctx.is_lazy() {
             quote_spanned![span=>

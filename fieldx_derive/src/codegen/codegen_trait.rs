@@ -354,16 +354,19 @@ pub trait FXCodeGenContextual {
     }
 
     fn field_builder_field(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        if fctx.needs_builder() {
-            let ident = fctx.ident_tok();
-            let span = *fctx.span();
-            let ty = fctx.ty();
-            let attributes = fctx.builder().as_ref().and_then(|b| b.attributes());
-            Ok(quote_spanned![span=> #attributes #ident: ::std::option::Option<#ty>])
+        let ident = fctx.ident_tok();
+        let span = *fctx.span();
+        let ty = fctx.ty().to_token_stream();
+        let attributes = fctx.builder().as_ref().and_then(|b| b.attributes());
+        // Precautionary measure as this kind of fields are unlikely to be read. Yet, some of them may affect validity
+        // of the builder like, for example, when they may refer to generic lifetimes.
+        let allow_attr = if !fctx.forced_builder() && !fctx.needs_builder() {
+            quote![#[allow(dead_code)]]
         }
         else {
-            Ok(quote![])
-        }
+            quote![]
+        };
+        Ok(quote_spanned![span=> #attributes #allow_attr #ident: ::std::option::Option<#ty>])
     }
 
     fn field_builder_value_required(&self, fctx: &FXFieldCtx) {

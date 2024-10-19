@@ -8,7 +8,7 @@ trait Newish {
     fn new() -> Self;
 }
 
-#[fxstruct(sync, builder)]
+#[fxstruct(no_new, default(off), sync, builder)]
 #[derive(Debug)]
 struct Foo<'a, 'b, T>
 where
@@ -22,7 +22,9 @@ where
     #[fieldx(lazy, copy, clearer, into)]
     real: f32,
 
+    #[fieldx(builder(off))]
     _p1: PhantomData<&'a T>,
+    #[fieldx(default)]
     _p2: PhantomData<&'b T>,
 }
 
