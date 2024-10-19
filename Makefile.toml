@@ -86,9 +86,39 @@ writefile ./README.md ${readme_content.stdout}
 '''
     script_runner = "@duckscript"
 
+[tasks.changelog]
+    clear = true
+    description = "Produce CHANGELOG.md"
+    script = """
+cd ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}
+exec --fail-on-error git cliff -o CHANGELOG.md --tag ${CARGO_RELEASE_VERSION}
+"""
+    script_runner = "@duckscript"
+
+[tasks.pre-release]
+    clear = true
+    dependencies = ["test-versions", "doc", "changelog"]
+    description = "Pre-release tasks"
+    script = '''
+exec --fail-on-error git add README.md CHANGELOG.md
+exec --fail-on-error git commit -m 'minor: Pre-release docs update'
+
+print -bgc red -c black " ► "
+print -bgc black -c white " Do you want to bump release version patch? "
+print -s bold "(y/N)"
+echo " "
+reply = read
+reply = lowercase ${reply}
+if eq ${reply} "y"
+    exec --fail-on-error cargo release version patch --execute
+    exec --fail-on-error git add Cargo.toml fieldx/Cargo.toml fieldx_aux/Cargo.toml fieldx_derive/Cargo.toml fieldx_derive_support/Cargo.toml
+    exec --fail-on-error git commit -m "minor: version bump"
+end
+'''
+
 [tasks.publish]
     clear = true
-    dependencies = ["test-versions", "doc"]
+    dependencies = ["pre-release"]
     description = "Publish on crates.io"
     script = '''
 print -bgc red -c black " ► "
@@ -103,13 +133,4 @@ else
     echo "Won't publish."
 end
 '''
-    script_runner = "@duckscript"
-
-[tasks.pre-release]
-    clear = true
-    description = "Produce CHANGELOG.md"
-    script = """
-cd ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}
-exec --fail-on-error git cliff -o CHANGELOG.md --tag ${CARGO_RELEASE_VERSION}
-"""
     script_runner = "@duckscript"
