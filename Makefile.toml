@@ -156,7 +156,7 @@ end
     description = "Post-doc commit"
     script = '''
 exec --fail-on-error git add README.md CHANGELOG.md
-diffed = exec git diff-index --cached HEAD
+diffed = exec git diff-index --exit-code --cached HEAD
 if not eq ${diffed.code} 0
     echo "Docs need committing."
     exec --fail-on-error git commit -m "minor: Pre-release docs update"
