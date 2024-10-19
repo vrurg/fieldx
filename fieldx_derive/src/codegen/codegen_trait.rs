@@ -342,7 +342,7 @@ pub trait FXCodeGenContextual {
             builder_name.set_span(span);
             Ok(quote_spanned![span=>
                 #attributes
-                pub fn #builder_name #gen_params(&mut self, value: #val_type) -> &mut Self {
+                pub fn #builder_name #gen_params(mut self, value: #val_type) -> Self {
                     self.#ident = ::std::option::Option::Some(value #into_tok);
                     self
                 }
