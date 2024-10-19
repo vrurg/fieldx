@@ -105,7 +105,7 @@ exec --fail-on-error git cliff -o CHANGELOG.md --tag ${CARGO_RELEASE_VERSION}
     description = "Repository is clean"
     script = '''
 is_clean = exec --get-exit-code git diff-index --exit-code --quiet HEAD
-if not eq ${is_clean.code} 0 then
+if not eq ${is_clean} 0 then
     print -bgc red -c yellow "!!!"
     println -c bright_red " Repository is not clean."
     exit 1
@@ -136,7 +136,7 @@ end
     description = "Pre-release tasks"
     script = '''
 out = exec git diff-index --exit-code --quiet HEAD
-if not eq ${out.code} 0
+if not eq ${out} 0
     exec --fail-on-error git add README.md CHANGELOG.md
     exec --fail-on-error git commit -m "minor: Pre-release docs update"
     exec --fail-on-error git push
