@@ -131,24 +131,10 @@ end
     run_task = "test-versions"
     script_runner = "@duckscript"
 
-[tasks.pre-release]
+[tasks.version-patch-bump]
     clear = true
-    dependencies = ["is-clean", "release-testing", "doc", "changelog"]
-    description = "Pre-release tasks"
+    description = "Bump release version"
     script = '''
-exec --fail-on-error git add README.md CHANGELOG.md
-diffed = exec git diff-index --cached HEAD
-echo "DIFF index: ${diffed.code}"
-if not eq ${diffed.code} 0
-    echo "Docs need committing. See the `git diff-index` output below:"
-    echo ${diffed.stdout}
-    echo "stderr:"
-    echo ${diffed.stderr}
-    echo "commit..."
-    exec --fail-on-error git commit -m "minor: Pre-release docs update"
-    exec --fail-on-error git push
-end
-
 print -bgc red -c black " ► "
 print -bgc black -c white " Do you want to bump release version patch? "
 print -s bold "(y/N)"
@@ -162,6 +148,24 @@ if eq ${reply} "y"
 end
 '''
     script_runner = "@duckscript"
+
+[tasks.post-doc]
+    description = "Post-doc commit"
+    script = '''
+exec --fail-on-error git add README.md CHANGELOG.md
+diffed = exec git diff-index --cached HEAD
+if not eq ${diffed.code} 0
+    echo "Docs need committing. See the `git diff-index` output below:"
+    exec --fail-on-error git commit -m "minor: Pre-release docs update"
+    exec --fail-on-error git push
+end
+'''
+    script_runner = "@duckscript"
+
+[tasks.pre-release]
+    clear        = true
+    dependencies = ["is-clean", "release-testing", "version-patch-bump", "doc", "changelog", "post-doc"]
+    description  = "Pre-release tasks"
 
 [tasks.publish]
     clear = true
