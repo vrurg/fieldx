@@ -101,7 +101,7 @@ exec --fail-on-error git cliff -o CHANGELOG.md --tag ${CARGO_RELEASE_VERSION}
     description = "Pre-release tasks"
     script = '''
 exec --fail-on-error git add README.md CHANGELOG.md
-exec --fail-on-error git commit -m 'minor: Pre-release docs update'
+exec --fail-on-error git commit -m "minor: Pre-release docs update"
 
 print -bgc red -c black " ► "
 print -bgc black -c white " Do you want to bump release version patch? "
@@ -115,6 +115,7 @@ if eq ${reply} "y"
     exec --fail-on-error git commit -m "minor: version bump"
 end
 '''
+    script_runner = "@duckscript"
 
 [tasks.publish]
     clear = true
