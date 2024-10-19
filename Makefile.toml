@@ -135,7 +135,6 @@ end
     dependencies = ["is-clean", "release-testing", "doc", "changelog"]
     description = "Pre-release tasks"
     script = '''
-    exit 1
 exec --fail-on-error git add README.md CHANGELOG.md
 exec --fail-on-error git commit -m "minor: Pre-release docs update"
 
