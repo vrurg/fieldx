@@ -21,7 +21,7 @@
 toolchain_list = array %{__FIELDX_TOOLCHAINS__}
 
 for toolchain in ${toolchain_list}
-    echo Testing toolchain '${toolchain}'
+    echo "Testing toolchain '${toolchain}'"
     set_env __FIELDX_DEFAULT_TOOLCHAIN__ ${toolchain}
     rm Cargo.lock
     cm_run_task ${__FIELDX_TASK__}
