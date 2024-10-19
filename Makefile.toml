@@ -141,6 +141,7 @@ echo "DIFF index: ${out.code}"
 if not eq ${out.code} 0
     echo "Docs need committing. See the `git diff-index` output below:"
     echo ${out.stdout}
+    echo "stderr:"
     echo ${out.stderr}
     exec --fail-on-error git add README.md CHANGELOG.md
     exec --fail-on-error git commit -m "minor: Pre-release docs update"
