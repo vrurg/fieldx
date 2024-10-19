@@ -136,11 +136,12 @@ end
     dependencies = ["is-clean", "release-testing", "doc", "changelog"]
     description = "Pre-release tasks"
     script = '''
-diffed = exec git diff-index --exit-code --stat HEAD
+diffed = exec git diff-index --stat HEAD
 echo "DIFF index: ${diffed.code}"
+echo ${diffed.stdout}
+echo ${diffed.stderr}
 if not eq ${diffed.code} 0
     echo "Docs need committing. See the `git diff-index` output below:"
-    exec git diff-index --stat HEAD
     echo ${diffed.stdout}
     echo "stderr:"
     echo ${diffed.stderr}
