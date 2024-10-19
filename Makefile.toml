@@ -136,13 +136,14 @@ end
     dependencies = ["is-clean", "release-testing", "doc", "changelog"]
     description = "Pre-release tasks"
     script = '''
-out = exec git diff-index --exit-code --stat HEAD README.md CHANGELOG.md
-echo "DIFF index: ${out.code}"
-if not eq ${out.code} 0
+diffed = exec git diff-index --exit-code --stat HEAD
+echo "DIFF index: ${diffed.code}"
+if not eq ${diffed.code} 0
     echo "Docs need committing. See the `git diff-index` output below:"
-    echo ${out.stdout}
+    exec git diff-index --stat HEAD
+    echo ${diffed.stdout}
     echo "stderr:"
-    echo ${out.stderr}
+    echo ${diffed.stderr}
     exec --fail-on-error git add README.md CHANGELOG.md
     exec --fail-on-error git commit -m "minor: Pre-release docs update"
     exec --fail-on-error git push
