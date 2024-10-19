@@ -1,0 +1,9 @@
+fn <scope> ask_user
+    question = set ${1}
+    print -bgc red -c black " ► "
+    print -bgc black -c white " ${question} "
+    print -s bold "(y/N)"
+    echo " "
+    reply = read
+    return ${reply}
+end

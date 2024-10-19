@@ -135,16 +135,18 @@ end
     clear = true
     description = "Bump release version"
     script = '''
-print -bgc red -c black " ► "
-print -bgc black -c white " Do you want to bump release version patch? "
-print -s bold "(y/N)"
-echo " "
-reply = read
+!include_files makefile.ds
+reply = ask_user "Do you want to bump release version patch?"
 reply = lowercase ${reply}
 if eq ${reply} "y"
-    exec --fail-on-error cargo release version patch --execute
-    exec --fail-on-error git add Cargo.toml fieldx/Cargo.toml fieldx_aux/Cargo.toml fieldx_derive/Cargo.toml fieldx_derive_support/Cargo.toml
-    exec --fail-on-error git commit -m "minor: version bump"
+    exec --fail-on-error cargo release version patch
+    reply = ask_user "Does this look good for you?"
+    reply = lowercase ${reply}
+    if eq $reply "y"
+        exec --fail-on-error cargo release version patch --execute --no-confirm
+        exec --fail-on-error git add Cargo.toml fieldx/Cargo.toml fieldx_aux/Cargo.toml fieldx_derive/Cargo.toml fieldx_derive_support/Cargo.toml
+        exec --fail-on-error git commit -m "minor: version bump"
+    end
 end
 '''
     script_runner = "@duckscript"
@@ -155,7 +157,7 @@ end
 exec --fail-on-error git add README.md CHANGELOG.md
 diffed = exec git diff-index --cached HEAD
 if not eq ${diffed.code} 0
-    echo "Docs need committing. See the `git diff-index` output below:"
+    echo "Docs need committing."
     exec --fail-on-error git commit -m "minor: Pre-release docs update"
     exec --fail-on-error git push
 end
