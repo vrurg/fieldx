@@ -3,6 +3,7 @@
     __FIELDX_DEFAULT_TOOLCHAIN__         = { value = "nightly", condition = { env_not_set = ["__FIELDX_DEFAULT_TOOLCHAIN__"] } }
     __FIELDX_TASK__                      = { value = "test", condition = { env_not_set = ["__FIELDX_TASK__"] } }
     __FIELDX_TOOLCHAINS__                = "1.77 1.78 stable beta nightly"
+    __PREV_RELEASE_TESTING__             = "${CARGO_MAKE_WORKING_DIRECTORY}/.release-tested"
 
 [config]
     default_to_workspace = false
@@ -25,6 +26,10 @@ for toolchain in ${toolchain_list}
     rm Cargo.lock
     cm_run_task ${__FIELDX_TASK__}
 end
+
+# When successfully done then record last commit
+commit = exec git describe HEAD
+writefile ${__PREV_RELEASE_TESTING__} ${commit.stdout}
 '''
     script_runner = "@duckscript"
 
@@ -95,11 +100,42 @@ exec --fail-on-error git cliff -o CHANGELOG.md --tag ${CARGO_RELEASE_VERSION}
 """
     script_runner = "@duckscript"
 
+[tasks.is-clean]
+    category = "Check"
+    description = "Repository is clean"
+    script = '''
+is_clean = exec --get-exit-code git diff-index --exit-code --quiet HEAD
+if not eq ${is_clean} 0 then
+    print -bgc red -c yellow "!!!"
+    println -c bright_red " Repository is not clean."
+    exit 1
+end
+'''
+    script_runner = "@duckscript"
+
+[tasks.release-testing]
+    clear = true
+    condition = { fail_message = "No release testing is needed, has been done for this commit already" }
+    condition_script = ['''
+if is_path_exists ${__PREV_RELEASE_TESTING__}
+    prev = readfile ${__PREV_RELEASE_TESTING__}
+    prev = trim ${prev}
+    out = exec git describe HEAD
+    now = trim ${out.stdout}
+    if eq ${prev} ${now}
+        exit 1
+    end
+end
+''']
+    dependencies = ["test-versions"]
+    script_runner = "@duckscript"
+
 [tasks.pre-release]
     clear = true
-    dependencies = ["test-versions", "doc", "changelog"]
+    dependencies = ["is-clean", "release-testing", "doc", "changelog"]
     description = "Pre-release tasks"
     script = '''
+    exit 1
 exec --fail-on-error git add README.md CHANGELOG.md
 exec --fail-on-error git commit -m "minor: Pre-release docs update"
 
