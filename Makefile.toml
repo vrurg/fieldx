@@ -127,7 +127,7 @@ if is_path_exists ${__PREV_RELEASE_TESTING__}
     end
 end
 ''']
-    dependencies = ["test-versions"]
+    run_task = "test-versions"
     script_runner = "@duckscript"
 
 [tasks.pre-release]
