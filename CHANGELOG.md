@@ -1,5 +1,22 @@
 # Changelog
 
+## [unreleased]
+
+### Features
+
+- Allow field's `default` to be just a keyword so it would fallback to `Default::default()`
+- Make builder setter methods to use more common 'self ownership' scheme instead of using `&mut`
+
+### Bug Fixes
+
+- Avoid function name case warning
+- Reduce builder dependency on Default
+- Allow non-snake-case names for generated serde methods
+
+### ️ Miscellaneous Tasks
+
+- Release fieldx version 0.1.5
+
 ## [fieldx-v0.1.5] - 2024-10-03
 
 ### Features

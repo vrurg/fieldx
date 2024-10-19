@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
 ![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
-# fieldx v0.1.6-beta.1
+# fieldx v0.1.6
 
 Procedural macro for constructing structs with lazily initialized fields, builder pattern, and [`serde`] support
 with a focus on declarative syntax.
