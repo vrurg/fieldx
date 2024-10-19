@@ -105,7 +105,7 @@ exec --fail-on-error git cliff -o CHANGELOG.md --tag ${CARGO_RELEASE_VERSION}
     description = "Repository is clean"
     script = '''
 is_clean = exec --get-exit-code git diff-index --exit-code --quiet HEAD
-if not eq ${is_clean} 0 then
+if not eq ${is_clean} 0
     print -bgc red -c yellow "!!!"
     println -c bright_red " Repository is not clean."
     exit 1
