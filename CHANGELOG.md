@@ -1,6 +1,6 @@
 # Changelog
 
-## [unreleased]
+## [fieldx-v0.1.6] - 2024-10-19
 
 ### Features
 
