@@ -2,6 +2,8 @@ pub(crate) mod args;
 use proc_macro2::TokenStream;
 use quote::quote;
 
+#[allow(dead_code)]
+// Used by serde generation.
 pub fn derive_toks(traits: &[TokenStream]) -> TokenStream {
     if traits.len() > 0 {
         quote!(#[derive(#( #traits ),*)])
