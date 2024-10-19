@@ -53,7 +53,7 @@ pub(crate) struct FXFieldReceiver {
     public:        Option<FXNestingAttr<FXPubMode>>,
     private:       Option<FXBoolArg>,
     #[darling(rename = "default")]
-    default_value: Option<FXDefault>,
+    default_value: Option<FXDefault<true>>,
     builder:       Option<FXBuilder>,
     into:          Option<FXBoolArg>,
     #[getset(get = "pub with_prefix")]
