@@ -135,7 +135,7 @@ end
     clear = true
     description = "Bump release version"
     script = '''
-!include_files makefile.ds
+!include_files ./makefile.ds
 reply = ask_user "Do you want to bump release version patch?"
 reply = lowercase ${reply}
 if eq ${reply} "y"
@@ -175,11 +175,8 @@ end
     dependencies = ["pre-release"]
     description = "Publish on crates.io"
     script = '''
-print -bgc red -c black " ► "
-print -bgc black -c white " Do you want to publish the crates? "
-print -s bold "(y/N)"
-echo " "
-reply = read
+!include_files makefile.ds
+reply = ask_user "Do you want to publish the crates?"
 reply = lowercase ${reply}
 if eq ${reply} "y"
     exec --fail-on-error cargo release -x --no-confirm
