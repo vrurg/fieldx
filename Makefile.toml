@@ -143,6 +143,7 @@ if eq ${reply} "y"
     reply = ask_user "Does this look good for you?"
     reply = lowercase ${reply}
     if eq $reply "y"
+        echo "Bumping the patch."
         exec --fail-on-error cargo release version patch --execute --no-confirm
         exec --fail-on-error git add Cargo.toml fieldx/Cargo.toml fieldx_aux/Cargo.toml fieldx_derive/Cargo.toml fieldx_derive_support/Cargo.toml
         exec --fail-on-error git commit -m "minor: version bump"
