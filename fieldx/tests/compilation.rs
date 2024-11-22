@@ -169,17 +169,21 @@ impl Drop for UncompEnv {
 
 #[test]
 fn failures() {
-    let test_env = UncompEnv::new("uncompilable");
-    let t = trybuild::TestCases::new();
-    t.compile_fail(format!("{}/*.rs", test_env.base_dir));
+    if std::env::var("__FIELDX_DEFAULT_TOOLCHAIN__").map_or(true, |v| v != "nightly") {
+        let test_env = UncompEnv::new("uncompilable");
+        let t = trybuild::TestCases::new();
+        t.compile_fail(format!("{}/*.rs", test_env.base_dir));
+    }
 }
 
 #[test]
 #[cfg(feature = "serde")]
 fn failures_serde() {
-    let test_env = UncompEnv::new("uncompilable_serde");
-    let t = trybuild::TestCases::new();
-    t.compile_fail(format!("{}/*.rs", test_env.base_dir));
+    if std::env::var("__FIELDX_DEFAULT_TOOLCHAIN__").map_or(true, |v| v != "nightly") {
+        let test_env = UncompEnv::new("uncompilable_serde");
+        let t = trybuild::TestCases::new();
+        t.compile_fail(format!("{}/*.rs", test_env.base_dir));
+    }
 }
 
 #[test]
