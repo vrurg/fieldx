@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
 ![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
-# fieldx v0.1.6
+# fieldx v0.1.7
 
 Procedural macro for constructing structs with lazily initialized fields, builder pattern, and [`serde`] support
 with a focus on declarative syntax.
@@ -406,10 +406,18 @@ Additional sub-arguments:
 - **`attributes`** (see the [section above](#attrs_family)) – builder struct attributes
 - **`attributes_impl`** - attributes of the struct implementation
 - **`into`** – force all builder setter methods to attempt automatic type conversion using `.into()` method
-- **`opt_in`** - struct-level only argument; with it only fields with explicit `builder` can get their values from the builder
 
   With `into` the example above wouldn't need `String::from` and the call could look like this:
   `.description("some description")`
+- **`opt_in`** - struct-level only argument; with it only fields with explicit `builder` can get their values from the builder
+- **`init`** - struct-level only argument; specifies identifier of the method to call to finish object initialization.
+
+  There are a couple of notes to take into account:
+
+  - the method is called on freshly created object right before it is returned back to builder caller
+  - it must take and return `self`: `fn post_build(mut self) { self.foo = "bar"; self }`
+  - for reference-counted structs the method is invoked before they're wrapped into corresponding container;
+    this allows for `mut self` and direct access to the fields without use of inner mutability
 
 #### **`rc`**
 
@@ -712,12 +720,12 @@ Sets default for `set` and `builder` arguments.
 
 #### **`builder`**
 
-**Type**: function
+**Type**: helper
 
 Mostly identical to the [struct-level `builder`](#builder). Field specifics are:
 
 - no `attributes_impl` and `opt_in` (consumed, but ignored)
-- string literal specifies setter method name if the builder type for this field
+- string literal specifies setter method name of the builder type for this field
 - `attributes` and `attributes_fn` are correspondingly applies to builder field and builder setter method
 
 Field level only argument:
