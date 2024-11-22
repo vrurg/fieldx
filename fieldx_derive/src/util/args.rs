@@ -240,6 +240,13 @@ impl FXSArgs {
     }
 
     #[inline(always)]
+    pub fn builder_init_ident(&self) -> Option<syn::Ident> {
+        self.builder
+            .as_ref()
+            .and_then(|b| b.init().as_ref().map(|v| v.value().clone()))
+    }
+
+    #[inline(always)]
     pub fn public_mode(&self) -> Option<FXPubMode> {
         fieldx_aux::public_mode(&self.public, &self.private)
     }

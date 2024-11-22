@@ -1,5 +1,5 @@
 use crate::{
-    set_literals, FXAttributes, FXBoolArg, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXStringArg,
+    set_literals, FXAttributes, FXBoolArg, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXStringArg, FXSynValue,
     FXTriggerHelper, FromNestAttr,
 };
 use darling::{util::Flag, FromMeta};
@@ -21,6 +21,8 @@ pub struct FXBuilderHelper {
     required:        Option<FXBoolArg>,
     // Means that by default a field doesn't get a builder unless explicitly specified.
     opt_in:          Option<FXBoolArg>,
+    #[getset(get = "pub")]
+    init:            Option<FXSynValue<syn::Ident>>,
 }
 
 impl FXBuilderHelper {

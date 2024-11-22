@@ -230,7 +230,7 @@ impl FXRewriter {
             };
 
             let return_type = cgen.maybe_ref_counted(&quote![Self]);
-            let body = cgen.maybe_ref_counted_create(&quote![Self], &quote![..Self::default()]);
+            let body = cgen.maybe_ref_counted_create(&quote![Self], &quote![..Self::default()], None);
 
             ctx.add_method_decl(quote![
                 #[inline]
@@ -326,6 +326,7 @@ impl FXRewriter {
         let where_clause = &generics.where_clause;
         let generic_params = ctx.struct_generic_params();
         let attributes = ctx.args().builder_impl_attributes();
+        let init_ident = ctx.args().builder_init_ident();
 
         let mut field_setters = Vec::<TokenStream>::new();
         let mut use_default = false;
@@ -387,6 +388,7 @@ impl FXRewriter {
                     #(#field_setters,)*
                     #default_initializer
             ],
+            init_ident,
         );
 
         quote![

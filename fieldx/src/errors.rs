@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum FieldXError {
     #[error("Field '{0}' is not set")]
     UninitializedField(String),

@@ -228,9 +228,21 @@ pub trait FXCodeGenContextual {
         ty.to_token_stream()
     }
 
-    fn maybe_ref_counted_create<NT: ToTokens, IT: ToTokens>(&self, self_name: &NT, struct_init: &IT) -> TokenStream {
+    fn maybe_ref_counted_create<NT: ToTokens, IT: ToTokens>(
+        &self,
+        self_name: &NT,
+        struct_init: &IT,
+        init: Option<syn::Ident>,
+    ) -> TokenStream {
         let ctx = self.ctx();
         let args = ctx.args();
+        let post_constuct = if let Some(init) = init {
+            quote![.#init()]
+        }
+        else {
+            quote![]
+        };
+
         if args.is_ref_counted() {
             let (rc_type, _) = self.ref_count_types();
             let myself_field = ctx.myself_field();
@@ -241,6 +253,7 @@ pub trait FXCodeGenContextual {
                             #myself_field: me.clone(),
                             #struct_init
                         }
+                        #post_constuct
                     }
                 )
             ]
@@ -250,6 +263,7 @@ pub trait FXCodeGenContextual {
                 #self_name {
                     #struct_init
                 }
+                #post_constuct
             ]
         }
     }
