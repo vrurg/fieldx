@@ -20,7 +20,7 @@ use proc_macro2::Span;
 pub(crate) struct FXSArgs {
     #[darling(rename = "sync")]
     mode_sync:  Option<FXBoolArg>,
-    #[darling(rename = "async")]
+    #[darling(rename = "asyn")]
     mode_async: Option<FXBoolArg>,
 
     builder: Option<FXBuilder>,
@@ -64,7 +64,7 @@ impl FXSArgs {
     validate_exclusives!(
         "visibility": public; private;
         "accessor mode": copy; clone;
-        "concurrency mode": mode_sync, reader, writer, lock; mode_async; inner_mut;
+        "concurrency mode": mode_sync as "sync", mode_async as "asyn"; inner_mut;
         "field mode": lazy; optional, inner_mut;
         "serde/ref.counting": serde; rc;
     );
@@ -73,7 +73,7 @@ impl FXSArgs {
     validate_exclusives!(
         "visibility": public; private;
         "accessor mode": copy, clone;
-        "concurrency mode": mode_sync, reader, writer, lock; mode_async; inner_mut;
+        "concurrency mode": mode_sync as "sync", reader, writer, lock; mode_async as "asyn"; inner_mut;
         "field mode": lazy; optional, inner_mut;
     );
 

@@ -1,4 +1,4 @@
-use fieldx::FXRwLockAsync;
+use fieldx::r#async::FXRwLockAsync;
 use tokio;
 
 #[tokio::test]

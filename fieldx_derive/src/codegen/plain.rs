@@ -24,9 +24,9 @@ impl FXCodeGenContextual for FXCodeGenPlain {
         &self.ctx
     }
 
-    // fn initializers_combined(&self) -> TokenStream {
-    //     TokenStream::new()
-    // }
+    fn field_lazy_builder_wrapper(&self, _: &FXFieldCtx) -> darling::Result<TokenStream> {
+        Ok(quote![])
+    }
 
     fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> &'s TokenStream {
         fctx.ty_wrapped(|| {

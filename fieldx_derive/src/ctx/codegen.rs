@@ -154,7 +154,9 @@ impl FXCodeGenCtx {
 
     #[inline(always)]
     pub fn add_method_decl(&self, method: TokenStream) {
-        self.method_toks.borrow_mut().push(method);
+        if !method.is_empty() {
+            self.method_toks.borrow_mut().push(method);
+        }
     }
 
     #[inline(always)]

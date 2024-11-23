@@ -12,7 +12,6 @@
     resolver = "2"
 
 [workspace.dependencies]
-    async-lock            = "3.4"
     cargo-toolchain       = "0.1"
     crossbeam             = "0.8"
     darling               = ">=0.20.7"

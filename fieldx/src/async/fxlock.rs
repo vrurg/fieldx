@@ -1,5 +1,5 @@
-use async_lock::RwLock;
 use std::{borrow::Borrow, fmt, fmt::Debug, ops::Deref};
+pub use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[derive(Default)]
 pub struct FXRwLockAsync<T>(RwLock<T>);
@@ -14,6 +14,14 @@ impl<T> FXRwLockAsync<T> {
     pub fn into_inner(self) -> T {
         self.0.into_inner()
     }
+
+    pub async fn read(&self) -> RwLockReadGuard<T> {
+        self.0.read().await
+    }
+
+    pub async fn write(&self) -> RwLockWriteGuard<T> {
+        self.0.write().await
+    }
 }
 
 impl<T> PartialEq for FXRwLockAsync<T>
@@ -21,8 +29,8 @@ where
     T: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        let myguard = self.0.read_blocking();
-        let otherguard = other.0.read_blocking();
+        let myguard = self.0.blocking_read();
+        let otherguard = other.0.blocking_read();
 
         myguard.eq(&otherguard)
     }
@@ -59,7 +67,7 @@ where
     T: Clone,
 {
     fn clone(&self) -> Self {
-        let vguard = self.0.read_blocking();
+        let vguard = self.0.blocking_read();
         Self(RwLock::new((*vguard).clone()))
     }
 }

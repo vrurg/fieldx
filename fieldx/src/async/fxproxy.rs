@@ -1,5 +1,8 @@
-use crate::traits::FXNewDefault;
-use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
+use crate::traits::{FXNewDefault, FXStruct};
+// use async_lock::{RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard};
+// use parking_lot::{
+//     MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard,
+// };
 use std::{
     any,
     cell::RefCell,
@@ -12,8 +15,10 @@ use std::{
         Arc,
     },
 };
+use tokio::sync::{RwLock, RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};
 
-type FXCallback<S, T> = Box<dyn Fn(&S) -> Pin<Box<dyn Future<Output = T> + Send>> + Send + Sync>;
+type FXCallback<S, T> = Box<dyn Fn(&S) -> Pin<Box<dyn Future<Output = T> + Send + '_>> + Send + Sync>;
+// type FXCallback<S, T> = fn(&S) -> Pin<Box<dyn Future<Output = T> + Send>>;
 
 /// Container type for lazy fields
 ///
@@ -28,15 +33,15 @@ pub struct FXProxyAsync<S, T> {
 ///
 /// This type, in cooperation with the [`FXProxy`] type, takes care of safely updating lazy field status when data is
 /// being stored.
-pub struct FXWrLockAsync<'a, S, T> {
+pub struct FXWrLockGuardAsync<'a, S, T> {
     lock:     RefCell<RwLockWriteGuard<'a, Option<T>>>,
-    fxproxy:  &'a FXProxy<S, T>,
+    fxproxy:  &'a FXProxyAsync<S, T>,
     _phantom: PhantomData<S>,
 }
 
 impl<S, T: fmt::Debug> fmt::Debug for FXProxyAsync<S, T> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let vlock = self.value.read_blocking();
+        let vlock = self.value.blocking_read();
         formatter
             .debug_struct(any::type_name::<Self>())
             .field("value", &*vlock)
@@ -44,30 +49,16 @@ impl<S, T: fmt::Debug> fmt::Debug for FXProxyAsync<S, T> {
     }
 }
 
-impl<S, T> FXNewDefault<S, T> for FXProxyAsync<S, T>
+impl<S, T> FXNewDefault for FXProxyAsync<S, T>
 where
-    S: FXStruct,
+    S: FXStruct + 'static,
+    T: 'static,
 {
-    #[doc(hidden)]
-    fn new_default<F, Fut>(builder_method: F, value: Option<T>) -> Self
-    where
-        F: Fn(&S) -> Fut,
-        Fut: Future<Output = T> + Send,
-    {
-        Self {
-            is_set:  AtomicBool::new(value.is_some()),
-            value:   RwLock::new(value),
-            builder: RwLock::new(Some(Box::new(move |s| Box::pin(callback(s))))),
-        }
-    }
-}
+    type Builder = FXCallback<S, T>;
+    type Value = T;
 
-impl<S, T> FXNewDefault<Arc<S>, T> for FXProxyAsync<Arc<S>, T>
-where
-    S: FXStruct,
-{
     #[doc(hidden)]
-    fn new_default(builder_method: fn(&Arc<S>) -> T, value: Option<T>) -> Self {
+    fn new_default(builder_method: Self::Builder, value: Option<Self::Value>) -> Self {
         Self {
             is_set:  AtomicBool::new(value.is_some()),
             value:   RwLock::new(value),
@@ -76,7 +67,24 @@ where
     }
 }
 
-impl<S, T> FXProxy<S, T> {
+impl<S, T> FXNewDefault for FXProxyAsync<Arc<S>, T>
+where
+    S: FXStruct,
+{
+    type Builder = FXCallback<Arc<S>, T>;
+    type Value = T;
+
+    #[doc(hidden)]
+    fn new_default(builder_method: Self::Builder, value: Option<T>) -> Self {
+        Self {
+            is_set:  AtomicBool::new(value.is_some()),
+            value:   RwLock::new(value),
+            builder: RwLock::new(Some(builder_method)),
+        }
+    }
+}
+
+impl<S, T> FXProxyAsync<S, T> {
     /// Consumes the container, returns the wrapped value or None if the container is empty
     pub fn into_inner(self) -> Option<T> {
         self.value.into_inner()
@@ -95,53 +103,45 @@ impl<S, T> FXProxy<S, T> {
 
     /// Initialize the field without obtaining the lock. Note though that if the lock is already owned this method will
     /// wait for it to be released.
-    pub fn lazy_init<'a>(&'a self, owner: &S) {
-        let _ = self.read_or_init(owner);
+    pub async fn lazy_init<'a>(&'a self, owner: &S) {
+        let _ = self.read_or_init(owner).await;
     }
 
-    fn read_or_init<'a>(&'a self, owner: &S) -> RwLockUpgradableReadGuard<'a, Option<T>> {
-        let guard = self.value.upgradable_read();
+    async fn read_or_init<'a>(&'a self, owner: &S) -> RwLockWriteGuard<'a, Option<T>> {
+        let mut guard = self.value.write().await;
         if (*guard).is_none() {
-            let mut wguard = RwLockUpgradableReadGuard::upgrade(guard);
-            // Still uninitialized? Means no other thread took care of it yet.
-            if wguard.is_none() {
-                // No value has been set yet
-                match *self.builder.read() {
-                    Some(ref builder_cb) => {
-                        *wguard = Some((*builder_cb)(owner));
-                        self.is_set_raw().store(true, Ordering::SeqCst);
-                    }
-                    None => panic!("Builder is not set"),
+            // No value has been set yet
+            match *self.builder.read().await {
+                Some(ref builder_cb) => {
+                    *guard = Some((*builder_cb)(owner).await);
+                    self.is_set_raw().store(true, Ordering::SeqCst);
                 }
+                None => panic!("Builder is not set"),
             }
-            RwLockWriteGuard::downgrade_to_upgradable(wguard)
         }
-        else {
-            guard
-        }
+        guard
     }
 
     /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
     /// semit-direct access to it without the [`Option`] wrapper.
-    pub fn read<'a>(&'a self, owner: &S) -> MappedRwLockReadGuard<'a, T> {
+    pub async fn read<'a>(&'a self, owner: &S) -> RwLockReadGuard<'a, T> {
         RwLockReadGuard::map(
-            RwLockUpgradableReadGuard::downgrade(self.read_or_init(owner)),
+            RwLockWriteGuard::downgrade(self.read_or_init(owner).await),
             |data: &Option<T>| data.as_ref().unwrap(),
         )
     }
 
     /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
     /// semit-direct mutable access to it without the [`Option`] wrapper.
-    pub fn read_mut<'a>(&'a self, owner: &S) -> MappedRwLockWriteGuard<'a, T> {
-        RwLockWriteGuard::map(
-            RwLockUpgradableReadGuard::upgrade(self.read_or_init(owner)),
-            |data: &mut Option<T>| data.as_mut().unwrap(),
-        )
+    pub async fn read_mut<'a>(&'a self, owner: &S) -> RwLockMappedWriteGuard<'a, T> {
+        RwLockWriteGuard::map(self.read_or_init(owner).await, |data: &mut Option<T>| {
+            data.as_mut().unwrap()
+        })
     }
 
     /// Provides write-lock to directly store the value.
-    pub fn write<'a>(&'a self) -> FXWrLock<'a, S, T> {
-        FXWrLock::<'a, S, T>::new(self.value.write(), self)
+    pub async fn write<'a>(&'a self) -> FXWrLockGuardAsync<'a, S, T> {
+        FXWrLockGuardAsync::<'a, S, T>::new(self.value.write().await, self)
     }
 
     fn clear_with_lock(&self, wguard: &mut RwLockWriteGuard<Option<T>>) -> Option<T> {
@@ -150,16 +150,16 @@ impl<S, T> FXProxy<S, T> {
     }
 
     /// Resets the container into unitialized state
-    pub fn clear(&self) -> Option<T> {
-        let mut wguard = self.value.write();
+    pub async fn clear(&self) -> Option<T> {
+        let mut wguard = self.value.write().await;
         self.clear_with_lock(&mut wguard)
     }
 }
 
 #[allow(private_bounds)]
-impl<'a, S, T> FXWrLock<'a, S, T> {
+impl<'a, S, T> FXWrLockGuardAsync<'a, S, T> {
     #[doc(hidden)]
-    pub fn new(lock: RwLockWriteGuard<'a, Option<T>>, fxproxy: &'a FXProxy<S, T>) -> Self {
+    pub fn new(lock: RwLockWriteGuard<'a, Option<T>>, fxproxy: &'a FXProxyAsync<S, T>) -> Self {
         let lock = RefCell::new(lock);
         Self {
             lock,
@@ -180,18 +180,18 @@ impl<'a, S, T> FXWrLock<'a, S, T> {
     }
 }
 
-impl<S, T> Clone for FXProxy<S, T>
-where
-    S: FXStructSync,
-    T: Clone,
-{
-    fn clone(&self) -> Self {
-        let vguard = self.value.read();
-        let bguard = self.builder.read();
-        Self {
-            value:   RwLock::new((*vguard).as_ref().cloned()),
-            is_set:  AtomicBool::new(self.is_set()),
-            builder: RwLock::new(bguard.clone()),
-        }
-    }
-}
+// impl<S, T> Clone for FXProxyAsync<S, T>
+// where
+//     S: FXStruct + Clone,
+//     T: Clone,
+// {
+//     fn clone(&self) -> Self {
+//         let vguard = self.value.blocking_read();
+//         let bguard = self.builder.blocking_read();
+//         Self {
+//             value:   RwLock::new((*vguard).as_ref().cloned()),
+//             is_set:  AtomicBool::new(self.is_set()),
+//             builder: RwLock::new((*bguard).clone()),
+//         }
+//     }
+// }

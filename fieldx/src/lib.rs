@@ -942,15 +942,11 @@ pub mod traits;
 
 pub use fieldx_aux::FXOrig;
 pub use fieldx_derive::fxstruct;
-#[doc(hidden)]
-pub use parking_lot::{
-    MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard,
-};
-pub use r#async::*;
+pub use r#async::FXProxyAsync;
 #[doc(hidden)]
 pub use std::{
     cell::{OnceCell, Ref, RefCell, RefMut},
     fmt,
     sync::atomic::Ordering,
 };
-pub use sync::*;
+pub use sync::FXProxy;

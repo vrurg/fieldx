@@ -26,6 +26,7 @@ pub trait FXCodeGenContextual {
     fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
     fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
     fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_lazy_builder_wrapper(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
     fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<TokenStream>) -> darling::Result<TokenStream>;
     fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
     fn field_lazy_initializer(
@@ -301,6 +302,7 @@ pub trait FXCodeGenContextual {
             ctx.add_method_decl(self.field_setter(&fctx)?);
             ctx.add_method_decl(self.field_clearer(&fctx)?);
             ctx.add_method_decl(self.field_predicate(&fctx)?);
+            ctx.add_method_decl(self.field_lazy_builder_wrapper(&fctx)?);
             if ctx.needs_builder_struct() {
                 ctx.add_builder_decl(self.field_builder(&fctx)?);
                 ctx.add_builder_field_decl(self.field_builder_field(&fctx)?);

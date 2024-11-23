@@ -26,7 +26,7 @@ pub struct FXProxy<S, T> {
 ///
 /// This type, in cooperation with the [`FXProxy`] type, takes care of safely updating lazy field status when data is
 /// being stored.
-pub struct FXWrLock<'a, S, T> {
+pub struct FXWrLockGuard<'a, S, T> {
     lock:     RefCell<RwLockWriteGuard<'a, Option<T>>>,
     fxproxy:  &'a FXProxy<S, T>,
     _phantom: PhantomData<S>,
@@ -42,10 +42,13 @@ impl<S, T: fmt::Debug> fmt::Debug for FXProxy<S, T> {
     }
 }
 
-impl<S, T> FXNewDefault<S, T> for FXProxy<S, T>
+impl<S, T> FXNewDefault for FXProxy<S, T>
 where
     S: FXStruct,
 {
+    type Builder = fn(&S) -> T;
+    type Value = T;
+
     #[doc(hidden)]
     fn new_default(builder_method: fn(&S) -> T, value: Option<T>) -> Self {
         Self {
@@ -56,10 +59,13 @@ where
     }
 }
 
-impl<S, T> FXNewDefault<Arc<S>, T> for FXProxy<Arc<S>, T>
+impl<S, T> FXNewDefault for FXProxy<Arc<S>, T>
 where
     S: FXStruct,
 {
+    type Builder = fn(&Arc<S>) -> T;
+    type Value = T;
+
     #[doc(hidden)]
     fn new_default(builder_method: fn(&Arc<S>) -> T, value: Option<T>) -> Self {
         Self {
@@ -134,8 +140,8 @@ impl<S, T> FXProxy<S, T> {
     }
 
     /// Provides write-lock to directly store the value.
-    pub fn write<'a>(&'a self) -> FXWrLock<'a, S, T> {
-        FXWrLock::<'a, S, T>::new(self.value.write(), self)
+    pub fn write<'a>(&'a self) -> FXWrLockGuard<'a, S, T> {
+        FXWrLockGuard::<'a, S, T>::new(self.value.write(), self)
     }
 
     fn clear_with_lock(&self, wguard: &mut RwLockWriteGuard<Option<T>>) -> Option<T> {
@@ -151,7 +157,7 @@ impl<S, T> FXProxy<S, T> {
 }
 
 #[allow(private_bounds)]
-impl<'a, S, T> FXWrLock<'a, S, T> {
+impl<'a, S, T> FXWrLockGuard<'a, S, T> {
     #[doc(hidden)]
     pub fn new(lock: RwLockWriteGuard<'a, Option<T>>, fxproxy: &'a FXProxy<S, T>) -> Self {
         let lock = RefCell::new(lock);

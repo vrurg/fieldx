@@ -21,16 +21,6 @@ use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_attribute]
 pub fn fxstruct(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // set_hook(Box::new(|info| {
-    //     eprintln!("!!! PANIC HOOK");
-    //     if let Some(s) = info.payload().downcast_ref::<&str>() {
-    //         eprintln!("panic occurred: {s:?}");
-    //     }
-    //     if let Some(loc) = info.location() {
-    //         eprintln!("!!! PANICED AT {}:{}", loc.file(), loc.line());
-    //     }
-    // }));
-
     let attr_args = match ast::NestedMeta::parse_meta_list(args.into()) {
         Ok(v) => v,
         Err(e) => {
