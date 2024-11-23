@@ -206,7 +206,6 @@ async fn threaded() {
     wg.wait().await;
     sleep(time::Duration::from_millis(500)).await;
     stop.store(true, Ordering::Relaxed);
-    // thandles.join_all().await;
     thandles.join_all().await;
     let clear_count = cleared.load(Ordering::SeqCst);
     let build_count = sync.bar_builds().await;
