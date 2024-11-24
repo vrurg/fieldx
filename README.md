@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
 ![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
-# fieldx v0.1.7
+# fieldx v0.1.8-beta.1
 
 Procedural macro for constructing structs with lazily initialized fields, builder pattern, and [`serde`] support
 with a focus on declarative syntax.
@@ -81,20 +81,23 @@ additions:
 **Note** that user is highly discouraged from directly accessing modified fields. The module does its best to
 provide all necessary API via corresponding methods.
 
-## Sync And Non-Sync Structs
+## Sync, Async, And Plain Structs
+
+_Note:_ "Async" is considered to be a synonym to "sync" since both require concurrency safety. Even the code
+generated for sync and async cases is mostly identical.
 
 If a thread-safe struct is needed then `fxstruct` must take the `sync` argument: `#[fxstruct(sync, ...)]`. When
 instructed so, the macro will do its best to provide concurrency safety at the field level. It means that:
 
-- builder methods are guaranteed to be invoked once and only once per each lazy initialization, be it single- or
+- lazy builder methods are guaranteed to be invoked once and only once per each initialization, be it single- or
   multi-threaded application
-- access to struct fields is lock-protected (unless otherwise requested by the user)
+- access to field is lock-protected for lazy or optional fields implicitly
 
-Sync and non-sync structures also are very different in ways they act and interact with user code.
+In less strict cases it is possible to mark individual fields as sync.
 
-Also, non-mutable accessors of non-sync struct normally return a reference to their field. Accessors of sync
-structs, unless directed to use [`clone`][`Clone`] or [`copy`][`Copy`], or used with a non-protected field, return a
-kind of lock-guard.
+Plain non-mutable accessors normally return a reference to their field. Accessors of sync structs, unless directed
+to use [`clone`][`Clone`] or [`copy`][`Copy`], or used with a non-protected field, return some kind of lock-guard
+object.
 
 Wrapper types for sync struct fields are non-`std` and provided with the module.
 
@@ -158,8 +161,8 @@ new builder for it.
 ## Laziness Protocol
 
 Though being very simple concept, laziness has its own peculiarities. The basics, as shown above, are such that when
-we declare a field as `lazy` the macro wraps it into some kind of proxy container type ([`OnceCell`] for non-sync
-structs). The first read[^only_via_method] from an uninitialized field will result in the builder method to be
+we declare a field as `lazy` the macro wraps it into some kind of proxy container type ([`OnceCell`] for plain
+fields). The first read[^only_via_method] from an uninitialized field will result in the lazy builder method to be
 invoked and the value it returns to be stored in the field.
 
 Here come the caveats:
@@ -170,7 +173,8 @@ Here come the caveats:
    but this is rarely a good option.
 
    For cases when it is important to have controllable error handling, one could give the field a [`Result`] type.
-   Then `obj.field()?` could be a way to take care of errors.
+   Then `obj.field()?` could be a way to take care of errors. But this approach has its own complications,
+   especially for sync fields.
 
 1. Field builder methods cannot mutate their objects. This limitation also comes from the fact that a typical
    accessor method doesn't need and must not use mutable `&self`. Of course, it is always possible to use internal
@@ -181,8 +185,8 @@ accessor, but for `sync` structs it's more likely to be a reader.
 
 ## Field Interior Mutability
 
-Marking fields with `inner_mut` flag is a shortcut for using `RefCell` wrapper. It doesn't matter if an `inner_mut`
-field belongs to a sync or a non-sync struct, it will always be a `RefCell`.
+Marking fields with `inner_mut` flag is a shortcut for using `RefCell` wrapper. This effectively turns such fields
+to be plain ones.
 
 ```rust
 #[fxstruct]
@@ -366,7 +370,30 @@ then this one will be used.
 
 **Type**: keyword
 
-Declare a struct as thread-safe.
+Declare a struct as thread-safe by default.
+
+#### **`r#async`***
+
+**Type**: keyword
+
+Declare a struct as async by default.
+
+*Note:* Since `async` is a keyword, the `syn` is not allowing to use it as-is, only with the `r#` prefix, according
+to Rust syntax.
+
+#### **`mode`**
+
+**Type**: function
+
+This is another way to specify the default concurrency mode for struct. It takes one of three keywords as arguments:
+
+- `sync`
+- `async`
+- `plain`
+
+Note that contrary to the direct keyword way, `async` doesn't require the `r#` prefix: `mode(async)`.
+
+Also, there is no `plain` keyword, but one can use it with `mode` as an explicit marker.
 
 #### **`lazy`**
 
@@ -540,8 +567,7 @@ Forces lock-wrapping of all fields by default. Can be explicitly disabled with `
 These two are tightly coupled by their meaning, though can be used separately.
 
 Predicate helper methods return [`bool`] and are the way to find out if a field is set. They're universal in the way
-that no matter wether a struct is sync or non-sync, or a field is lazy or just optional – you always use the same
-method.
+that no matter wether a field is sync, or plain, or lazy, or just optional – you always use the same method.
 
 Clearer helpers are the way to reset a field into uninitialized state. For optional fields it would simply mean it
 will contain [`None`]. A lazy field would be re-initialized the next time it is read from.
@@ -851,7 +877,7 @@ As it was mentioned in the [Basics](#basics) section, `fieldx` rewrites structur
 following table reveals the final types of fields. `T` in the table represents the original field type, as specified
 by the user; `O` is the original struct type.
 
-| Field Parameters | Non-Sync Type | Sync Type |
+| Field Parameters | Plain Type | Sync Type |
 |------------------|---------------|-----------|
 | `lazy` | `OnceCell<T>` | [`FXProxy<O, T>`] |
 | `optional` (also activated with `clearer` and `proxy`) | `Option<T>` | [`FXRwLock<Option<T>>`] |
@@ -860,7 +886,7 @@ by the user; `O` is the original struct type.
 Apparently, skipped fields retain their original type. Sure enough, if such a field is of non-`Send` or non-`Sync`
 type the entire struct would be missing these traits despite all the efforts from the `fxstruct` macro.
 
-There is also a difference in how the initialization of `lazy` fields is implemented. Non-sync structs do it
+There is also a difference in how the initialization of `lazy` fields is implemented. For plain fields this is done
 directly in their accessor methods. Sync structs delegate this functionality to the [`FXProxy`] type.
 
 ### Traits
