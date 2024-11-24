@@ -18,20 +18,17 @@ use std::{
 use tokio::sync::{RwLock, RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};
 
 type FXCallback<S, T> = Box<dyn Fn(&S) -> Pin<Box<dyn Future<Output = T> + Send + '_>> + Send + Sync>;
-// type FXCallback<S, T> = fn(&S) -> Pin<Box<dyn Future<Output = T> + Send>>;
 
 /// Container type for lazy fields
-///
-/// Direct use of this struct is not recommended. See [reader and writer helpers](mod@crate#reader_writer_helpers).
 pub struct FXProxyAsync<S, T> {
     value:   RwLock<Option<T>>,
     is_set:  AtomicBool,
     builder: RwLock<Option<FXCallback<S, T>>>,
 }
 
-/// Write-lock returned by [`FXProxy::write`] method
+/// Write-lock returned by [`FXProxyAsync::write`] method
 ///
-/// This type, in cooperation with the [`FXProxy`] type, takes care of safely updating lazy field status when data is
+/// This type, in cooperation with the [`FXProxyAsync`] type, takes care of safely updating lazy field status when data is
 /// being stored.
 pub struct FXWrLockGuardAsync<'a, S, T> {
     lock:     RefCell<RwLockWriteGuard<'a, Option<T>>>,
@@ -180,18 +177,19 @@ impl<'a, S, T> FXWrLockGuardAsync<'a, S, T> {
     }
 }
 
-// impl<S, T> Clone for FXProxyAsync<S, T>
-// where
-//     S: FXStruct + Clone,
-//     T: Clone,
-// {
-//     fn clone(&self) -> Self {
-//         let vguard = self.value.blocking_read();
-//         let bguard = self.builder.blocking_read();
-//         Self {
-//             value:   RwLock::new((*vguard).as_ref().cloned()),
-//             is_set:  AtomicBool::new(self.is_set()),
-//             builder: RwLock::new((*bguard).clone()),
-//         }
-//     }
-// }
+impl<S, T> Clone for FXProxyAsync<S, T>
+where
+    S: FXStruct + Clone + 'static,
+    T: Clone + 'static,
+    <FXProxyAsync<S, T> as FXNewDefault>::Builder: Clone,
+{
+    fn clone(&self) -> Self {
+        let vguard = self.value.blocking_read();
+        let bguard = self.builder.blocking_read();
+        Self {
+            value:   RwLock::new((*vguard).as_ref().cloned()),
+            is_set:  AtomicBool::new(self.is_set()),
+            builder: RwLock::new((*bguard).clone()),
+        }
+    }
+}
