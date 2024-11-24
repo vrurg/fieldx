@@ -9,7 +9,7 @@ use darling::FromMeta;
 use fieldx_aux::FXSerde;
 use fieldx_aux::{
     validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBoolArg, FXBoolHelper, FXBuilder, FXHelper,
-    FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXTriggerHelper,
+    FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXSynValue, FXSyncMode, FXTriggerHelper,
 };
 use getset::Getters;
 use proc_macro2::Span;
@@ -18,9 +18,13 @@ use proc_macro2::Span;
 #[darling(and_then = Self::validate)]
 #[getset(get = "pub")]
 pub(crate) struct FXSArgs {
+    #[getset(skip)]
+    mode:       Option<FXSynValue<FXSyncMode>>,
+    #[getset(skip)]
     #[darling(rename = "sync")]
     mode_sync:  Option<FXBoolArg>,
-    #[darling(rename = "asyn")]
+    #[getset(skip)]
+    #[darling(rename = "r#async")]
     mode_async: Option<FXBoolArg>,
 
     builder: Option<FXBuilder>,
@@ -64,7 +68,7 @@ impl FXSArgs {
     validate_exclusives!(
         "visibility": public; private;
         "accessor mode": copy; clone;
-        "concurrency mode": mode_sync as "sync", mode_async as "asyn"; inner_mut;
+        "concurrency mode": mode_sync as "sync", mode_async as "r#async"; inner_mut; mode;
         "field mode": lazy; optional, inner_mut;
         "serde/ref.counting": serde; rc;
     );
@@ -73,7 +77,7 @@ impl FXSArgs {
     validate_exclusives!(
         "visibility": public; private;
         "accessor mode": copy, clone;
-        "concurrency mode": mode_sync as "sync", reader, writer, lock; mode_async as "asyn"; inner_mut;
+        "concurrency mode": mode_sync as "sync"; mode_async as "r#async"; inner_mut; mode;
         "field mode": lazy; optional, inner_mut;
     );
 
@@ -89,18 +93,22 @@ impl FXSArgs {
 
     #[inline]
     pub fn is_sync(&self) -> Option<bool> {
-        self.mode_sync()
+        self.mode_sync
             .as_ref()
             .map(|th| th.is_true())
-            .or_else(|| self.mode_async().as_ref().map(|th| th.is_true()))
+            .or_else(|| self.mode.as_ref().map(|m| m.is_sync() || m.is_async()))
+            .or_else(|| self.is_async())
             .or_else(|| self.lock().as_ref().map(|th| th.is_true()))
             .or_else(|| self.reader().as_ref().map(|th| th.is_true()))
             .or_else(|| self.writer().as_ref().map(|th| th.is_true()))
     }
 
     #[inline]
-    pub fn is_async(&self) -> bool {
-        self.mode_async.is_true()
+    pub fn is_async(&self) -> Option<bool> {
+        self.mode_async
+            .as_ref()
+            .map(|th| th.is_true())
+            .or_else(|| self.mode.as_ref().map(|m| m.is_async()))
     }
 
     #[inline]

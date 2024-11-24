@@ -11,7 +11,7 @@ use tokio::{
     time::sleep,
 };
 
-#[fxstruct(asyn)]
+#[fxstruct(mode(async))]
 #[derive(Debug)]
 pub struct Foo {
     #[fieldx(lazy, writer, clearer, predicate)]
@@ -20,7 +20,7 @@ pub struct Foo {
     bar: i32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(reader, writer, get(off), clearer, predicate, set, default("bazzification"))]
+    #[fieldx(r#async, reader, writer, get(off), clearer, predicate, set, default("bazzification"))]
     baz: String,
 
     #[fieldx(lazy, clearer, default("fufubarik!"))]

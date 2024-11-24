@@ -11,7 +11,8 @@ pub struct FXAsyncImplementor;
 impl FXAsyncImplementor {
     fn lazy_wrapper_name(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> darling::Result<syn::Ident> {
         let ident = codegen.helper_name(fctx, codegen::FXHelperKind::Lazy)?;
-        Ok(format_ident!("__fx_async_wrap_for_{}", ident))
+        let span = codegen.helper_span(fctx, codegen::FXHelperKind::Lazy);
+        Ok(format_ident!("__fx_async_wrap_for_{}", ident, span = span))
     }
 }
 

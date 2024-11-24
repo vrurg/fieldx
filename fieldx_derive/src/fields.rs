@@ -7,7 +7,8 @@ use darling::{util::Flag, FromField};
 use fieldx_aux::FXSerde;
 use fieldx_aux::{
     validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXBoolHelper, FXBuilder,
-    FXDefault, FXHelper, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg, FXTriggerHelper, FromNestAttr,
+    FXDefault, FXHelper, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg, FXSynValue, FXSyncMode,
+    FXTriggerHelper, FromNestAttr,
 };
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
@@ -27,9 +28,13 @@ pub(crate) struct FXFieldReceiver {
 
     skip: Flag,
 
+    #[getset(skip)]
+    mode:       Option<FXSynValue<FXSyncMode>>,
+    #[getset(skip)]
     #[darling(rename = "sync")]
     mode_sync:  Option<FXBoolArg>,
-    #[darling(rename = "asyn")]
+    #[getset(skip)]
+    #[darling(rename = "r#async")]
     mode_async: Option<FXBoolArg>,
 
     // Default method attributes for this field.
@@ -78,7 +83,6 @@ pub(crate) struct FXField(FXFieldReceiver);
 
 impl FromField for FXField {
     fn from_field(field: &syn::Field) -> darling::Result<Self> {
-        // eprintln!("@@@ FROM FIELD '{:?}'", if let Some(ref ident) = field.ident { ident.to_string() } else { "<anon>".to_string() });
         let mut fxfield = FXFieldReceiver::from_field(field)?;
         for attr in (&field.attrs).into_iter() {
             // Intercept #[fieldx] form of the attribute and mark the field manually
@@ -127,7 +131,7 @@ impl FXFieldReceiver {
         "visibility": public; private;
         "accessor mode": copy; clone;
         "field mode":  lazy; optional, inner_mut;
-        "concurrency mode": mode_sync as "sync", lock, reader, writer; mode_async as "async"; inner_mut;
+        "concurrency mode": mode_sync as "sync"; mode_async as "async"; inner_mut; mode;
     }
 
     // Generate field-level needs_<helper> methods. The final decision of what's needed and what's not is done by
@@ -168,15 +172,24 @@ impl FXFieldReceiver {
         }
     }
 
+    #[inline]
+    pub fn is_async(&self) -> Option<bool> {
+        self.mode_async
+            .as_ref()
+            .map(|th| th.is_true())
+            .or_else(|| self.mode.as_ref().map(|m| m.is_async()))
+    }
+
     pub fn is_plain(&self) -> Option<bool> {
         self.is_inner_mut()
     }
 
     pub fn is_sync(&self) -> Option<bool> {
-        self.mode_sync()
+        self.mode_sync
             .as_ref()
             .map(|th| th.is_true())
-            .or_else(|| self.mode_async().as_ref().map(|th| th.is_true()))
+            .or_else(|| self.mode.as_ref().map(|m| m.is_sync()))
+            .or_else(|| self.is_async())
             .or_else(|| self.lock().as_ref().map(|th| th.is_true()))
             .or_else(|| self.is_plain().map(|b| !b))
             .or_else(|| {
@@ -191,10 +204,6 @@ impl FXFieldReceiver {
                     None
                 }
             })
-    }
-
-    pub fn is_async(&self) -> Option<bool> {
-        self.mode_async().as_ref().map(|th| th.is_true())
     }
 
     #[inline]

@@ -348,7 +348,7 @@ impl FXCodeGenContextual for FXCodeGenSync {
 
         Ok(if !fctx.forced_builder() && !fctx.needs_builder() {
             let default = self.field_value_wrap(fctx, default)?;
-            quote![#field_ident: #default]
+            quote_spanned![span=> #field_ident: #default]
         }
         else if fctx.is_lazy() {
             quote_spanned![span=>

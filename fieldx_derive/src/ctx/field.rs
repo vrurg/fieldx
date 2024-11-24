@@ -188,7 +188,8 @@ impl FXFieldCtx {
     pub fn is_async(&self) -> bool {
         self.field
             .is_async()
-            .unwrap_or_else(|| self.codegen_ctx().args().is_async())
+            .or_else(|| self.codegen_ctx().args().is_async())
+            .unwrap_or(false)
     }
 
     #[inline]

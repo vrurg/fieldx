@@ -31,7 +31,7 @@ pub use crate::{
 };
 use darling::FromMeta;
 use quote::{quote, ToTokens};
-use syn::Lit;
+use syn::{ext::IdentExt, Lit};
 
 #[derive(FromMeta, Debug, Clone, Default)]
 pub enum FXPubMode {
@@ -69,6 +69,51 @@ impl ToTokens for FXPubMode {
 
 impl FXTriggerHelper for FXPubMode {
     fn is_true(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub enum FXSyncMode {
+    Sync,
+    Async,
+    #[default]
+    Plain,
+}
+
+impl syn::parse::Parse for FXSyncMode {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let ident = syn::Ident::parse_any(input)?;
+        Ok(if ident == "sync" {
+            Self::Sync
+        }
+        else if ident == "async" {
+            Self::Async
+        }
+        else if ident == "plain" {
+            Self::Plain
+        }
+        else {
+            Err(syn::Error::new_spanned(ident, "expected 'sync', 'async' or 'plain'"))?
+        })
+    }
+}
+
+impl FXSyncMode {
+    pub fn is_sync(&self) -> bool {
+        self == &Self::Sync
+    }
+
+    pub fn is_async(&self) -> bool {
+        self == &Self::Async
+    }
+
+    pub fn is_plain(&self) -> bool {
+        self == &Self::Plain
+    }
+
+    // Only to make it usable with validate_exclusives macro
+    pub fn is_true(&self) -> bool {
         true
     }
 }
