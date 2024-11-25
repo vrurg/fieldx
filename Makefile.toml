@@ -3,10 +3,18 @@
     __FIELDX_DEFAULT_TOOLCHAIN__         = { value = "nightly", condition = { env_not_set = ["__FIELDX_DEFAULT_TOOLCHAIN__"] } }
     __FIELDX_TASK__                      = { value = "test", condition = { env_not_set = ["__FIELDX_TASK__"] } }
     __FIELDX_TOOLCHAINS__                = "1.77 1.78 stable beta nightly"
-    __PREV_RELEASE_TESTING__             = "${CARGO_MAKE_WORKING_DIRECTORY}/.release-tested"
+    __PREV_RELEASE_TESTING__             = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.release-tested"
 
 [config]
     default_to_workspace = false
+
+[tasks.init]
+    args    = ["-f", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/Cargo.lock"]
+    command = "rm"
+
+[tasks.end]
+    args    = ["-f", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/Cargo.lock"]
+    command = "rm"
 
 [tasks.test]
     category    = "Test"
@@ -23,7 +31,8 @@ toolchain_list = array %{__FIELDX_TOOLCHAINS__}
 for toolchain in ${toolchain_list}
     echo "Testing toolchain '${toolchain}'"
     set_env __FIELDX_DEFAULT_TOOLCHAIN__ ${toolchain}
-    rm Cargo.lock
+    echo Removing ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/Cargo.lock
+    rm -f ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/Cargo.lock
     cm_run_task ${__FIELDX_TASK__}
 end
 

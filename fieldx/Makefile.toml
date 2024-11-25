@@ -1,24 +1,24 @@
 [tasks.test-compilation]
-description = "Test code compilability"
-category = "Test"
-toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
-script_runner = "@duckscript"
-script = '''
+    category = "Test"
+    description = "Test code compilability"
+    script = '''
 echo Testing compilability with toolchain '${__FIELDX_DEFAULT_TOOLCHAIN__}'
 cm_run_task compile-default-features
 cm_run_task compile-serde-enabled
 '''
+    script_runner = "@duckscript"
+    toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
 [tasks.compile-default-features]
-description = "Test code compilability with default feature set"
-toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
-category = "Test"
-command = "cargo"
-args = ["test", "--test", "compilation"]
+    args        = ["test", "--test", "compilation"]
+    category    = "Test"
+    command     = "cargo"
+    description = "Test code compilability with default feature set"
+    toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
 [tasks.compile-serde-enabled]
-description = "Test code compilability with 'serde' feature"
-toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
-category = "Test"
-command = "cargo"
-args = ["test", "--test", "compilation", "--features", "serde"]
+    args        = ["test", "--test", "compilation", "--features", "serde"]
+    category    = "Test"
+    command     = "cargo"
+    description = "Test code compilability with 'serde' feature"
+    toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
