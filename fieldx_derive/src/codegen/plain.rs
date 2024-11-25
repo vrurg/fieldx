@@ -2,7 +2,7 @@ use super::{FXAccessorMode, FXCodeGenContextual, FXCodeGenCtx, FXFieldCtx, FXHel
 #[cfg(feature = "serde")]
 use crate::codegen::serde::FXCGenSerde;
 use crate::codegen::FXInlining;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 use std::rc::Rc;
 use syn::spanned::Spanned;
@@ -16,6 +16,15 @@ impl FXCodeGenPlain {
         let ctx = Rc::clone(&ctx);
         Self { ctx }
     }
+
+    fn get_or_init_method(&self, fctx: &FXFieldCtx, span: &Span) -> TokenStream {
+        if fctx.is_fallible() {
+            quote_spanned! {*span=> get_or_try_init}
+        }
+        else {
+            quote_spanned! {*span=> get_or_init}
+        }
+    }
 }
 
 impl FXCodeGenContextual for FXCodeGenPlain {
@@ -28,8 +37,8 @@ impl FXCodeGenContextual for FXCodeGenPlain {
         Ok(quote![])
     }
 
-    fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> &'s TokenStream {
-        fctx.ty_wrapped(|| {
+    fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> darling::Result<&'s TokenStream> {
+        Ok(fctx.ty_wrapped(|| {
             // fxtrace!(fctx.ident_tok().to_string());
             let mut ty_tok = fctx.ty_tok().clone();
             let span = ty_tok.span();
@@ -48,7 +57,7 @@ impl FXCodeGenContextual for FXCodeGenPlain {
             }
 
             ty_tok
-        })
+        }))
     }
 
     fn ref_count_types(&self) -> (TokenStream, TokenStream) {
@@ -61,10 +70,12 @@ impl FXCodeGenContextual for FXCodeGenPlain {
         self_ident: Option<TokenStream>,
     ) -> darling::Result<TokenStream> {
         let lazy_name = self.lazy_name(fctx)?;
+        let span = self.helper_span(fctx, FXHelperKind::Lazy);
         let ident = fctx.ident_tok();
-        let self_var = self_ident.as_ref().cloned().unwrap_or(quote![self]);
+        let self_var = self_ident.as_ref().cloned().unwrap_or(quote_spanned![span=>self]);
         let builder_self = self_ident.unwrap_or(self.maybe_ref_counted_self(fctx));
-        Ok(quote![#self_var.#ident.get_or_init( || #builder_self.#lazy_name() )])
+        let init_method = self.get_or_init_method(fctx, &span);
+        Ok(quote_spanned![span=> #self_var.#ident.#init_method( || #builder_self.#lazy_name() )])
     }
 
     fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
@@ -87,10 +98,11 @@ impl FXCodeGenContextual for FXCodeGenPlain {
 
             if fctx.is_lazy() {
                 let lazy_init = self.field_lazy_initializer(fctx, None)?;
+                let ty = self.fallible_return_type(fctx, quote_spanned! {span=> #opt_ref #ty_tok})?;
 
                 quote_spanned![span=>
                     #attributes_fn
-                    #vis_tok fn #accessor_name(&self) -> #opt_ref #ty_tok {
+                    #vis_tok fn #accessor_name(&self) -> #ty {
                         #deref #lazy_init #meth
                     }
                 ]
@@ -98,14 +110,18 @@ impl FXCodeGenContextual for FXCodeGenPlain {
             else {
                 let mut ty_tok = fctx.ty_tok().clone();
 
-                ty_tok = self.maybe_optional(fctx, quote![#ty_ref #ty_tok]);
+                ty_tok = self.maybe_optional(fctx, quote_spanned![span=> #ty_ref #ty_tok]);
 
                 if fctx.is_inner_mut() {
+                    let inner_mut_span = fctx.inner_mut_span();
                     let (deref, ty_tok) = if fctx.is_clone() || fctx.is_copy() {
-                        (quote![*], quote![#ty_tok])
+                        (quote![*], quote_spanned![inner_mut_span=> #ty_tok])
                     }
                     else {
-                        (quote![], quote![::fieldx::Ref<'fx_reader_lifetime, #ty_tok>])
+                        (
+                            quote![],
+                            quote_spanned![inner_mut_span=> ::fieldx::Ref<'fx_reader_lifetime, #ty_tok>],
+                        )
                     };
 
                     quote_spanned![span=>
@@ -141,12 +157,21 @@ impl FXCodeGenContextual for FXCodeGenPlain {
             if fctx.is_lazy() {
                 let lazy_name = self.lazy_name(fctx)?;
                 let builder_self = self.maybe_ref_counted_self(fctx);
+                let init_method = self.get_or_init_method(fctx, &span);
+                let ty = self.fallible_return_type(fctx, quote_spanned! {span=> &mut #ty_tok})?;
+                let mut get_mut = quote_spanned! {span=> self.#ident.get_mut().unwrap() };
+                let mut shortcut = quote![];
+
+                if fctx.is_fallible() {
+                    get_mut = quote_spanned! {span=> Ok(#get_mut) };
+                    shortcut = quote_spanned![span=> ?];
+                }
 
                 quote_spanned![span=>
                     #attributes_fn
-                    #vis_tok fn #accessor_name(&mut self) -> &mut #ty_tok {
-                        self.#ident.get_or_init( || #builder_self.#lazy_name() );
-                        self.#ident.get_mut().unwrap()
+                    #vis_tok fn #accessor_name(&mut self) -> #ty {
+                        self.#ident.#init_method( || #builder_self.#lazy_name() )#shortcut;
+                        #get_mut
                     }
                 ]
             }

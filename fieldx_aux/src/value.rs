@@ -59,27 +59,6 @@ impl<T, const BOOL_ONLY: bool> From<T> for FXValueArg<T, BOOL_ONLY> {
     }
 }
 
-macro_rules! from_nest_attr_num {
-    ($from:path => $ty:ty) => {
-        impl crate::FromNestAttr for FXValueArg<$ty, false> {
-            fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
-                Self::validate_literals(literals)?;
-                if let $from(ref lit) = literals[0] {
-                    self.value = Some(lit.base10_parse()?);
-                }
-                else {
-                    return Err(darling::Error::unexpected_lit_type(&literals[0]));
-                }
-                Ok(self)
-            }
-
-            fn for_keyword(path: &syn::Path) -> darling::Result<Self> {
-                Self::as_keyword(path)
-            }
-        }
-    };
-}
-
 impl FromNestAttr for FXValueArg<(), true> {
     fn set_literals(self, literals: &Vec<Lit>) -> darling::Result<Self> {
         Self::validate_literals(literals)?;
@@ -107,6 +86,27 @@ impl<T, const BOOL_ONLY: bool> FXFrom<Option<T>> for FXValueArg<T, BOOL_ONLY> {
             off: Flag::default(),
         }
     }
+}
+
+macro_rules! from_nest_attr_num {
+    ($from:path => $ty:ty) => {
+        impl crate::FromNestAttr for FXValueArg<$ty, false> {
+            fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
+                Self::validate_literals(literals)?;
+                if let $from(ref lit) = literals[0] {
+                    self.value = Some(lit.base10_parse()?);
+                }
+                else {
+                    return Err(darling::Error::unexpected_lit_type(&literals[0]));
+                }
+                Ok(self)
+            }
+
+            fn for_keyword(path: &syn::Path) -> darling::Result<Self> {
+                Self::as_keyword(path)
+            }
+        }
+    };
 }
 
 macro_rules! from_nest_attr_val {

@@ -188,7 +188,7 @@ impl FXRewriter {
         codegen.field_methods(&fctx)?;
 
         // Has to always be the last here as it may use attributes added by the previous methods.
-        codegen.field_decl(&fctx);
+        codegen.field_decl(&fctx)?;
 
         Ok(())
     }

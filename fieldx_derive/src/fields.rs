@@ -7,8 +7,8 @@ use darling::{util::Flag, FromField};
 use fieldx_aux::FXSerde;
 use fieldx_aux::{
     validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXBoolHelper, FXBuilder,
-    FXDefault, FXHelper, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg, FXSynValue, FXSyncMode,
-    FXTriggerHelper, FromNestAttr,
+    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg, FXSynValue,
+    FXSyncMode, FXTriggerHelper, FromNestAttr,
 };
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
@@ -39,6 +39,7 @@ pub(crate) struct FXFieldReceiver {
 
     // Default method attributes for this field.
     attributes_fn: Option<FXAttributes>,
+    fallible:      Option<FXNestingAttr<FXFallible>>,
     lazy:          Option<FXHelper>,
     #[darling(rename = "rename")]
     #[getset(skip)]
@@ -207,6 +208,11 @@ impl FXFieldReceiver {
     }
 
     #[inline]
+    pub fn is_fallible(&self) -> Option<bool> {
+        self.fallible.is_true_opt()
+    }
+
+    #[inline]
     pub fn is_lazy(&self) -> Option<bool> {
         self.unless_skip(&self.lazy)
     }
@@ -350,6 +356,11 @@ impl FXFieldReceiver {
                     .as_ref()
                     .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).span())
             })
+    }
+
+    #[inline]
+    pub fn fallible_error(&self) -> Option<&syn::Path> {
+        self.fallible.as_ref().and_then(|f| f.error_type().map(|et| et.value()))
     }
 }
 

@@ -184,11 +184,18 @@ impl FXFieldCtx {
     }
 
     #[inline]
-    #[allow(dead_code)] // XXX Temporaryly, until asyncs are implemented
     pub fn is_async(&self) -> bool {
         self.field
             .is_async()
             .or_else(|| self.codegen_ctx().args().is_async())
+            .unwrap_or(false)
+    }
+
+    #[inline]
+    pub fn is_fallible(&self) -> bool {
+        self.field
+            .is_fallible()
+            .or_else(|| self.codegen_ctx().args().is_fallible())
             .unwrap_or(false)
     }
 
@@ -428,5 +435,29 @@ impl FXFieldCtx {
 
     pub fn builder_checker(&self) -> Option<TokenStream> {
         self.builder_checker.borrow().clone()
+    }
+
+    pub fn fallible_span(&self) -> Span {
+        self.field()
+            .fallible()
+            .as_ref()
+            .or_else(|| self.codegen_ctx().args().fallible().as_ref())
+            .and_then(|f| f.span())
+            .unwrap_or_else(|| self.span().clone())
+    }
+
+    pub fn fallible_error(&self) -> darling::Result<syn::Path> {
+        Ok(self
+            .field()
+            .fallible_error()
+            .or_else(|| self.codegen_ctx().args().fallible_error())
+            .ok_or_else(|| {
+                darling::Error::custom(format!(
+                    "Field {} is marked as fallible but its error type is unknown",
+                    self.ident()
+                ))
+                .with_span(&self.fallible_span())
+            })?
+            .clone())
     }
 }

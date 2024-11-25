@@ -53,7 +53,7 @@ pub trait FXCodeGenContextual {
     // #[cfg(feature = "serde")]
     // fn add_shadow_default_decl(&self, field: TokenStream);
 
-    fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> &'s TokenStream;
+    fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> darling::Result<&'s TokenStream>;
     fn ref_count_types(&self) -> (TokenStream, TokenStream);
     // fn copyable_types(&self) -> Ref<Vec<syn::Type>>;
     // #[cfg(feature = "serde")]
@@ -278,11 +278,11 @@ pub trait FXCodeGenContextual {
         }
     }
 
-    fn field_decl(&self, fctx: &FXFieldCtx) {
+    fn field_decl(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
         let attributes = fctx.all_attrs();
         let vis = fctx.vis();
 
-        let ty_tok = self.type_tokens(&fctx);
+        let ty_tok = self.type_tokens(&fctx)?;
         // No check for None is needed because we're only applying to named structs.
         let ident = fctx.ident_tok();
 
@@ -290,6 +290,8 @@ pub trait FXCodeGenContextual {
             #( #attributes )*
             #vis #ident: #ty_tok
         ]);
+
+        Ok(())
     }
 
     fn field_methods(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
@@ -529,5 +531,20 @@ pub trait FXCodeGenContextual {
         let builder_ident = ctx.input_ident();
         let generic_params = ctx.struct_generic_params();
         quote![#builder_ident #generic_params]
+    }
+
+    fn fallible_return_type<TT>(&self, fctx: &FXFieldCtx, ty: TT) -> darling::Result<TokenStream>
+    where
+        TT: ToTokens,
+    {
+        let ty = ty.to_token_stream();
+        Ok(if fctx.is_fallible() {
+            let error_type = fctx.fallible_error()?;
+            let span = fctx.fallible_span();
+            quote_spanned! {span=> ::std::result::Result<#ty, #error_type>}
+        }
+        else {
+            quote![#ty]
+        })
     }
 }

@@ -3,6 +3,7 @@ pub mod attributes;
 pub mod base_helper;
 pub mod builder_helper;
 pub mod default_helper;
+pub mod fallible;
 pub mod meta_value;
 pub mod nesting_attr;
 #[cfg(feature = "serde")]
@@ -21,6 +22,7 @@ pub use crate::{
     base_helper::FXBaseHelper,
     builder_helper::FXBuilderHelper,
     default_helper::FXDefault,
+    fallible::FXFallible,
     meta_value::{FXPunctuated, FXSynTupleArg, FXSynValueArg},
     nesting_attr::{FXNestingAttr, FromNestAttr},
     setter_helper::FXSetterHelper,
@@ -126,7 +128,6 @@ pub type FXStringArg = FXNestingAttr<FXValueArg<String>>;
 pub type FXBoolArg = FXNestingAttr<FXValueArg<(), true>>;
 pub type FXAccessor<const BOOL_ONLY: bool = false> = FXNestingAttr<FXAccessorHelper<BOOL_ONLY>>;
 pub type FXSetter<const BOOL_ONLY: bool = false> = FXNestingAttr<FXSetterHelper<BOOL_ONLY>>;
-#[allow(dead_code)]
 pub type FXBuilder = FXNestingAttr<FXBuilderHelper>;
 #[cfg(feature = "serde")]
 pub type FXSerde = FXNestingAttr<FXSerdeHelper>;

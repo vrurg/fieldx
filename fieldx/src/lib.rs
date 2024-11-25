@@ -969,10 +969,11 @@ pub mod traits;
 #[doc(hidden)]
 pub use fieldx_aux::FXOrig;
 pub use fieldx_derive::fxstruct;
+pub use once_cell::unsync::OnceCell;
 pub use r#async::FXProxyAsync;
 #[doc(hidden)]
 pub use std::{
-    cell::{OnceCell, Ref, RefCell, RefMut},
+    cell::{Ref, RefCell, RefMut},
     fmt,
     sync::atomic::Ordering,
 };

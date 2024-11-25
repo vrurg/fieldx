@@ -1,8 +1,7 @@
-use std::{borrow::Borrow, marker::PhantomData, ops::Deref};
-
 use super::{FXFrom, FromNestAttr};
 use darling::{ast::NestedMeta, FromMeta};
 use quote::ToTokens;
+use std::{borrow::Borrow, marker::PhantomData, ops::Deref};
 use syn::{punctuated::Punctuated, Meta};
 
 #[derive(Debug, Clone)]

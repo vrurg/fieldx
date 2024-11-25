@@ -1,11 +1,10 @@
 pub use crate::errors::FieldXError;
+use std::fmt::Debug;
 
 pub trait FXStruct {}
 
-#[doc(hidden)]
-pub trait FXNewDefault {
-    type Builder;
+pub trait FXBuilderWrapper {
+    type Owner: FXStruct;
     type Value;
-
-    fn new_default(builder: Self::Builder, value: Option<Self::Value>) -> Self;
+    type Error: Debug;
 }

@@ -14,6 +14,14 @@ impl FXSyncImplDetails for FXSyncImplementor {
         quote![::fieldx::sync::FXWrLockGuard]
     }
 
+    fn fx_fallible_builder_wrapper(&self) -> TokenStream {
+        quote![::fieldx::sync::FXBuilderFallible]
+    }
+
+    fn fx_infallible_builder_wrapper(&self) -> TokenStream {
+        quote![::fieldx::sync::FXBuilderInfallible]
+    }
+
     fn lazy_wrapper_fn(&self, _: &FXCodeGenSync, _: &FXFieldCtx) -> Result<TokenStream, darling::Error> {
         Ok(quote![])
     }

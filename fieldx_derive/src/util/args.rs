@@ -8,8 +8,8 @@ use darling::FromMeta;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXSerde;
 use fieldx_aux::{
-    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBoolArg, FXBoolHelper, FXBuilder, FXHelper,
-    FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXSynValue, FXSyncMode, FXTriggerHelper,
+    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBoolArg, FXBoolHelper, FXBuilder, FXFallible,
+    FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXSynValue, FXSyncMode, FXTriggerHelper,
 };
 use getset::Getters;
 use proc_macro2::Span;
@@ -39,6 +39,7 @@ pub(crate) struct FXSArgs {
     attributes_impl: Option<FXAttributes>,
 
     // Field defaults
+    fallible:     Option<FXNestingAttr<FXFallible>>,
     lazy:         Option<FXHelper>,
     #[darling(rename = "get")]
     accessor:     Option<FXAccessor>,
@@ -109,6 +110,11 @@ impl FXSArgs {
             .as_ref()
             .map(|th| th.is_true())
             .or_else(|| self.mode.as_ref().map(|m| m.is_async()))
+    }
+
+    #[inline]
+    pub fn is_fallible(&self) -> Option<bool> {
+        self.fallible.is_true_opt()
     }
 
     #[inline]
@@ -274,6 +280,11 @@ impl FXSArgs {
                     .as_ref()
                     .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).span())
             })
+    }
+
+    #[inline]
+    pub fn fallible_error(&self) -> Option<&syn::Path> {
+        self.fallible.as_ref().and_then(|f| f.error_type().map(|et| et.value()))
     }
 }
 
