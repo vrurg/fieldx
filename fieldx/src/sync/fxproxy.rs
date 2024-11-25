@@ -87,9 +87,10 @@ where
     fxproxy: &'a FXProxy<B>,
 }
 
-impl<B> Debug for FXProxy<B>
+impl<B, V> Debug for FXProxy<B>
 where
-    B: FXBuilderWrapperSync<Value: Debug>,
+    B: FXBuilderWrapperSync<Value = V>,
+    V: Debug,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         let vlock = self.value.read();
@@ -236,9 +237,10 @@ where
     }
 }
 
-impl<B> Clone for FXProxy<B>
+impl<B, V> Clone for FXProxy<B>
 where
-    B: FXBuilderWrapperSync<Value: Clone> + Clone,
+    B: FXBuilderWrapperSync<Value = V> + Clone,
+    V: Clone,
 {
     fn clone(&self) -> Self {
         let vguard = self.value.read();
@@ -251,9 +253,10 @@ where
     }
 }
 
-impl<B> PartialEq for FXProxy<B>
+impl<B, V> PartialEq for FXProxy<B>
 where
-    B: FXBuilderWrapperSync<Value: PartialEq>,
+    B: FXBuilderWrapperSync<Value = V>,
+    V: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
         let myguard = self.value.read();
@@ -262,4 +265,9 @@ where
     }
 }
 
-impl<B> Eq for FXProxy<B> where B: FXBuilderWrapperSync<Value: Eq> {}
+impl<B, V> Eq for FXProxy<B>
+where
+    B: FXBuilderWrapperSync<Value = V>,
+    V: Eq,
+{
+}

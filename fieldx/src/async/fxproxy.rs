@@ -100,9 +100,10 @@ where
     fxproxy: &'a FXProxyAsync<B>,
 }
 
-impl<B> Debug for FXProxyAsync<B>
+impl<B, V> Debug for FXProxyAsync<B>
 where
-    B: FXBuilderWrapperAsync<Value: Debug>,
+    B: FXBuilderWrapperAsync<Value = V>,
+    V: Debug,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         let vlock = self.value.blocking_read();
@@ -113,9 +114,10 @@ where
     }
 }
 
-impl<B> FXProxyAsync<B>
+impl<B, E> FXProxyAsync<B>
 where
-    B: FXBuilderWrapperAsync<Error: Debug>,
+    B: FXBuilderWrapperAsync<Error = E>,
+    E: Debug,
 {
     #[doc(hidden)]
     pub fn new_default(builder: B, value: Option<B::Value>) -> Self {
