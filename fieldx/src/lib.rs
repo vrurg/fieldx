@@ -977,4 +977,4 @@ pub use std::{
     fmt,
     sync::atomic::Ordering,
 };
-pub use sync::FXProxy;
+pub use sync::FXProxySync;

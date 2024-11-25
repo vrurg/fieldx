@@ -7,11 +7,11 @@ pub struct FXSyncImplementor;
 
 impl FXSyncImplDetails for FXSyncImplementor {
     fn field_proxy_type(&self) -> TokenStream {
-        quote![::fieldx::sync::FXProxy]
+        quote![::fieldx::sync::FXProxySync]
     }
 
     fn fx_mapped_write_guard(&self) -> TokenStream {
-        quote![::fieldx::sync::FXWrLockGuard]
+        quote![::fieldx::sync::FXWrLockGuardSync]
     }
 
     fn fx_fallible_builder_wrapper(&self) -> TokenStream {
@@ -41,7 +41,7 @@ impl FXSyncImplDetails for FXSyncImplementor {
     }
 
     fn rwlock(&self) -> TokenStream {
-        quote![::fieldx::sync::FXRwLock]
+        quote![::fieldx::sync::FXRwLockSync]
     }
 
     fn rwlock_read_guard(&self) -> TokenStream {

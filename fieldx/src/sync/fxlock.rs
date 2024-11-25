@@ -6,9 +6,9 @@ use std::{borrow::Borrow, fmt, fmt::Debug, ops::Deref};
 /// This is a wrapper around [`RwLock`] sync primitive. It provides safe means of cloning the lock and the data it
 /// protects.
 #[derive(Default)]
-pub struct FXRwLock<T>(RwLock<T>);
+pub struct FXRwLockSync<T>(RwLock<T>);
 
-impl<T> FXRwLock<T> {
+impl<T> FXRwLockSync<T> {
     #[doc(hidden)]
     pub fn new(value: T) -> Self {
         Self(RwLock::new(value))
@@ -20,7 +20,7 @@ impl<T> FXRwLock<T> {
     }
 }
 
-impl<T> PartialEq for FXRwLock<T>
+impl<T> PartialEq for FXRwLockSync<T>
 where
     T: PartialEq,
 {
@@ -32,15 +32,15 @@ where
     }
 }
 
-impl<T> Eq for FXRwLock<T> where T: Eq {}
+impl<T> Eq for FXRwLockSync<T> where T: Eq {}
 
-impl<T> From<T> for FXRwLock<T> {
+impl<T> From<T> for FXRwLockSync<T> {
     fn from(value: T) -> Self {
         Self(RwLock::new(value))
     }
 }
 
-impl<T> Deref for FXRwLock<T> {
+impl<T> Deref for FXRwLockSync<T> {
     type Target = RwLock<T>;
 
     fn deref(&self) -> &Self::Target {
@@ -48,19 +48,19 @@ impl<T> Deref for FXRwLock<T> {
     }
 }
 
-impl<T> AsRef<RwLock<T>> for FXRwLock<T> {
+impl<T> AsRef<RwLock<T>> for FXRwLockSync<T> {
     fn as_ref(&self) -> &RwLock<T> {
         &self.0
     }
 }
 
-impl<T> Borrow<RwLock<T>> for FXRwLock<T> {
+impl<T> Borrow<RwLock<T>> for FXRwLockSync<T> {
     fn borrow(&self) -> &RwLock<T> {
         &self.0
     }
 }
 
-impl<T> Clone for FXRwLock<T>
+impl<T> Clone for FXRwLockSync<T>
 where
     T: Clone,
 {
@@ -70,7 +70,7 @@ where
     }
 }
 
-impl<T> Debug for FXRwLock<T>
+impl<T> Debug for FXRwLockSync<T>
 where
     T: Debug,
 {

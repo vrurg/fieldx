@@ -65,7 +65,7 @@ impl<S: FXStruct, T, E: Debug> FXBuilderWrapperSync for FXBuilderFallible<S, T, 
 }
 
 /// Container type for lazy fields
-pub struct FXProxy<B>
+pub struct FXProxySync<B>
 where
     B: FXBuilderWrapperSync,
 {
@@ -79,15 +79,15 @@ where
 ///
 /// This type, in cooperation with the [`FXProxy`] type, takes care of safely updating lazy field status when data is
 /// being stored.
-pub struct FXWrLockGuard<'a, B>
+pub struct FXWrLockGuardSync<'a, B>
 where
     B: FXBuilderWrapperSync,
 {
     lock:    RefCell<RwLockWriteGuard<'a, Option<B::Value>>>,
-    fxproxy: &'a FXProxy<B>,
+    fxproxy: &'a FXProxySync<B>,
 }
 
-impl<B, V> Debug for FXProxy<B>
+impl<B, V> Debug for FXProxySync<B>
 where
     B: FXBuilderWrapperSync<Value = V>,
     V: Debug,
@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<B> FXProxy<B>
+impl<B> FXProxySync<B>
 where
     B: FXBuilderWrapperSync,
 {
@@ -198,8 +198,8 @@ where
     }
 
     /// Provides write-lock to directly store the value.
-    pub fn write<'a>(&'a self) -> FXWrLockGuard<'a, B> {
-        FXWrLockGuard::<'a, B>::new(self.value.write(), self)
+    pub fn write<'a>(&'a self) -> FXWrLockGuardSync<'a, B> {
+        FXWrLockGuardSync::<'a, B>::new(self.value.write(), self)
     }
 
     fn clear_with_lock(&self, wguard: &mut RwLockWriteGuard<Option<B::Value>>) -> Option<B::Value> {
@@ -215,12 +215,12 @@ where
 }
 
 #[allow(private_bounds)]
-impl<'a, B> FXWrLockGuard<'a, B>
+impl<'a, B> FXWrLockGuardSync<'a, B>
 where
     B: FXBuilderWrapperSync,
 {
     #[doc(hidden)]
-    pub fn new(lock: RwLockWriteGuard<'a, Option<B::Value>>, fxproxy: &'a FXProxy<B>) -> Self {
+    pub fn new(lock: RwLockWriteGuard<'a, Option<B::Value>>, fxproxy: &'a FXProxySync<B>) -> Self {
         let lock = RefCell::new(lock);
         Self { lock, fxproxy }
     }
@@ -237,7 +237,7 @@ where
     }
 }
 
-impl<B, V> Clone for FXProxy<B>
+impl<B, V> Clone for FXProxySync<B>
 where
     B: FXBuilderWrapperSync<Value = V> + Clone,
     V: Clone,
@@ -253,7 +253,7 @@ where
     }
 }
 
-impl<B, V> PartialEq for FXProxy<B>
+impl<B, V> PartialEq for FXProxySync<B>
 where
     B: FXBuilderWrapperSync<Value = V>,
     V: PartialEq,
@@ -265,7 +265,7 @@ where
     }
 }
 
-impl<B, V> Eq for FXProxy<B>
+impl<B, V> Eq for FXProxySync<B>
 where
     B: FXBuilderWrapperSync<Value = V>,
     V: Eq,
