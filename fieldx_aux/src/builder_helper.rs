@@ -5,8 +5,7 @@ use crate::{
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
-use proc_macro2::Span;
-use syn::{spanned::Spanned, Lit, Token};
+use syn::{Lit, Token};
 
 // TODO try to issue warnings with `diagnostics` for sub-arguments which are not supported at struct or field level.
 #[fxhelper(validate = Self::validate)]
@@ -59,17 +58,25 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
     }
 
     pub fn validate(&self) -> darling::Result<()> {
-        if !STRUCT && self.error.is_some() {
-            return Err(
-                darling::Error::custom(format!("parameter 'error' is only supported at struct level")).with_span(
-                    &self
-                        .error
-                        .as_ref()
-                        .unwrap()
-                        .orig()
-                        .map_or_else(|| Span::call_site(), |o| o.span()),
-                ),
-            );
+        if !STRUCT {
+            if self.error.is_some() {
+                return Err(
+                    darling::Error::custom(format!("parameter 'error' is only supported at struct level"))
+                        .with_span(&self.error.fx_span()),
+                );
+            }
+            if self.post_build.is_some() {
+                return Err(darling::Error::custom(format!(
+                    "parameter 'post_build' is only supported at struct level"
+                ))
+                .with_span(&self.post_build.fx_span()));
+            }
+            if self.opt_in.is_some() {
+                return Err(
+                    darling::Error::custom(format!("parameter 'opt_in' is only supported at struct level"))
+                        .with_span(&self.opt_in.fx_span()),
+                );
+            }
         }
         Ok(())
     }
