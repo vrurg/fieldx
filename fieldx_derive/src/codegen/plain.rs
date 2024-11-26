@@ -99,12 +99,12 @@ impl FXCodeGenContextual for FXCodeGenPlain {
             if fctx.is_lazy() {
                 let lazy_init = self.field_lazy_initializer(fctx, None)?;
                 let ty = self.fallible_return_type(fctx, quote_spanned! {span=> #opt_ref #ty_tok})?;
+                let shortcut = fctx.fallible_shortcut();
+                let ret = fctx.fallible_ok_return(quote_spanned! {span=> #deref #lazy_init #shortcut #meth });
 
                 quote_spanned![span=>
                     #attributes_fn
-                    #vis_tok fn #accessor_name(&self) -> #ty {
-                        #deref #lazy_init #meth
-                    }
+                    #vis_tok fn #accessor_name(&self) -> #ty { #ret }
                 ]
             }
             else {

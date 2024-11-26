@@ -1,7 +1,7 @@
 use super::{FXCodeGenSync, FXSyncImplDetails};
 use crate::{codegen::FXCodeGenContextual, ctx::FXFieldCtx};
 use proc_macro2::TokenStream;
-use quote::quote;
+use quote::{quote, quote_spanned};
 
 pub struct FXSyncImplementor;
 
@@ -29,7 +29,8 @@ impl FXSyncImplDetails for FXSyncImplementor {
     fn lazy_builder(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> Result<TokenStream, darling::Error> {
         let input_type = codegen.input_type_toks();
         let lazy_builder_name = codegen.lazy_name(fctx)?;
-        Ok(quote![<#input_type>::#lazy_builder_name])
+        let span = fctx.helper_span(super::FXHelperKind::Lazy);
+        Ok(quote_spanned![span=> <#input_type>::#lazy_builder_name])
     }
 
     fn async_decl(&self) -> TokenStream {

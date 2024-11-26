@@ -77,3 +77,18 @@ pub(crate) use needs_helper;
 #[allow(unused_imports)]
 pub(crate) use TODO;
 // pub(crate) use self::helper_std_fields;
+
+// pub fn inspect_spans(tokens: TokenStream) {
+//     for token in tokens {
+//         let span = token.span();
+//         // let source_file = span.source_file();
+//         let start = span.start();
+//         let end = span.end();
+//         eprintln!("Token : {:#?}", token);
+//         eprintln!(
+//             "  Line: {}-{}, Column: {}-{}",
+//             start.line, end.line, start.column, end.column
+//         );
+//         eprintln!("Source: {}", span.source_text().unwrap_or("<unknown>".to_string()));
+//     }
+// }

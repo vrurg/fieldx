@@ -7,8 +7,8 @@ use darling::{util::Flag, FromField};
 use fieldx_aux::FXSerde;
 use fieldx_aux::{
     validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXBoolHelper, FXBuilder,
-    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXPubMode, FXSetter, FXStringArg, FXSynValue,
-    FXSyncMode, FXTriggerHelper, FromNestAttr,
+    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXStringArg,
+    FXSynValue, FXSyncMode, FXTriggerHelper, FromNestAttr,
 };
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
@@ -132,6 +132,7 @@ impl FXFieldReceiver {
         "visibility": public; private;
         "accessor mode": copy; clone;
         "field mode":  lazy; optional, inner_mut;
+        "in-/fallible mode": fallible; lock, optional, inner_mut;
         "concurrency mode": mode_sync as "sync"; mode_async as "async"; inner_mut; mode;
     }
 
@@ -140,7 +141,16 @@ impl FXFieldReceiver {
     needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
 
     pub fn validate(&self) -> darling::Result<()> {
-        self.validate_exclusives() //.map_err(|err| err.with_span(self.span()))
+        self.validate_exclusives()?; //.map_err(|err| err.with_span(self.span()))
+
+        if self.is_fallible().unwrap_or(false) && !self.is_lazy().unwrap_or(false) {
+            return Err(
+                darling::Error::custom("Parameter 'fallible' only makes sense when 'lazy' is set too")
+                    .with_span(&self.fallible().fx_span()),
+            );
+        }
+
+        Ok(())
     }
 
     #[inline]

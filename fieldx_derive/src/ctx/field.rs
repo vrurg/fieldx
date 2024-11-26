@@ -460,4 +460,22 @@ impl FXFieldCtx {
             })?
             .clone())
     }
+
+    pub fn fallible_shortcut(&self) -> TokenStream {
+        if self.is_fallible() {
+            quote![?]
+        }
+        else {
+            quote![]
+        }
+    }
+
+    pub fn fallible_ok_return(&self, ret: TokenStream) -> TokenStream {
+        if self.is_fallible() {
+            quote! {Ok(#ret)}
+        }
+        else {
+            ret
+        }
+    }
 }

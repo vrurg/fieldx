@@ -279,12 +279,11 @@ impl FXRewriter {
 
         let defaults = ctx.defaults_combined();
         let ident = ctx.input().ident();
-        let generics = ctx.input().generics();
-        let where_clause = &generics.where_clause;
+        let (impl_generics, type_generics, where_clause) = ctx.input().generics().split_for_impl();
 
         if !defaults.is_empty() {
             quote! [
-                impl #generics Default for #ident #generics #where_clause {
+                impl #impl_generics Default for #ident #type_generics #where_clause {
                     fn default() -> Self {
                         Self { #defaults }
                     }
@@ -476,8 +475,7 @@ impl FXRewriter {
         let fields = ctx.struct_fields();
         let default = self.default_impl();
         let builder_struct = self.builder_struct();
-        let where_clause = &generics.where_clause;
-        let generic_params = ctx.struct_generic_params();
+        let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
 
         let copyables = ctx.copyable_types();
         let copyable_validation = if !copyables.is_empty() {
@@ -505,10 +503,10 @@ impl FXRewriter {
                 #( #fields ),*
             }
 
-            impl #generics FXStruct for #ident #generic_params #where_clause {}
+            impl #impl_generics FXStruct for #ident #type_generics #where_clause {}
 
             #attributes_impl
-            impl #generics #ident #generics #where_clause {
+            impl #impl_generics #ident #type_generics #where_clause {
                 #methods
                 #copyable_validation
             }

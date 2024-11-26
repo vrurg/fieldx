@@ -89,24 +89,22 @@ impl FXCodeGenSync {
             ]
         }
         else if fctx.is_optional() {
-            let fallible_ty = self.fallible_return_type(
-                fctx,
-                quote_spanned! {span=> #rwlock_guard<'fx_reader_lifetime, ::std::option::Option<#ty>> },
-            )?;
+            let ty = quote_spanned! {span=> #rwlock_guard<'fx_reader_lifetime, ::std::option::Option<#ty>> };
 
             quote_spanned! [span=>
                 #attributes_fn
-                #vis_tok #async_decl fn #method_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> #fallible_ty {
+                #vis_tok #async_decl fn #method_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> #ty {
                     self.#ident.#read_method()#await_call
                 }
             ]
         }
         else {
-            let fallible_ty = self.fallible_return_type(fctx, quote_spanned! {span=> #rwlock_guard<#ty> })?;
+            let ty = quote_spanned! {span=> #rwlock_guard<#ty> };
+
             quote_spanned! [span=>
                 #attributes_fn
-                #vis_tok #async_decl fn #method_name(&self) -> #fallible_ty {
-                    self.#ident.#read_method()#await_call
+                #vis_tok #async_decl fn #method_name(&self) -> #ty {
+                    self.#ident.read()#await_call
                 }
             ]
         })
@@ -228,6 +226,7 @@ impl FXCodeGenContextual for FXCodeGenSync {
             if is_clone || is_copy {
                 // unwrap won't panic because somewhere out there a copy/clone argument exists.
                 let cc_span = fctx.accessor_mode_span().unwrap();
+                let shortcut = fctx.fallible_shortcut();
                 let cmethod = if is_copy {
                     if is_optional {
                         quote_spanned![cc_span=> .as_ref().copied()]
@@ -250,27 +249,29 @@ impl FXCodeGenContextual for FXCodeGenSync {
                     let await_call = implementor.await_call();
                     let read_arg = self.maybe_ref_counted_self(fctx);
                     let ty = self.fallible_return_type(fctx, ty)?;
+                    let ret = fctx.fallible_ok_return(quote_spanned! {span=> (*rlock)#cmethod});
 
                     quote_spanned![span=>
                         #attributes_fn
                         #vis_tok #async_decl fn #accessor_name(&self) -> #ty {
-                            let rlock = self.#ident.#read_method(&#read_arg)#await_call;
-                            (*rlock)#cmethod
+                            let rlock = self.#ident.#read_method(&#read_arg) #await_call #shortcut;
+                            #ret
                         }
                     ]
                 }
                 else if fctx.needs_lock() {
-                    let ty = self.fallible_return_type(fctx, &self.maybe_optional_ty(fctx, ty))?;
+                    let ty = self.maybe_optional_ty(fctx, ty);
+
                     quote_spanned![span=>
                         #attributes_fn
                         #vis_tok fn #accessor_name(&self) -> #ty {
-                            let rlock = self.#ident.#read_method();
-                            (*rlock) #cmethod
+                            let rlock = self.#ident.read() #shortcut;
+                            (*rlock)#cmethod
                         }
                     ]
                 }
                 else if is_optional {
-                    let ty = self.fallible_return_type(fctx, &self.maybe_optional_ty(fctx, ty))?;
+                    let ty = self.maybe_optional_ty(fctx, ty);
                     quote_spanned![span=>
                         #attributes_fn
                         #vis_tok fn #accessor_name(&self) -> #ty {
@@ -280,7 +281,6 @@ impl FXCodeGenContextual for FXCodeGenSync {
                 }
                 else {
                     let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
-                    let ty = self.fallible_return_type(fctx, &ty.to_token_stream())?;
                     quote_spanned![span=>
                         #attributes_fn
                         #vis_tok fn #accessor_name(&self) -> #ty {
