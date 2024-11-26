@@ -19,49 +19,49 @@ use proc_macro2::Span;
 #[getset(get = "pub")]
 pub(crate) struct FXSArgs {
     #[getset(skip)]
-    mode:       Option<FXSynValue<FXSyncMode>>,
+    mode: Option<FXSynValue<FXSyncMode>>,
     #[getset(skip)]
     #[darling(rename = "sync")]
-    mode_sync:  Option<FXBoolArg>,
+    mode_sync: Option<FXBoolArg>,
     #[getset(skip)]
     #[darling(rename = "r#async")]
     mode_async: Option<FXBoolArg>,
 
-    builder: Option<FXBuilder>,
-    into:    Option<FXBoolArg>,
+    builder: Option<FXBuilder<true>>,
+    into: Option<FXBoolArg>,
 
-    no_new:  Option<FXBoolArg>,
+    no_new: Option<FXBoolArg>,
     default: Option<FXBoolArg>,
     // Produce reference counted object; i.e. Rc<Self> or Arc<Self>.
-    rc:      Option<FXHelper>,
+    rc: Option<FXHelper>,
 
-    attributes:      Option<FXAttributes>,
+    attributes: Option<FXAttributes>,
     attributes_impl: Option<FXAttributes>,
 
     // Field defaults
-    fallible:     Option<FXNestingAttr<FXFallible>>,
-    lazy:         Option<FXHelper>,
+    fallible: Option<FXNestingAttr<FXFallible>>,
+    lazy: Option<FXHelper>,
     #[darling(rename = "get")]
-    accessor:     Option<FXAccessor>,
+    accessor: Option<FXAccessor>,
     #[darling(rename = "get_mut")]
     accessor_mut: Option<FXHelper>,
     #[darling(rename = "set")]
-    setter:       Option<FXSetter>,
-    reader:       Option<FXHelper>,
-    writer:       Option<FXHelper>,
-    clearer:      Option<FXHelper>,
-    predicate:    Option<FXHelper>,
-    optional:     Option<FXBoolArg>,
-    public:       Option<FXNestingAttr<FXPubMode>>,
-    private:      Option<FXBoolArg>,
+    setter: Option<FXSetter>,
+    reader: Option<FXHelper>,
+    writer: Option<FXHelper>,
+    clearer: Option<FXHelper>,
+    predicate: Option<FXHelper>,
+    optional: Option<FXBoolArg>,
+    public: Option<FXNestingAttr<FXPubMode>>,
+    private: Option<FXBoolArg>,
     #[getset(get = "pub with_prefix")]
-    clone:        Option<FXBoolArg>,
+    clone: Option<FXBoolArg>,
     #[getset(get = "pub with_prefix")]
-    copy:         Option<FXBoolArg>,
-    lock:         Option<FXBoolArg>,
-    inner_mut:    Option<FXBoolArg>,
+    copy: Option<FXBoolArg>,
+    lock: Option<FXBoolArg>,
+    inner_mut: Option<FXBoolArg>,
     #[cfg(feature = "serde")]
-    serde:        Option<FXSerde>,
+    serde: Option<FXSerde>,
 }
 
 impl FXSArgs {
@@ -132,8 +132,7 @@ impl FXSArgs {
         if self.clone.is_true() {
             // Explicitly set `clone` means "not copy"
             Some(false)
-        }
-        else {
+        } else {
             self.copy.is_true_opt()
         }
     }
@@ -143,8 +142,7 @@ impl FXSArgs {
         if self.copy.is_true() {
             // Explicitly set `clone` means "not copy"
             Some(false)
-        }
-        else {
+        } else {
             self.clone.is_true_opt()
         }
     }
@@ -251,13 +249,6 @@ impl FXSArgs {
             .as_ref()
             .and_then(|b| b.attributes_impl())
             .or_else(|| self.attributes_impl().as_ref())
-    }
-
-    #[inline(always)]
-    pub fn builder_init_ident(&self) -> Option<syn::Ident> {
-        self.builder
-            .as_ref()
-            .and_then(|b| b.init().as_ref().map(|v| v.value().clone()))
     }
 
     #[inline(always)]

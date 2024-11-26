@@ -1,7 +1,7 @@
 use super::{Attributizer, FXFieldCtx};
 use crate::{
     fields::FXField,
-    helper::{FXHelperContainer, FXHelperKind},
+    helper::{FXHelperContainer, FXHelperKind, FXOrig},
     input_receiver::FXInputReceiver,
     util::args::{self, FXSArgs},
 };
@@ -14,7 +14,7 @@ use std::{
     collections::HashMap,
     rc::Rc,
 };
-use syn::Ident;
+use syn::{spanned::Spanned, Ident};
 
 #[derive(Default, Debug, Getters, CopyGetters)]
 pub struct FXCodeGenCtx {
@@ -448,6 +448,48 @@ impl FXCodeGenCtx {
                 |is_sync| is_sync,
             )
         })
+    }
+
+    #[inline(always)]
+    pub fn builder_has_post_build(&self) -> bool {
+        self.args.builder().as_ref().map_or(false, |b| b.has_post_build())
+    }
+
+    #[inline(always)]
+    pub fn builder_post_build_ident(&self) -> Option<syn::Ident> {
+        if self.builder_has_post_build() {
+            Some(
+                self.args()
+                    .builder()
+                    .as_ref()
+                    .and_then(|b| b.post_build().as_ref())
+                    .and_then(|pb| pb.value().cloned())
+                    .unwrap_or_else(|| {
+                        let span = self
+                            .args()
+                            .builder()
+                            .as_ref()
+                            .and_then(|b| b.post_build().as_ref().unwrap().orig())
+                            .map_or_else(|| self.helper_span(FXHelperKind::Builder), |o| o.span());
+                        format_ident!("post_build", span = span)
+                    }),
+            )
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn build_has_error_type(&self) -> bool {
+        self.args.builder().as_ref().map_or(false, |b| b.error_type().is_some())
+    }
+
+    pub fn builder_error_type(&self) -> Option<&syn::Path> {
+        self.args.builder().as_ref().and_then(|b| b.error_type())
+    }
+
+    pub fn builder_error_variant(&self) -> Option<&syn::Path> {
+        self.args.builder().as_ref().and_then(|b| b.error_variant())
     }
 
     #[inline(always)]

@@ -1,28 +1,37 @@
 use super::{FXFrom, FromNestAttr};
 use darling::{ast::NestedMeta, FromMeta};
 use quote::ToTokens;
-use std::{borrow::Borrow, marker::PhantomData, ops::Deref};
-use syn::{punctuated::Punctuated, Meta};
+use std::{borrow::Borrow, fmt::Debug, marker::PhantomData, ops::Deref};
+use syn::{parse::Parse, punctuated::Punctuated, spanned::Spanned, Meta};
 
 #[derive(Debug, Clone)]
 #[allow(unused)]
-pub struct FXSynValueArg<T> {
-    value: T,
+pub struct FXSynValueArg<T, const AS_KEYWORD: bool = false> {
+    value: Option<T>,
 }
 
-impl<T> FXSynValueArg<T> {
+impl<T> FXSynValueArg<T, false> {
     pub fn value(&self) -> &T {
-        &self.value
+        self.value.as_ref().unwrap()
     }
 }
 
-impl<T: syn::parse::Parse> FromMeta for FXSynValueArg<T> {
+impl<T> FXSynValueArg<T, true> {
+    pub fn value(&self) -> Option<&T> {
+        self.value.as_ref()
+    }
+}
+
+impl<T, const AS_KEYWORD: bool> FromMeta for FXSynValueArg<T, AS_KEYWORD>
+where
+    T: Parse,
+{
     fn from_meta(item: &Meta) -> darling::Result<Self> {
         Ok(Self {
-            value: match item {
+            value: Some(match item {
                 Meta::List(list) => syn::parse2(list.tokens.clone())?,
                 _ => return Err(darling::Error::unsupported_format("argument is expected")),
-            },
+            }),
         })
     }
 
@@ -31,42 +40,71 @@ impl<T: syn::parse::Parse> FromMeta for FXSynValueArg<T> {
     }
 }
 
-impl<T> From<T> for FXSynValueArg<T>
+impl<T, const AS_KEYWORD: bool> From<T> for FXSynValueArg<T, AS_KEYWORD>
 where
     T: FromMeta,
 {
     fn from(value: T) -> Self {
-        Self { value: value }
+        Self { value: Some(value) }
     }
 }
 
-impl<T> FXFrom<T> for FXSynValueArg<T>
+impl<T, const AS_KEYWORD: bool> FXFrom<T> for FXSynValueArg<T, AS_KEYWORD>
 where
     T: FromMeta,
 {
     fn fx_from(value: T) -> Self {
-        Self { value: value }
+        Self { value: Some(value) }
     }
 }
 
-impl<T: syn::parse::Parse> FromNestAttr<false> for FXSynValueArg<T> {}
+impl<T> FromNestAttr<false> for FXSynValueArg<T, false> where T: Parse {}
 
-impl<T> Deref for FXSynValueArg<T> {
+impl<T> FromNestAttr<false> for FXSynValueArg<T, true>
+where
+    T: Parse,
+{
+    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
+        Ok(Self { value: None })
+    }
+}
+
+impl<T> Deref for FXSynValueArg<T, false> {
     type Target = T;
 
     fn deref(&self) -> &T {
+        self.value.as_ref().unwrap()
+    }
+}
+
+impl<T> Deref for FXSynValueArg<T, true> {
+    type Target = Option<T>;
+
+    fn deref(&self) -> &Self::Target {
         &self.value
     }
 }
 
-impl<T> AsRef<T> for FXSynValueArg<T> {
+impl<T> AsRef<T> for FXSynValueArg<T, false> {
     fn as_ref(&self) -> &T {
+        self.value.as_ref().unwrap()
+    }
+}
+
+impl<T> AsRef<Option<T>> for FXSynValueArg<T, true> {
+    fn as_ref(&self) -> &Option<T> {
         &self.value
     }
 }
 
-impl<T> Borrow<T> for FXSynValueArg<T> {
+impl<T> Borrow<T> for FXSynValueArg<T, false> {
     fn borrow(&self) -> &T {
+        self.value.as_ref().unwrap()
+    }
+}
+
+impl<T> Borrow<Option<T>> for FXSynValueArg<T, true> {
+    fn borrow(&self) -> &Option<T> {
         &self.value
     }
 }
@@ -130,20 +168,44 @@ from_tuple! {
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-pub struct FXPunctuated<T, S> {
+pub struct FXPunctuated<T, S, const MIN: i32 = -1, const MAX: i32 = -1>
+where
+    T: Debug + Spanned + ToTokens + Parse,
+    S: Debug + Spanned + ToTokens + Parse,
+{
     items: Vec<T>,
     _p:    PhantomData<S>,
 }
 
-impl<T, S> FXPunctuated<T, S> {
+impl<T, S, const MIN: i32, const MAX: i32> FXPunctuated<T, S, MIN, MAX>
+where
+    T: Debug + Spanned + ToTokens + Parse,
+    S: Debug + Spanned + ToTokens + Parse,
+{
     pub fn items(&self) -> &Vec<T> {
         &self.items
     }
 }
 
-impl<T: syn::parse::Parse, S: syn::parse::Parse> syn::parse::Parse for FXPunctuated<T, S> {
+impl<T, S, const MIN: i32, const MAX: i32> syn::parse::Parse for FXPunctuated<T, S, MIN, MAX>
+where
+    T: Debug + Spanned + ToTokens + Parse,
+    S: Debug + Spanned + ToTokens + Parse,
+{
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let result = Punctuated::<T, S>::parse_terminated(input)?;
+        let count = result.len();
+        if MIN >= 0 && count < MIN as usize {
+            return Err(darling::Error::too_few_items(MIN as usize)
+                .with_span(&result.span())
+                .into());
+        }
+        if MAX >= 0 && count > MAX as usize {
+            return Err(darling::Error::too_many_items(MAX as usize)
+                .with_span(&result.span())
+                .into());
+        }
+
         Ok(Self {
             items: result.into_iter().collect(),
             _p:    PhantomData::default(),
@@ -151,7 +213,11 @@ impl<T: syn::parse::Parse, S: syn::parse::Parse> syn::parse::Parse for FXPunctua
     }
 }
 
-impl<T: syn::parse::Parse, S: syn::parse::Parse> FromMeta for FXPunctuated<T, S> {
+impl<T, S, const MIN: i32, const MAX: i32> FromMeta for FXPunctuated<T, S, MIN, MAX>
+where
+    T: Spanned + ToTokens + Parse + Debug,
+    S: Spanned + ToTokens + Parse + Debug,
+{
     fn from_meta(item: &Meta) -> darling::Result<Self> {
         Ok(match item {
             Meta::List(ref list) => syn::parse2(list.tokens.clone())?,
@@ -160,7 +226,11 @@ impl<T: syn::parse::Parse, S: syn::parse::Parse> FromMeta for FXPunctuated<T, S>
     }
 }
 
-impl<T, S> Deref for FXPunctuated<T, S> {
+impl<T, S, const MIN: i32, const MAX: i32> Deref for FXPunctuated<T, S, MIN, MAX>
+where
+    T: Spanned + ToTokens + Parse + Debug,
+    S: Spanned + ToTokens + Parse + Debug,
+{
     type Target = Vec<T>;
 
     fn deref(&self) -> &Self::Target {
@@ -168,13 +238,21 @@ impl<T, S> Deref for FXPunctuated<T, S> {
     }
 }
 
-impl<T, S> AsRef<Vec<T>> for FXPunctuated<T, S> {
+impl<T, S, const MIN: i32, const MAX: i32> AsRef<Vec<T>> for FXPunctuated<T, S, MIN, MAX>
+where
+    T: Spanned + ToTokens + Parse + Debug,
+    S: Spanned + ToTokens + Parse + Debug,
+{
     fn as_ref(&self) -> &Vec<T> {
         &self.items
     }
 }
 
-impl<T, S> Borrow<Vec<T>> for FXPunctuated<T, S> {
+impl<T, S, const MIN: i32, const MAX: i32> Borrow<Vec<T>> for FXPunctuated<T, S, MIN, MAX>
+where
+    T: Spanned + ToTokens + Parse + Debug,
+    S: Spanned + ToTokens + Parse + Debug,
+{
     fn borrow(&self) -> &Vec<T> {
         &self.items
     }

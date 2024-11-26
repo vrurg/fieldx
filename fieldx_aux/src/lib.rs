@@ -122,12 +122,12 @@ impl FXSyncMode {
 
 pub type FXHelper<const BOOL_ONLY: bool = false> = FXNestingAttr<FXBaseHelper<BOOL_ONLY>>;
 pub type FXValue<T, const BOOL_ONLY: bool = false> = FXNestingAttr<FXValueArg<T, BOOL_ONLY>>;
-pub type FXSynValue<T> = FXNestingAttr<FXSynValueArg<T>, false>;
+pub type FXSynValue<T, const AS_KEYWORD: bool = false> = FXNestingAttr<FXSynValueArg<T, AS_KEYWORD>, false>;
 pub type FXSynTuple<T> = FXNestingAttr<FXSynTupleArg<T>, false>;
 pub type FXStringArg = FXNestingAttr<FXValueArg<String>>;
 pub type FXBoolArg = FXNestingAttr<FXValueArg<(), true>>;
 pub type FXAccessor<const BOOL_ONLY: bool = false> = FXNestingAttr<FXAccessorHelper<BOOL_ONLY>>;
 pub type FXSetter<const BOOL_ONLY: bool = false> = FXNestingAttr<FXSetterHelper<BOOL_ONLY>>;
-pub type FXBuilder = FXNestingAttr<FXBuilderHelper>;
+pub type FXBuilder<const STRUCT: bool = false> = FXNestingAttr<FXBuilderHelper<STRUCT>>;
 #[cfg(feature = "serde")]
 pub type FXSerde = FXNestingAttr<FXSerdeHelper>;

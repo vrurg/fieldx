@@ -1,4 +1,4 @@
-use super::{FXFrom, FXTriggerHelper, FromNestAttr};
+use crate::{FXFrom, FXSynValueArg, FXTriggerHelper, FromNestAttr};
 use darling::{util::Flag, FromMeta};
 use syn::Lit;
 
@@ -67,6 +67,15 @@ impl FromNestAttr for FXValueArg<(), true> {
 
     fn for_keyword(path: &syn::Path) -> darling::Result<Self> {
         Self::as_keyword(path)
+    }
+}
+
+impl<T> FromNestAttr for FXValueArg<FXSynValueArg<T>, false> {
+    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
+        Ok(Self {
+            off:   Flag::default(),
+            value: None,
+        })
     }
 }
 

@@ -1,4 +1,4 @@
-use fieldx::{errors::FieldXError, fxstruct};
+use fieldx::{error::FieldXError, fxstruct};
 use std::sync::{Arc, Weak};
 
 #[fxstruct(sync, rc(public), builder)]

@@ -1,4 +1,4 @@
-pub use crate::errors::FieldXError;
+pub use crate::error::FieldXError;
 use std::fmt::Debug;
 
 pub trait FXStruct {}

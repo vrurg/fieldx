@@ -326,7 +326,7 @@ impl FXRewriter {
         let where_clause = &generics.where_clause;
         let generic_params = ctx.struct_generic_params();
         let attributes = ctx.args().builder_impl_attributes();
-        let init_ident = ctx.args().builder_init_ident();
+        let post_build_ident = ctx.builder_post_build_ident();
 
         let mut field_setters = Vec::<TokenStream>::new();
         let mut use_default = false;
@@ -388,8 +388,15 @@ impl FXRewriter {
                     #(#field_setters,)*
                     #default_initializer
             ],
-            init_ident,
+            post_build_ident,
         );
+
+        let builder_error_type = if let Some(error_type) = ctx.builder_error_type() {
+            quote![#error_type]
+        }
+        else {
+            quote! {::fieldx::error::FieldXError}
+        };
 
         quote![
             #attributes
@@ -398,7 +405,7 @@ impl FXRewriter {
             {
                 #fn_new
                 #builders
-                #vis fn build(&mut self) -> ::std::result::Result<#builder_return_type, ::fieldx::errors::FieldXError> {
+                #vis fn build(&mut self) -> ::std::result::Result<#builder_return_type, #builder_error_type> {
                     #( #builder_checkers );*
                     Ok(#construction)
                 }

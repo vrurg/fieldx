@@ -962,7 +962,7 @@
 //! [`serde`]: https://docs.rs/serde
 
 pub mod r#async;
-pub mod errors;
+pub mod error;
 pub mod sync;
 pub mod traits;
 

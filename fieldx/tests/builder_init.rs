@@ -1,6 +1,6 @@
 use fieldx::fxstruct;
 
-#[fxstruct(builder(init(post_build)))]
+#[fxstruct(builder(post_build))]
 struct Foo {
     #[fieldx(default(0))]
     derive: u32,
