@@ -1,17 +1,22 @@
 use std::collections::HashMap;
 
-use darling::{ast, FromDeriveInput, FromField};
+use darling::{ast, FromDeriveInput, FromField, FromMeta};
 use proc_macro;
 use proc_macro2::TokenStream;
-use quote::{format_ident, quote, ToTokens};
-use syn::{parse_macro_input, punctuated::Punctuated, token::Comma, DeriveInput};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
+use syn::{parse_macro_input, punctuated::Punctuated, spanned::Spanned, token::Comma, DeriveInput};
+
+#[derive(Debug, FromMeta, Clone)]
+struct FXHArgs {
+    validate: Option<syn::Path>,
+}
 
 #[derive(Debug, FromField, Clone)]
 #[darling(attributes(fxhelper), forward_attrs)]
 struct FXHelperField {
     ident: Option<syn::Ident>,
-    vis:   syn::Visibility,
-    ty:    syn::Type,
+    vis: syn::Visibility,
+    ty: syn::Type,
     attrs: Vec<syn::Attribute>,
 
     exclusive: Option<String>,
@@ -20,26 +25,26 @@ struct FXHelperField {
 #[derive(Debug, FromDeriveInput)]
 #[darling(supports(struct_named), forward_attrs)]
 struct FXHelperStruct {
-    vis:      syn::Visibility,
-    ident:    syn::Ident,
-    data:     ast::Data<(), FXHelperField>,
-    attrs:    Vec<syn::Attribute>,
+    vis: syn::Visibility,
+    ident: syn::Ident,
+    data: ast::Data<(), FXHelperField>,
+    attrs: Vec<syn::Attribute>,
     generics: syn::Generics,
 }
 
 #[proc_macro_attribute]
-pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // let attr_args = match ast::NestedMeta::parse_meta_list(args.into()) {
-    //     Ok(v) => v,
-    //     Err(e) => {
-    //         return darling::Error::from(e).write_errors().into();
-    //     }
-    // };
+pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let attr_args = match ast::NestedMeta::parse_meta_list(args.into()) {
+        Ok(v) => v,
+        Err(e) => {
+            return darling::Error::from(e).write_errors().into();
+        }
+    };
 
-    // let args = match FXSArgs::from_list(&attr_args) {
-    //     Ok(v) => v,
-    //     Err(e) => return darling::Error::from(e).write_errors().into(),
-    // };
+    let args = match FXHArgs::from_list(&attr_args) {
+        Ok(v) => v,
+        Err(e) => return darling::Error::from(e).write_errors().into(),
+    };
 
     let incopy = input.clone();
     let input_ast = parse_macro_input!(incopy as DeriveInput);
@@ -56,8 +61,7 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
         generics,
     } = &fx;
 
-    let ast::Data::Struct(fields) = data
-    else {
+    let ast::Data::Struct(fields) = data else {
         panic!("Expected struct data")
     };
 
@@ -80,12 +84,10 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
                 let check_method = if let syn::Type::Path(ref tpath) = field.ty {
                     if tpath.path.is_ident("Flag") {
                         quote![is_present]
-                    }
-                    else {
+                    } else {
                         quote![is_some]
                     }
-                }
-                else {
+                } else {
                     return darling::Error::unexpected_type(&field.ty.to_token_stream().to_string())
                         .write_errors()
                         .into();
@@ -93,8 +95,7 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
 
                 if exclusives.contains_key(exclusive) {
                     exclusives.get_mut(exclusive).unwrap().push((ident, check_method));
-                }
-                else {
+                } else {
                     exclusives.insert(exclusive.clone(), vec![(ident, check_method)]);
                 }
             }
@@ -117,8 +118,7 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
                 self.attributes.as_ref()
             }
         ]
-    }
-    else {
+    } else {
         quote![
             fn attributes(&self) -> Option<&FXAttributes> {
                 None
@@ -170,9 +170,19 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
         ]);
     }
 
+    let self_validate = if let Some(validate_name) = args.validate {
+        let span = validate_name.span();
+        quote_spanned! {
+            span=>
+            #validate_name(&self)?;
+        }
+    } else {
+        quote![]
+    };
+
     quote! [
-        #( #attrs )*
         #[derive(FromMeta, Clone)]
+        #( #attrs )*
         #[darling(and_then = Self::__validate_helper)]
         #getters_derive
         #vis struct #ident #generics #where_clause {
@@ -228,6 +238,7 @@ pub fn fxhelper(_args: proc_macro::TokenStream, input: proc_macro::TokenStream) 
 
             fn __validate_helper(self) -> ::darling::Result<Self> {
                 self.validate_exclusives()?;
+                #self_validate
                 Ok(self)
             }
         }
