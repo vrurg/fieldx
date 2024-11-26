@@ -212,7 +212,8 @@ pub trait FXCodeGenContextual {
 
         if generic_idents.len() > 0 {
             quote![< #( #generic_idents ),* >]
-        } else {
+        }
+        else {
             quote![]
         }
     }
@@ -239,11 +240,13 @@ pub trait FXCodeGenContextual {
         let post_constuct = if let Some(init) = init {
             let shortcut = if ctx.build_has_error_type() {
                 quote![?]
-            } else {
+            }
+            else {
                 quote![]
             };
             quote![.#init() #shortcut]
-        } else {
+        }
+        else {
             quote![]
         };
 
@@ -261,7 +264,8 @@ pub trait FXCodeGenContextual {
                     }
                 )
             ]
-        } else {
+        }
+        else {
             quote![
                 #self_name {
                     #struct_init
@@ -274,7 +278,8 @@ pub trait FXCodeGenContextual {
     fn maybe_optional<TT: ToTokens>(&self, fctx: &FXFieldCtx, ty: TT) -> TokenStream {
         if fctx.is_optional() {
             quote![::std::option::Option<#ty>]
-        } else {
+        }
+        else {
             ty.to_token_stream()
         }
     }
@@ -336,12 +341,15 @@ pub trait FXCodeGenContextual {
 
             FXValueRepr::Versatile(if is_str {
                 quote_spanned! [span=> ::std::string::String::from(#def_meta) ]
-            } else {
+            }
+            else {
                 quote_spanned! [span=> #def_meta ]
             })
-        } else if fctx.is_lazy() || fctx.is_optional() {
+        }
+        else if fctx.is_lazy() || fctx.is_optional() {
             FXValueRepr::None
-        } else {
+        }
+        else {
             FXValueRepr::Exact(quote_spanned! [field.span()=> ::std::default::Default::default() ])
         }
     }
@@ -363,7 +371,8 @@ pub trait FXCodeGenContextual {
                     self
                 }
             ])
-        } else {
+        }
+        else {
             Ok(quote![])
         }
     }
@@ -377,7 +386,8 @@ pub trait FXCodeGenContextual {
         // of the builder like, for example, when they may refer to generic lifetimes.
         let allow_attr = if !fctx.forced_builder() && !fctx.needs_builder() {
             quote![#[allow(dead_code)]]
-        } else {
+        }
+        else {
             quote![]
         };
         Ok(quote_spanned![span=> #attributes #allow_attr #ident: ::std::option::Option<#ty>])
@@ -394,7 +404,8 @@ pub trait FXCodeGenContextual {
             let field_set_error = if let Some(variant) = ctx.builder_error_variant() {
                 // If variant is explicitly specified then use it.
                 quote_spanned! {span=> #variant(#field_name.into())}
-            } else if ctx.builder_error_type().is_some() {
+            }
+            else if ctx.builder_error_type().is_some() {
                 // If there is  no variant but custom error type is requested then we expect that custom type to
                 // implement From<FieldXError> trait.
                 quote_spanned! {span=>
@@ -402,7 +413,8 @@ pub trait FXCodeGenContextual {
                         ::fieldx::error::FieldXError::uninitialized_field(#field_name.into())
                     )
                 }
-            } else {
+            }
+            else {
                 quote_spanned! {span =>
                     ::fieldx::error::FieldXError::uninitialized_field(#field_name.into())
                 }
@@ -425,7 +437,8 @@ pub trait FXCodeGenContextual {
                 },
                 |tt| Some(tt),
             )
-        } else if fctx.is_optional() && !fctx.is_builder_required() {
+        }
+        else if fctx.is_optional() && !fctx.is_builder_required() {
             self.field_value_wrap(
                 fctx,
                 FXValueRepr::Exact(quote_spanned![*span=> ::std::option::Option::None]),
@@ -437,7 +450,8 @@ pub trait FXCodeGenContextual {
                 },
                 |tt| Some(tt),
             )
-        } else {
+        }
+        else {
             None
         };
 
@@ -454,7 +468,8 @@ pub trait FXCodeGenContextual {
                     #alternative
                 }
             ]
-        } else {
+        }
+        else {
             // If no alternative init path provided then we just unwrap. It'd be either totally safe if builder checker
             // is set for this field, or won't be ever run because of an earlier error in this method.
             let value_wrapped = self.ok_or_empty(
@@ -476,7 +491,8 @@ pub trait FXCodeGenContextual {
                 TokenTree::Ident(ref ident) => {
                     if ident.to_string() == "Self" {
                         fixed_tokens.extend(quote![<#struct_ident #generics>]);
-                    } else {
+                    }
+                    else {
                         fixed_tokens.extend(t.to_token_stream());
                     }
                 }
@@ -503,7 +519,8 @@ pub trait FXCodeGenContextual {
                 quote![FXVALINTO],
                 quote![.into()],
             )
-        } else {
+        }
+        else {
             (quote![], quote![#ty], quote![])
         }
     }
@@ -524,7 +541,8 @@ pub trait FXCodeGenContextual {
             // Unwrap must be safe here because if the object has been legally reached out by user code then
             // it means there is at least one Arc instance alive and thus the strong count is > 0
             quote![self.#myself_method().expect(#expect_msg)]
-        } else {
+        }
+        else {
             quote![self]
         }
     }
@@ -546,7 +564,8 @@ pub trait FXCodeGenContextual {
             let error_type = fctx.fallible_error()?;
             let span = fctx.fallible_span();
             quote_spanned! {span=> ::std::result::Result<#ty, #error_type>}
-        } else {
+        }
+        else {
             quote![#ty]
         })
     }

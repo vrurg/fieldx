@@ -349,12 +349,12 @@ impl FXFieldReceiver {
             .or_else(|| {
                 self.copy
                     .as_ref()
-                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).span())
+                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).orig_span())
             })
             .or_else(|| {
                 self.clone
                     .as_ref()
-                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).span())
+                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).orig_span())
             })
     }
 

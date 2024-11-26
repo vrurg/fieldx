@@ -19,49 +19,49 @@ use proc_macro2::Span;
 #[getset(get = "pub")]
 pub(crate) struct FXSArgs {
     #[getset(skip)]
-    mode: Option<FXSynValue<FXSyncMode>>,
+    mode:       Option<FXSynValue<FXSyncMode>>,
     #[getset(skip)]
     #[darling(rename = "sync")]
-    mode_sync: Option<FXBoolArg>,
+    mode_sync:  Option<FXBoolArg>,
     #[getset(skip)]
     #[darling(rename = "r#async")]
     mode_async: Option<FXBoolArg>,
 
     builder: Option<FXBuilder<true>>,
-    into: Option<FXBoolArg>,
+    into:    Option<FXBoolArg>,
 
-    no_new: Option<FXBoolArg>,
+    no_new:  Option<FXBoolArg>,
     default: Option<FXBoolArg>,
     // Produce reference counted object; i.e. Rc<Self> or Arc<Self>.
-    rc: Option<FXHelper>,
+    rc:      Option<FXHelper>,
 
-    attributes: Option<FXAttributes>,
+    attributes:      Option<FXAttributes>,
     attributes_impl: Option<FXAttributes>,
 
     // Field defaults
-    fallible: Option<FXNestingAttr<FXFallible>>,
-    lazy: Option<FXHelper>,
+    fallible:     Option<FXNestingAttr<FXFallible>>,
+    lazy:         Option<FXHelper>,
     #[darling(rename = "get")]
-    accessor: Option<FXAccessor>,
+    accessor:     Option<FXAccessor>,
     #[darling(rename = "get_mut")]
     accessor_mut: Option<FXHelper>,
     #[darling(rename = "set")]
-    setter: Option<FXSetter>,
-    reader: Option<FXHelper>,
-    writer: Option<FXHelper>,
-    clearer: Option<FXHelper>,
-    predicate: Option<FXHelper>,
-    optional: Option<FXBoolArg>,
-    public: Option<FXNestingAttr<FXPubMode>>,
-    private: Option<FXBoolArg>,
+    setter:       Option<FXSetter>,
+    reader:       Option<FXHelper>,
+    writer:       Option<FXHelper>,
+    clearer:      Option<FXHelper>,
+    predicate:    Option<FXHelper>,
+    optional:     Option<FXBoolArg>,
+    public:       Option<FXNestingAttr<FXPubMode>>,
+    private:      Option<FXBoolArg>,
     #[getset(get = "pub with_prefix")]
-    clone: Option<FXBoolArg>,
+    clone:        Option<FXBoolArg>,
     #[getset(get = "pub with_prefix")]
-    copy: Option<FXBoolArg>,
-    lock: Option<FXBoolArg>,
-    inner_mut: Option<FXBoolArg>,
+    copy:         Option<FXBoolArg>,
+    lock:         Option<FXBoolArg>,
+    inner_mut:    Option<FXBoolArg>,
     #[cfg(feature = "serde")]
-    serde: Option<FXSerde>,
+    serde:        Option<FXSerde>,
 }
 
 impl FXSArgs {
@@ -132,7 +132,8 @@ impl FXSArgs {
         if self.clone.is_true() {
             // Explicitly set `clone` means "not copy"
             Some(false)
-        } else {
+        }
+        else {
             self.copy.is_true_opt()
         }
     }
@@ -142,7 +143,8 @@ impl FXSArgs {
         if self.copy.is_true() {
             // Explicitly set `clone` means "not copy"
             Some(false)
-        } else {
+        }
+        else {
             self.clone.is_true_opt()
         }
     }
@@ -264,12 +266,12 @@ impl FXSArgs {
             .or_else(|| {
                 self.copy
                     .as_ref()
-                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).span())
+                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).orig_span())
             })
             .or_else(|| {
                 self.clone
                     .as_ref()
-                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).span())
+                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).orig_span())
             })
     }
 
@@ -296,15 +298,15 @@ impl FXHelperContainer for FXSArgs {
 
     fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span> {
         match kind {
-            FXHelperKind::Accessor => self.accessor().as_ref().and_then(|h| h.span()),
-            FXHelperKind::AccessorMut => self.accessor_mut().as_ref().and_then(|h| h.span()),
-            FXHelperKind::Builder => self.builder().as_ref().and_then(|h| h.span()),
-            FXHelperKind::Clearer => self.clearer().as_ref().and_then(|h| h.span()),
-            FXHelperKind::Lazy => self.lazy().as_ref().and_then(|h| h.span()),
-            FXHelperKind::Predicate => self.predicate().as_ref().and_then(|h| h.span()),
-            FXHelperKind::Reader => self.reader().as_ref().and_then(|h| h.span()),
-            FXHelperKind::Setter => self.setter().as_ref().and_then(|h| h.span()),
-            FXHelperKind::Writer => self.writer().as_ref().and_then(|h| h.span()),
+            FXHelperKind::Accessor => self.accessor().as_ref().and_then(|h| h.orig_span()),
+            FXHelperKind::AccessorMut => self.accessor_mut().as_ref().and_then(|h| h.orig_span()),
+            FXHelperKind::Builder => self.builder().as_ref().and_then(|h| h.orig_span()),
+            FXHelperKind::Clearer => self.clearer().as_ref().and_then(|h| h.orig_span()),
+            FXHelperKind::Lazy => self.lazy().as_ref().and_then(|h| h.orig_span()),
+            FXHelperKind::Predicate => self.predicate().as_ref().and_then(|h| h.orig_span()),
+            FXHelperKind::Reader => self.reader().as_ref().and_then(|h| h.orig_span()),
+            FXHelperKind::Setter => self.setter().as_ref().and_then(|h| h.orig_span()),
+            FXHelperKind::Writer => self.writer().as_ref().and_then(|h| h.orig_span()),
         }
     }
 }

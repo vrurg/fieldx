@@ -7,7 +7,7 @@ pub struct FXFallible<T = FXSynValue<syn::Path>>
 where
     T: FromMeta,
 {
-    off: Flag,
+    off:        Flag,
     #[darling(rename = "error")]
     error_type: Option<T>,
     // error_type: Option<FXSynValue<syn::Path>>,
@@ -37,7 +37,7 @@ where
 {
     fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self {
-            off: Flag::default(),
+            off:        Flag::default(),
             error_type: None,
         })
     }

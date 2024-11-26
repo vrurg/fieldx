@@ -398,13 +398,13 @@ impl FXFieldCtx {
                     self.get_helper_span(FXHelperKind::Clearer)
                         .or_else(|| self.get_helper_span(FXHelperKind::Predicate))
                 },
-                |o| o.span(),
+                |o| o.orig_span(),
             )
             .unwrap_or_else(|| Span::call_site())
     }
 
     pub fn lock_span(&self) -> Span {
-        self.lock().and_then(|l| l.span()).unwrap_or_else(|| {
+        self.lock().and_then(|l| l.orig_span()).unwrap_or_else(|| {
             self.get_helper_span(FXHelperKind::Reader)
                 .or_else(|| self.get_helper_span(FXHelperKind::Writer))
                 .unwrap_or_else(|| self.optional_span())
@@ -421,7 +421,7 @@ impl FXFieldCtx {
 
     pub fn inner_mut_span(&self) -> Span {
         self.inner_mut()
-            .and_then(|im| im.span())
+            .and_then(|im| im.orig_span())
             .unwrap_or_else(|| Span::call_site())
     }
 
@@ -442,7 +442,7 @@ impl FXFieldCtx {
             .fallible()
             .as_ref()
             .or_else(|| self.codegen_ctx().args().fallible().as_ref())
-            .and_then(|f| f.span())
+            .and_then(|f| f.orig_span())
             .unwrap_or_else(|| self.span().clone())
     }
 

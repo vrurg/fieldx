@@ -15,8 +15,8 @@ struct FXHArgs {
 #[darling(attributes(fxhelper), forward_attrs)]
 struct FXHelperField {
     ident: Option<syn::Ident>,
-    vis: syn::Visibility,
-    ty: syn::Type,
+    vis:   syn::Visibility,
+    ty:    syn::Type,
     attrs: Vec<syn::Attribute>,
 
     exclusive: Option<String>,
@@ -25,10 +25,10 @@ struct FXHelperField {
 #[derive(Debug, FromDeriveInput)]
 #[darling(supports(struct_named), forward_attrs)]
 struct FXHelperStruct {
-    vis: syn::Visibility,
-    ident: syn::Ident,
-    data: ast::Data<(), FXHelperField>,
-    attrs: Vec<syn::Attribute>,
+    vis:      syn::Visibility,
+    ident:    syn::Ident,
+    data:     ast::Data<(), FXHelperField>,
+    attrs:    Vec<syn::Attribute>,
     generics: syn::Generics,
 }
 
@@ -61,7 +61,8 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
         generics,
     } = &fx;
 
-    let ast::Data::Struct(fields) = data else {
+    let ast::Data::Struct(fields) = data
+    else {
         panic!("Expected struct data")
     };
 
@@ -84,10 +85,12 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
                 let check_method = if let syn::Type::Path(ref tpath) = field.ty {
                     if tpath.path.is_ident("Flag") {
                         quote![is_present]
-                    } else {
+                    }
+                    else {
                         quote![is_some]
                     }
-                } else {
+                }
+                else {
                     return darling::Error::unexpected_type(&field.ty.to_token_stream().to_string())
                         .write_errors()
                         .into();
@@ -95,7 +98,8 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
                 if exclusives.contains_key(exclusive) {
                     exclusives.get_mut(exclusive).unwrap().push((ident, check_method));
-                } else {
+                }
+                else {
                     exclusives.insert(exclusive.clone(), vec![(ident, check_method)]);
                 }
             }
@@ -118,7 +122,8 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
                 self.attributes.as_ref()
             }
         ]
-    } else {
+    }
+    else {
         quote![
             fn attributes(&self) -> Option<&FXAttributes> {
                 None
@@ -176,7 +181,8 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
             span=>
             #validate_name(&self)?;
         }
-    } else {
+    }
+    else {
         quote![]
     };
 
