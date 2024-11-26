@@ -102,7 +102,7 @@ fn threaded() {
             thandles.push(s.spawn(move |_| {
                 twg.wait();
                 let mut i = 0;
-                while !tstop.load(Ordering::Relaxed) {
+                while !tstop.load(Ordering::SeqCst) {
                     i += 1;
                     eprintln!("[{:>4}] {:?}", thread_id, scopy.foo().clone());
                     assert_eq!(*scopy.foo(), (*texpect.lock().clone()), "foo value");
@@ -127,7 +127,7 @@ fn threaded() {
 
         wg.wait();
         std::thread::sleep(time::Duration::from_millis(100));
-        stop.store(true, Ordering::Relaxed);
+        stop.store(true, Ordering::SeqCst);
         for thandle in thandles {
             thandle.join().expect("thread join failed");
         }
