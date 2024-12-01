@@ -33,7 +33,7 @@ pub enum FXInlining {
     Always,
 }
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub(crate) enum FXValueRepr<T> {
     None,
     Exact(T),
@@ -53,10 +53,19 @@ impl<T> FXValueRepr<T> {
         }
     }
 
+    // #[cfg(feature = "serde")]
+    // pub(crate) fn unwrap_or(self, default: T) -> T {
+    //     match self {
+    //         FXValueRepr::None => default,
+    //         FXValueRepr::Exact(v) => v,
+    //         FXValueRepr::Versatile(v) => v,
+    //     }
+    // }
+
     #[cfg(feature = "serde")]
-    pub(crate) fn unwrap_or(self, default: T) -> T {
+    pub(crate) fn unwrap_or_else(self, default_fn: impl FnOnce() -> T) -> T {
         match self {
-            FXValueRepr::None => default,
+            FXValueRepr::None => default_fn(),
             FXValueRepr::Exact(v) => v,
             FXValueRepr::Versatile(v) => v,
         }

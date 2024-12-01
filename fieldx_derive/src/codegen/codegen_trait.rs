@@ -455,8 +455,6 @@ pub trait FXCodeGenContextual {
             None
         };
 
-        // let alternative = alternative.map(|tt| quote![else { #tt }]);
-
         if let Some(alternative) = alternative {
             let manual_wrapped =
                 self.ok_or_empty(self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![field_manual_value])));
@@ -490,19 +488,17 @@ pub trait FXCodeGenContextual {
             match t {
                 TokenTree::Ident(ref ident) => {
                     if ident.to_string() == "Self" {
-                        fixed_tokens.extend(quote![<#struct_ident #generics>]);
+                        fixed_tokens.extend(quote_spanned![span=> <#struct_ident #generics>]);
                     }
                     else {
                         fixed_tokens.extend(t.to_token_stream());
                     }
                 }
-                TokenTree::Group(ref group) => fixed_tokens.extend(
-                    TokenTree::Group(proc_macro2::Group::new(
-                        group.delimiter(),
-                        self.fixup_self_type(group.stream()),
-                    ))
-                    .to_token_stream(),
-                ),
+                TokenTree::Group(ref group) => {
+                    let mut group = proc_macro2::Group::new(group.delimiter(), self.fixup_self_type(group.stream()));
+                    group.set_span(span);
+                    fixed_tokens.extend(TokenTree::Group(group).to_token_stream())
+                }
                 _ => fixed_tokens.extend(t.to_token_stream()),
             }
         }

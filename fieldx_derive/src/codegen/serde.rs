@@ -11,6 +11,15 @@ pub trait FXCGenSerde: FXCodeGenContextual {
         fctx.is_optional() || fctx.is_lazy()
     }
 
+    fn serde_optional_span(&self, fctx: &FXFieldCtx) -> Span {
+        if fctx.is_optional() {
+            fctx.optional_span()
+        }
+        else {
+            fctx.helper_span(super::FXHelperKind::Lazy)
+        }
+    }
+
     fn filter_shadow_attributes<'a>(&'a self, fctx: &'a FXFieldCtx) -> impl Iterator<Item = &'a syn::Attribute> {
         // Only use `serde` attribute and those listed in forward_attrs
         let serde_helper = fctx.serde().as_ref().or_else(|| self.ctx().args().serde().as_ref());
@@ -111,16 +120,17 @@ pub trait FXCGenSerde: FXCodeGenContextual {
     fn serde_shadow_field_type(&self, fctx: &FXFieldCtx) -> TokenStream {
         let ty = fctx.ty_tok().clone();
         if self.is_serde_optional(fctx) {
-            quote![ ::std::option::Option<#ty> ]
+            let span = self.serde_optional_span(fctx);
+            quote_spanned![span=> ::std::option::Option<#ty> ]
         }
         else {
-            quote![ #ty ]
+            ty
         }
     }
 
     fn serde_shadow_field_value(&self, fctx: &FXFieldCtx, value: TokenStream) -> TokenStream {
         if self.is_serde_optional(fctx) {
-            quote![ ::std::option::Option::Some(#value) ]
+            quote_spanned![self.serde_optional_span(fctx)=> ::std::option::Option::Some(#value) ]
         }
         else {
             value
@@ -147,20 +157,30 @@ pub trait FXCGenSerde: FXCodeGenContextual {
     }
 
     fn serde_shadow_field_default(&self, fctx: &FXFieldCtx) {
+        let field_ident = fctx.ident_tok();
+
         let default_tok = self.fixup_self_type(
             self.field_default_value(fctx)
-                .map(|v| self.serde_shadow_field_value(fctx, v.to_token_stream()))
-                .unwrap_or(if self.is_serde_optional(fctx) {
-                    quote![::std::option::Option::None]
-                }
-                else {
-                    quote![::std::default::Default::default()]
+                .map(|v| self.serde_shadow_field_value(fctx, v))
+                .unwrap_or_else(|| {
+                    let span = fctx.span().clone();
+                    if self.is_serde_optional(fctx) {
+                        quote_spanned![span=> ::std::option::Option::None ]
+                    }
+                    else {
+                        quote_spanned![span=> ::std::default::Default::default() ]
+                    }
                 }),
         );
 
-        let field_ident = fctx.ident_tok();
+        let span = self
+            .ctx()
+            .args()
+            .serde_helper_span()
+            .unwrap_or_else(|| Span::call_site());
 
-        self.ctx().add_shadow_default_decl(quote![ #field_ident: #default_tok ]);
+        self.ctx()
+            .add_shadow_default_decl(quote_spanned![span=> #field_ident: #default_tok ]);
     }
 
     fn serde_field_default_fn(&self, fctx: &FXFieldCtx) -> darling::Result<syn::Ident> {
@@ -236,16 +256,19 @@ impl FXRewriteSerde for super::FXRewriter {
             let serde_helper = args.serde().as_ref().unwrap();
             let generics = ctx.input().generics();
             let shadow_ident = format!("{}{}", ctx.shadow_ident(), generics.to_token_stream());
+            let serde_span = args.serde_helper_span().unwrap_or_else(|| Span::call_site());
 
             if serde_helper.needs_deserialize().unwrap_or(true) {
-                serde_args.push(quote![from = #shadow_ident]);
+                let span = serde_helper.deserialize().orig_span().unwrap_or(serde_span);
+                serde_args.push(quote_spanned![span=> from = #shadow_ident]);
             }
             if serde_helper.needs_serialize().unwrap_or(true) {
-                serde_args.push(quote![into = #shadow_ident]);
+                let span = serde_helper.serialize().orig_span().unwrap_or(serde_span);
+                serde_args.push(quote_spanned![span=> into = #shadow_ident]);
             }
 
             if serde_args.len() > 0 {
-                quote![ #[serde( #( #serde_args ),*  )] ]
+                quote_spanned![serde_span=> #[serde( #( #serde_args ),*  )] ]
             }
             else {
                 quote![]
@@ -263,6 +286,7 @@ impl FXRewriteSerde for super::FXRewriter {
         let args = ctx.args();
         if args.is_serde() {
             let serde_helper = args.serde().as_ref().unwrap();
+            let span = args.serde_helper_span().unwrap_or_else(|| Span::call_site());
             let shadow_ident = ctx.shadow_ident();
             let fields = ctx.shadow_fields();
             let mut attrs = vec![];
@@ -276,10 +300,10 @@ impl FXRewriteSerde for super::FXRewriter {
             attrs.push(derive_attr);
 
             if let Some(default_attr_arg) = self.serde_shadow_default_fn()? {
-                attrs.push(quote![#[serde(#default_attr_arg)]]);
+                attrs.push(quote_spanned![default_attr_arg.span()=> #[serde(#default_attr_arg)]]);
             }
 
-            ctx.tokens_extend(quote![
+            ctx.tokens_extend(quote_spanned![span=>
                 #( #attrs )*
                 #user_attributes
                 #vis struct #shadow_ident #generics #where_clause {
@@ -312,6 +336,7 @@ impl FXRewriteSerde for super::FXRewriter {
             let mut fields = vec![];
             let generics = ctx.input().generics();
             let where_clause = &generics.where_clause;
+            let span = args.serde_helper_span().unwrap_or_else(|| Span::call_site());
 
             for field in ctx.all_fields() {
                 let fctx = ctx.field_ctx(field);
@@ -333,12 +358,19 @@ impl FXRewriteSerde for super::FXRewriter {
                 }
             }
 
-            ctx.tokens_extend(quote![
+            let init_from_default = if ctx.needs_default() {
+                quote_spanned![span=> .. Self::default()]
+            }
+            else {
+                quote![]
+            };
+
+            ctx.tokens_extend(quote_spanned![span=>
                 impl #generics ::std::convert::From<#shadow_ident #generics> for #struct_ident #generics #where_clause {
                     fn from(#shadow_var: #shadow_ident #generics) -> Self {
                         Self {
                             #( #fields, )*
-                            .. Self::default()
+                            #init_from_default
                         }
                     }
                 }
@@ -441,12 +473,17 @@ impl FXRewriteSerde for super::FXRewriter {
             let span = default_value.orig().span();
 
             if default_value.has_value() {
+                let default_span = default_value
+                    .orig_span()
+                    .or_else(|| self.ctx().args().serde_helper_span())
+                    .unwrap_or_else(|| Span::call_site());
+
                 let serde_default: TokenStream = if default_value.is_str() {
                     let default_str: String = default_value.try_into()?;
                     let expr: syn::ExprPath = syn::parse_str(&default_str).map_err(|err| {
                         darling::Error::custom(format!("Invalid default string: {}", err)).with_span(&span)
                     })?;
-                    quote![#expr()]
+                    quote_spanned![default_span=> #expr()]
                 }
                 else {
                     let default_code = default_value.value().as_ref().unwrap();
@@ -461,13 +498,13 @@ impl FXRewriteSerde for super::FXRewriter {
                         ));
                         return Err(err);
                     }
-                    quote![#default_code]
+                    quote_spanned![default_span=> #default_code]
                 };
 
                 let generics = ctx.input().generics();
                 let shadow_ident = ctx.shadow_ident();
                 let fn_ident = ctx.unique_ident_pfx(&format!("{}_default", shadow_ident.to_string()));
-                ctx.add_method_decl(quote![
+                ctx.add_method_decl(quote_spanned![default_span=>
                     #[allow(non_snake_case)]
                     fn #fn_ident() -> #shadow_ident #generics {
                         #serde_default.into()

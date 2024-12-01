@@ -279,6 +279,12 @@ impl FXSArgs {
     pub fn fallible_error(&self) -> Option<&syn::Path> {
         self.fallible.as_ref().and_then(|f| f.error_type().map(|et| et.value()))
     }
+
+    #[cfg(feature = "serde")]
+    #[inline]
+    pub fn serde_helper_span(&self) -> Option<Span> {
+        self.serde.as_ref().and_then(|sw| sw.orig_span())
+    }
 }
 
 impl FXHelperContainer for FXSArgs {
