@@ -157,30 +157,34 @@ pub trait FXCGenSerde: FXCodeGenContextual {
     }
 
     fn serde_shadow_field_default(&self, fctx: &FXFieldCtx) {
-        let field_ident = fctx.ident_tok();
+        let ctx = self.ctx();
 
-        let default_tok = self.fixup_self_type(
-            self.field_default_value(fctx)
-                .map(|v| self.serde_shadow_field_value(fctx, v))
-                .unwrap_or_else(|| {
-                    let span = fctx.span().clone();
-                    if self.is_serde_optional(fctx) {
-                        quote_spanned![span=> ::std::option::Option::None ]
-                    }
-                    else {
-                        quote_spanned![span=> ::std::default::Default::default() ]
-                    }
-                }),
-        );
+        if ctx.needs_default() {
+            let field_ident = fctx.ident_tok();
 
-        let span = self
-            .ctx()
-            .args()
-            .serde_helper_span()
-            .unwrap_or_else(|| Span::call_site());
+            let default_tok = self.fixup_self_type(
+                self.field_default_value(fctx)
+                    .map(|v| self.serde_shadow_field_value(fctx, v))
+                    .unwrap_or_else(|| {
+                        let span = fctx.span().clone();
+                        if self.is_serde_optional(fctx) {
+                            quote_spanned![span=> ::std::option::Option::None ]
+                        }
+                        else {
+                            quote_spanned![span=> ::std::default::Default::default() ]
+                        }
+                    }),
+            );
 
-        self.ctx()
-            .add_shadow_default_decl(quote_spanned![span=> #field_ident: #default_tok ]);
+            let span = self
+                .ctx()
+                .args()
+                .serde_helper_span()
+                .unwrap_or_else(|| Span::call_site());
+
+            self.ctx()
+                .add_shadow_default_decl(quote_spanned![span=> #field_ident: #default_tok ]);
+        }
     }
 
     fn serde_field_default_fn(&self, fctx: &FXFieldCtx) -> darling::Result<syn::Ident> {
@@ -291,7 +295,6 @@ impl FXRewriteSerde for super::FXRewriter {
             let fields = ctx.shadow_fields();
             let mut attrs = vec![];
             let derive_attr = crate::util::derive_toks(&self.serde_derive_traits());
-            let shadow_defaults = ctx.shadow_defaults();
             let generics = ctx.input().generics();
             let where_clause = &generics.where_clause;
             let vis = serde_helper.public_mode().map(|pm| pm.to_token_stream());
@@ -303,22 +306,29 @@ impl FXRewriteSerde for super::FXRewriter {
                 attrs.push(quote_spanned![default_attr_arg.span()=> #[serde(#default_attr_arg)]]);
             }
 
+            let default_impl = if ctx.needs_default() {
+                let shadow_defaults = ctx.shadow_defaults();
+                quote_spanned! {span=>
+                    impl #generics ::std::default::Default for #shadow_ident #generics #where_clause {
+                        fn default() -> Self {
+                            Self {
+                                #( #shadow_defaults ),*
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                quote![]
+            };
+
             ctx.tokens_extend(quote_spanned![span=>
                 #( #attrs )*
                 #user_attributes
                 #vis struct #shadow_ident #generics #where_clause {
                     #( #fields ),*
                 }
-
-                // #default_impl
-
-                impl #generics ::std::default::Default for #shadow_ident #generics #where_clause {
-                    fn default() -> Self {
-                        Self {
-                            #( #shadow_defaults ),*
-                        }
-                    }
-                }
+                #default_impl
             ]);
         }
 
