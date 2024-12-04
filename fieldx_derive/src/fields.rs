@@ -6,15 +6,15 @@ use darling::{util::Flag, FromField};
 #[cfg(feature = "serde")]
 use fieldx_aux::FXSerde;
 use fieldx_aux::{
-    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBoolArg, FXBoolHelper, FXBuilder,
-    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXStringArg,
+    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBool, FXBoolHelper, FXBuilder,
+    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXPunctuated, FXSetter, FXString,
     FXSynValue, FXSyncMode, FXTriggerHelper, FromNestAttr,
 };
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote_spanned, ToTokens};
 use std::{cell::OnceCell, ops::Deref};
-use syn::{spanned::Spanned, Meta};
+use syn::{spanned::Spanned, Meta, Token};
 
 #[derive(Debug, FromField, Getters, Clone)]
 #[getset(get = "pub(crate)")]
@@ -32,10 +32,10 @@ pub(crate) struct FXFieldReceiver {
     mode:       Option<FXSynValue<FXSyncMode>>,
     #[getset(skip)]
     #[darling(rename = "sync")]
-    mode_sync:  Option<FXBoolArg>,
+    mode_sync:  Option<FXBool>,
     #[getset(skip)]
     #[darling(rename = "r#async")]
-    mode_async: Option<FXBoolArg>,
+    mode_async: Option<FXBool>,
 
     // Default method attributes for this field.
     attributes_fn: Option<FXAttributes>,
@@ -43,7 +43,7 @@ pub(crate) struct FXFieldReceiver {
     lazy:          Option<FXHelper>,
     #[darling(rename = "rename")]
     #[getset(skip)]
-    base_name:     Option<FXStringArg>,
+    base_name:     Option<FXString>,
     #[darling(rename = "get")]
     accessor:      Option<FXAccessor>,
     #[darling(rename = "get_mut")]
@@ -54,20 +54,20 @@ pub(crate) struct FXFieldReceiver {
     writer:        Option<FXHelper>,
     clearer:       Option<FXHelper>,
     predicate:     Option<FXHelper>,
-    optional:      Option<FXBoolArg>,
+    optional:      Option<FXBool>,
 
     public:        Option<FXNestingAttr<FXPubMode>>,
-    private:       Option<FXBoolArg>,
+    private:       Option<FXBool>,
     #[darling(rename = "default")]
     default_value: Option<FXDefault<true>>,
     builder:       Option<FXBuilder>,
-    into:          Option<FXBoolArg>,
+    into:          Option<FXBool>,
     #[getset(get = "pub with_prefix")]
-    clone:         Option<FXBoolArg>,
+    clone:         Option<FXBool>,
     #[getset(get = "pub with_prefix")]
-    copy:          Option<FXBoolArg>,
-    lock:          Option<FXBoolArg>,
-    inner_mut:     Option<FXBoolArg>,
+    copy:          Option<FXBool>,
+    lock:          Option<FXBool>,
+    inner_mut:     Option<FXBool>,
     #[cfg(feature = "serde")]
     serde:         Option<FXSerde>,
 

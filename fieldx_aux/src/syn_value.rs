@@ -1,9 +1,22 @@
+//! Support for types that are not supported by [`darling`] but implement [`syn::parse::Parse`]
 use super::{FXFrom, FromNestAttr};
 use darling::{ast::NestedMeta, FromMeta};
 use quote::ToTokens;
 use std::{borrow::Borrow, fmt::Debug, marker::PhantomData, ops::Deref};
 use syn::{parse::Parse, punctuated::Punctuated, spanned::Spanned, Meta};
 
+/// Argument that takes exactly one syntax element.
+///
+/// `AS_KEYWORD` parameter enables/disables use of the argument as a plain keyword with no subargument.
+///
+/// For example:
+///
+/// ```ignore
+///     foo: FXNestingAttr<FXSynValueArg<syn::Expr>>,
+/// ```
+///
+/// Allows the `foo` argument to take whatever Rust expression is allowed: `foo(|v| v.method())`,
+/// `foo(if true { println!("OK!") })`, etc.
 #[derive(Debug, Clone)]
 #[allow(unused)]
 pub struct FXSynValueArg<T, const AS_KEYWORD: bool = false> {
@@ -11,12 +24,14 @@ pub struct FXSynValueArg<T, const AS_KEYWORD: bool = false> {
 }
 
 impl<T> FXSynValueArg<T, false> {
+    /// Accessor to the actual syntax object.
     pub fn value(&self) -> &T {
         self.value.as_ref().unwrap()
     }
 }
 
 impl<T> FXSynValueArg<T, true> {
+    /// Accessor to the actual syntax object if set.
     pub fn value(&self) -> Option<&T> {
         self.value.as_ref()
     }
@@ -109,6 +124,15 @@ impl<T> Borrow<Option<T>> for FXSynValueArg<T, true> {
     }
 }
 
+/// Argument that takes 2 to 10 syntax elements.
+///
+/// For example:
+///
+/// ```ignore
+///     foo: FXNestingAttr<FXSynTupleArg<(syn::Path, syn::PatRange)>>,
+/// ```
+///
+/// `foo` can be used as `foo(std::sync::Arc, 1..=42)`.
 #[derive(Debug, Clone)]
 #[allow(unused)]
 pub struct FXSynTupleArg<T> {
@@ -116,6 +140,7 @@ pub struct FXSynTupleArg<T> {
 }
 
 impl<T> FXSynTupleArg<T> {
+    /// Accessor to the actual tuple of syntax objects.
     pub fn value(&self) -> &T {
         &self.value
     }
@@ -166,6 +191,20 @@ from_tuple! {
     (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10),
 }
 
+/// Argument that takes a list of syntax elements of the same type.
+///
+/// Type parameters:
+///
+/// - `T` – the actual type of the syntax object
+/// - `S` – separator token (see [`syn::Token`] macro)
+///
+/// For example:
+///
+/// ```ignore
+///     foo: FXPunctuated<syn::PatType, Token![,]>,
+/// ```
+///
+/// Usage: `foo(f1: i32, f2: String)`.
 #[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct FXPunctuated<T, S, const MIN: i32 = -1, const MAX: i32 = -1>
@@ -182,6 +221,7 @@ where
     T: Debug + Spanned + ToTokens + Parse,
     S: Debug + Spanned + ToTokens + Parse,
 {
+    /// Accessor for the syntax objects list.
     pub fn items(&self) -> &Vec<T> {
         &self.items
     }

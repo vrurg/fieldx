@@ -90,8 +90,8 @@ where
 
 /// Write-lock returned by [`FXProxyAsync::write`] method
 ///
-/// This type, in cooperation with the [`FXProxyAsync`] type, takes care of safely updating lazy field status when data is
-/// being stored.
+/// This type, in cooperation with the [`FXProxyAsync`] type, takes care of safely updating lazy field status when data
+/// is being stored.
 pub struct FXWrLockGuardAsync<'a, B>
 where
     B: FXBuilderWrapperAsync,
@@ -144,8 +144,8 @@ where
         self.is_set_raw().load(Ordering::SeqCst)
     }
 
-    /// Initialize the field without obtaining the lock. Note though that if the lock is already owned this method will
-    /// wait for it to be released.
+    /// Initialize the field without obtaining the lock by calling code. _Note_ though that internally the lock is still
+    /// required.
     pub async fn lazy_init<'a>(&'a self, owner: &B::Owner) {
         let _ = self.read_or_init(owner).await;
     }
@@ -165,8 +165,9 @@ where
         Ok(guard)
     }
 
-    /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
-    /// semit-direct access to it without the [`Option`] wrapper.
+    /// Lazy-initialize the field if necessary and return lock read guard for the inner value.
+    ///
+    /// Panics if fallible field builder returns an error.
     pub async fn read<'a>(&'a self, owner: &B::Owner) -> RwLockReadGuard<'a, B::Value> {
         RwLockReadGuard::map(
             RwLockWriteGuard::downgrade(self.read_or_init(owner).await.unwrap()),
@@ -174,8 +175,9 @@ where
         )
     }
 
-    /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
-    /// semit-direct mutable access to it without the [`Option`] wrapper.
+    /// Lazy-initialize the field if necessary and return lock write guard for the inner value.
+    ///
+    /// Panics if fallible field builder returns an error.
     pub async fn read_mut<'a>(&'a self, owner: &B::Owner) -> RwLockMappedWriteGuard<'a, B::Value> {
         RwLockWriteGuard::map(
             self.read_or_init(owner).await.unwrap(),
@@ -183,8 +185,9 @@ where
         )
     }
 
-    /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
-    /// semit-direct access to it without the [`Option`] wrapper.
+    /// Lazy-initialize the field if necessary and return lock read guard for the inner value.
+    ///
+    /// Return the same error, as fallible field builder if it errors out.
     pub async fn try_read<'a>(&'a self, owner: &B::Owner) -> Result<RwLockReadGuard<'a, B::Value>, B::Error> {
         Ok(RwLockReadGuard::map(
             RwLockWriteGuard::downgrade(self.read_or_init(owner).await?),
@@ -192,8 +195,9 @@ where
         ))
     }
 
-    /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
-    /// semit-direct mutable access to it without the [`Option`] wrapper.
+    /// Lazy-initialize the field if necessary and return lock write guard for the inner value.
+    ///
+    /// Return the same error, as fallible field builder if it errors out.
     pub async fn try_read_mut<'a>(
         &'a self,
         owner: &B::Owner,
@@ -204,7 +208,7 @@ where
         ))
     }
 
-    /// Provides write-lock to directly store the value.
+    /// Provides write-lock to directly store the value. Never calls the lazy builder.
     pub async fn write<'a>(&'a self) -> FXWrLockGuardAsync<'a, B> {
         FXWrLockGuardAsync::<'a, B>::new(self.value.write().await, self)
     }

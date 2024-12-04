@@ -1,12 +1,24 @@
+//! `attributes*` family of arguments.
+
 use darling::FromMeta;
 use getset::Getters;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse_quote_spanned, spanned::Spanned, Meta};
 
+/// Implementation of `attributes*(...)` family of arguments.
+///
+/// These are arguments that define bodies of attributes to be applied to certain declarations. I.e.
+/// `attributes(derive(Clone), serde(rename_all="lowercase"))` must result in:
+///
+/// ```ignore
+/// #[derive(Clone)]
+/// #[serde(rename_all="lowercase")]
+/// ```
 #[derive(Debug, Clone, Getters)]
 #[getset(get = "pub")]
 pub struct FXAttributes {
+    /// All attribute declarations
     list: Vec<syn::Attribute>,
 }
 

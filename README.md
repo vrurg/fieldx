@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
 ![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
-# fieldx v0.1.8-beta.1
+# fieldx v0.1.8-beta.2
 
 Procedural macro for constructing structs with lazily initialized fields, builder pattern, and [`serde`] support
 with a focus on declarative syntax.
@@ -251,7 +251,7 @@ assert_eq!( obj.description(), &String::from("count is ignored") );
 ```
 
 Since the only `fieldx`-related failure that may happen when building a new object instance is a required field not
-given a value, the `build()` method would return [`FieldXError`](errors::FieldXError) if this happens.
+given a value, the `build()` method would return [`FieldXError`](error::FieldXError) if this happens.
 
 ## Crate Features
 
@@ -877,17 +877,17 @@ As it was mentioned in the [Basics](#basics) section, `fieldx` rewrites structur
 following table reveals the final types of fields. `T` in the table represents the original field type, as specified
 by the user; `O` is the original struct type.
 
-| Field Parameters | Plain Type | Sync Type |
-|------------------|---------------|-----------|
-| `lazy` | `OnceCell<T>` | [`FXProxy<O, T>`] |
-| `optional` (also activated with `clearer` and `proxy`) | `Option<T>` | [`FXRwLock<Option<T>>`] |
-| `lock`, `reader` and/or `writer` | N/A | [`FXRwLock<T>`] |
+| Field Parameters | Plain Type | Sync Type | Async Type |
+|------------------|---------------|-----------|-----------|
+| `lazy` | `OnceCell<T>` | [`FXProxySync<O, T>`] | [`FXProxyAsync<O,T>`] |
+| `optional` (also activated with `clearer` and `proxy`) | `Option<T>` | [`FXRwLockSync<Option<T>>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<Option<T>>`][`async::FXRwLockAsync`] |
+| `lock`, `reader` and/or `writer` | N/A | [`FXRwLockSync<T>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<T>`][`async::FXRwLockAsync`] |
 
 Apparently, skipped fields retain their original type. Sure enough, if such a field is of non-`Send` or non-`Sync`
 type the entire struct would be missing these traits despite all the efforts from the `fxstruct` macro.
 
 There is also a difference in how the initialization of `lazy` fields is implemented. For plain fields this is done
-directly in their accessor methods. Sync structs delegate this functionality to the [`FXProxy`] type.
+directly in their accessor methods. Sync structs delegate this functionality to the [`FXProxySync`] type.
 
 ### Traits
 

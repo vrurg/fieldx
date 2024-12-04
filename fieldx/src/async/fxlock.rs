@@ -1,6 +1,10 @@
 use std::{borrow::Borrow, fmt, fmt::Debug, ops::Deref};
-pub use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
+/// Lock-protected container
+///
+/// This is a wrapper around [`RwLock`] sync primitive. It provides safe means of cloning the lock
+/// and the data it protects. No other additional functionality is provided.
 #[derive(Default)]
 pub struct FXRwLockAsync<T>(RwLock<T>);
 
@@ -15,10 +19,12 @@ impl<T> FXRwLockAsync<T> {
         self.0.into_inner()
     }
 
+    /// Delegates to [`RwLock::read()`]
     pub async fn read(&self) -> RwLockReadGuard<T> {
         self.0.read().await
     }
 
+    /// Delegates to [`RwLock::write()`]
     pub async fn write(&self) -> RwLockWriteGuard<T> {
         self.0.write().await
     }

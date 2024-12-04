@@ -1,7 +1,9 @@
+//! Argument that signals possibility of errors.
 use super::FromNestAttr;
 use crate::{FXSynValue, FXTriggerHelper};
 use darling::{util::Flag, FromMeta};
 
+/// This argument can be used to mark, say, methods as returning a `Result` and specify what error type is expected.
 #[derive(Debug, Clone, FromMeta)]
 pub struct FXFallible<T = FXSynValue<syn::Path>>
 where
@@ -10,13 +12,13 @@ where
     off:        Flag,
     #[darling(rename = "error")]
     error_type: Option<T>,
-    // error_type: Option<FXSynValue<syn::Path>>,
 }
 
 impl<T> FXFallible<T>
 where
     T: FromMeta,
 {
+    /// Accessor for the error type.
     pub fn error_type(&self) -> Option<&T> {
         self.error_type.as_ref()
     }

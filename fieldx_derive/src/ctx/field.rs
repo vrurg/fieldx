@@ -7,7 +7,7 @@ use darling::ast::NestedMeta;
 use delegate::delegate;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXSerde;
-use fieldx_aux::{FXAccessorMode, FXAttributes, FXBoolArg, FXBuilder, FXHelperTrait, FXOrig, FXPubMode};
+use fieldx_aux::{FXAccessorMode, FXAttributes, FXBool, FXBuilder, FXHelperTrait, FXOrig, FXPubMode};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use std::{
@@ -80,7 +80,7 @@ impl FXFieldCtx {
 
     helper_fn_ctx! { needs: accessor_mut, setter, writer }
 
-    arg_accessor! { optional: FXBoolArg, lock: FXBoolArg, inner_mut: FXBoolArg }
+    arg_accessor! { optional: FXBool, lock: FXBool, inner_mut: FXBool }
 
     pub fn new(field: FXField, codegen_ctx: &Rc<FXCodeGenCtx>) -> Self {
         let codegen_ctx = Rc::clone(codegen_ctx);

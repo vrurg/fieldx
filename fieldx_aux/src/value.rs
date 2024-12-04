@@ -1,7 +1,16 @@
+//! Literal value arguments
+
 use crate::{FXFrom, FXSynValueArg, FXTriggerHelper, FromNestAttr};
 use darling::{util::Flag, FromMeta};
 use syn::Lit;
 
+/// Arguments that take single literal value or can serve as explicit flag.
+///
+/// If the `BOOL_ONLY` parameter is set to true then the argument can serve as a trigger only.
+///
+/// So, we either can see something like `pi(3.1415926)`, `pi`, `pi(off, 3.1415926)` or `pi(off)`. The advantage of the
+/// latter form is that, contrary to [`darling::util::Flag`], it is explicit making it visually clear what's going on.
+/// It is specially useful for debugging when one would just need to temporarily disable something.
 #[derive(Debug, FromMeta, Clone)]
 pub struct FXValueArg<T, const BOOL_ONLY: bool = false> {
     off:   Flag,

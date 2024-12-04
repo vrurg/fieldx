@@ -2,6 +2,7 @@
     authors.workspace      = true
     categories.workspace   = true
     description            = "Procedural macro for constructing structs with lazily initialized fields, builder pattern, and serde support with a focus on declarative syntax."
+    documentation          = "https://docs.rs"
     edition.workspace      = true
     exclude.workspace      = true
     keywords.workspace     = true
@@ -38,3 +39,6 @@
     diagnostics = ["fieldx_derive/diagnostics"]
     send_guard  = ["parking_lot/send_guard"]
     serde       = ["fieldx_derive/serde", "parking_lot/serde", "dep:serde"]
+
+[package.metadata.docs.rs]
+    all-features = true

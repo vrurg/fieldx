@@ -1,3 +1,5 @@
+//! Default value.
+
 use crate::{FXOrig, FXTriggerHelper};
 use darling::{ast::NestedMeta, FromMeta};
 use getset::Getters;
@@ -5,16 +7,22 @@ use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
 use syn::{spanned::Spanned, Meta};
 
+/// Default value argument.
+///
+/// Normally, looks like `default(42)` or `default(Type::func())`, or just `default`.
 #[derive(Debug, Clone, Getters)]
 #[getset(get = "pub")]
 pub struct FXDefault<const OPTIONAL: bool = false> {
     #[getset(skip)]
     off:   bool,
+    /// The default value literal or path.
     value: Option<NestedMeta>,
+    /// The original tokens used to produce this object.
     orig:  Option<TokenStream>,
 }
 
 impl<const OPTIONAL: bool> FXDefault<OPTIONAL> {
+    /// True if the literal value is a string.
     #[allow(dead_code)]
     pub fn is_str(&self) -> bool {
         if let Some(NestedMeta::Lit(syn::Lit::Str(ref _lit))) = self.value {
@@ -25,6 +33,7 @@ impl<const OPTIONAL: bool> FXDefault<OPTIONAL> {
         }
     }
 
+    /// True if a value is explicitly specified.
     #[allow(dead_code)]
     pub fn has_value(&self) -> bool {
         self.value.is_some()

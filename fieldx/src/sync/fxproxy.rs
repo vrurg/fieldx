@@ -71,14 +71,13 @@ where
 {
     value:   RwLock<Option<B::Value>>,
     is_set:  AtomicBool,
-    // builder: RwLock<Option<Box<dyn FXBuilderWrapper<Owner = S, Value = T, Error = E>>>>,
     builder: RwLock<Option<B>>,
 }
 
-/// Write-lock returned by [`FXProxy::write`] method
+/// Write-lock returned by [`FXProxySync::write`] method
 ///
-/// This type, in cooperation with the [`FXProxy`] type, takes care of safely updating lazy field status when data is
-/// being stored.
+/// This type, in cooperation with the [`FXProxySync`] type, takes care of safely updating lazy field status when data
+/// is being stored.
 pub struct FXWrLockGuardSync<'a, B>
 where
     B: FXBuilderWrapperSync,
@@ -130,8 +129,8 @@ where
         self.is_set_raw().load(Ordering::SeqCst)
     }
 
-    /// Initialize the field without obtaining the lock. Note though that if the lock is already owned this method will
-    /// wait for it to be released.
+    /// Initialize the field without obtaining the lock by calling code. _Note_ though that internally the lock is still
+    /// required.
     pub fn lazy_init<'a>(&'a self, owner: &B::Owner) {
         let _ = self.read_or_init(owner);
     }
@@ -161,8 +160,9 @@ where
         })
     }
 
-    /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
-    /// semit-direct access to it without the [`Option`] wrapper.
+    /// Lazy-initialize the field if necessary and return lock read guard for the inner value.
+    ///
+    /// Panics if fallible field builder returns an error.
     pub fn read<'a>(&'a self, owner: &B::Owner) -> MappedRwLockReadGuard<'a, B::Value> {
         RwLockReadGuard::map(
             RwLockUpgradableReadGuard::downgrade(self.read_or_init(owner).unwrap()),
@@ -170,8 +170,9 @@ where
         )
     }
 
-    /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
-    /// semit-direct mutable access to it without the [`Option`] wrapper.
+    /// Lazy-initialize the field if necessary and return lock write guard for the inner value.
+    ///
+    /// Panics if fallible field builder returns an error.
     pub fn read_mut<'a>(&'a self, owner: &B::Owner) -> MappedRwLockWriteGuard<'a, B::Value> {
         RwLockWriteGuard::map(
             RwLockUpgradableReadGuard::upgrade(self.read_or_init(owner).unwrap()),
@@ -179,8 +180,9 @@ where
         )
     }
 
-    /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
-    /// semit-direct access to it without the [`Option`] wrapper.
+    /// Lazy-initialize the field if necessary and return lock read guard for the inner value.
+    ///
+    /// Return the same error, as fallible field builder if it errors out.
     pub fn try_read<'a>(&'a self, owner: &B::Owner) -> Result<MappedRwLockReadGuard<'a, B::Value>, B::Error> {
         Ok(RwLockReadGuard::map(
             RwLockUpgradableReadGuard::downgrade(self.read_or_init(owner)?),
@@ -188,8 +190,9 @@ where
         ))
     }
 
-    /// Since the container guarantees that reading from it initializes the wrapped value, this method provides
-    /// semit-direct mutable access to it without the [`Option`] wrapper.
+    /// Lazy-initialize the field if necessary and return lock write guard for the inner value.
+    ///
+    /// Return the same error, as fallible field builder if it errors out.
     pub fn try_read_mut<'a>(&'a self, owner: &B::Owner) -> Result<MappedRwLockWriteGuard<'a, B::Value>, B::Error> {
         Ok(RwLockWriteGuard::map(
             RwLockUpgradableReadGuard::upgrade(self.read_or_init(owner)?),
@@ -197,7 +200,7 @@ where
         ))
     }
 
-    /// Provides write-lock to directly store the value.
+    /// Provides write-lock to directly store the value. Never calls the lazy builder.
     pub fn write<'a>(&'a self) -> FXWrLockGuardSync<'a, B> {
         FXWrLockGuardSync::<'a, B>::new(self.value.write(), self)
     }
@@ -207,7 +210,7 @@ where
         wguard.take()
     }
 
-    /// Resets the container into unitialized state
+    /// Resets the container into uninitialized state
     pub fn clear(&self) -> Option<B::Value> {
         let mut wguard = self.value.write();
         self.clear_with_lock(&mut wguard)
@@ -231,7 +234,7 @@ where
         self.lock.borrow_mut().replace(value)
     }
 
-    /// Resets the container into unitialized state
+    /// Resets the container into uninitialized state
     pub fn clear(&self) -> Option<B::Value> {
         self.fxproxy.clear_with_lock(&mut *self.lock.borrow_mut())
     }

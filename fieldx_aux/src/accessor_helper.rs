@@ -1,6 +1,7 @@
+//! Implementation of accessor helper (`get` argument of `fxstruct`/`fieldx` attributes).
+
 use crate::{
-    FXAttributes, FXBoolArg, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXStringArg, FXTriggerHelper,
-    FromNestAttr,
+    FXAttributes, FXBool, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXString, FXTriggerHelper, FromNestAttr,
 };
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
@@ -9,16 +10,21 @@ use proc_macro2::Span;
 use quote::ToTokens;
 use syn::Lit;
 
+/// Accessor mode defines the type it returns.
 #[derive(FromMeta, Debug, Clone, Copy, Default, PartialEq)]
 pub enum FXAccessorMode {
+    /// Return a copy of the value for types implementing the [`Copy`] trait.
     Copy,
+    /// Return a clone of the value for types implementing the [`Clone`] trait.
     Clone,
+    /// apply `.as_ref()` method to optional fields. I.e. return `Option<&ValueType>`.
     AsRef,
     #[default]
     #[darling(skip)]
     None,
 }
 
+/// Implement support for accessor attribute argument.
 #[fxhelper]
 #[derive(Default, Debug)]
 pub struct FXAccessorHelper<const BOOL_ONLY: bool = false> {

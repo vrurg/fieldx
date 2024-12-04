@@ -67,18 +67,18 @@ impl FXSyncImplDetails for FXAsyncImplementor {
     }
 
     fn rwlock_read_guard(&self) -> TokenStream {
-        quote![::fieldx::r#async::RwLockReadGuard]
+        quote![::tokio::sync::RwLockReadGuard]
     }
 
     fn rwlock_write_guard(&self) -> TokenStream {
-        quote![::fieldx::r#async::RwLockWriteGuard]
+        quote![::tokio::sync::RwLockWriteGuard]
     }
 
     fn rwlock_mapped_read_guard(&self) -> TokenStream {
-        quote![::fieldx::r#async::RwLockReadGuard]
+        quote![::tokio::sync::RwLockReadGuard]
     }
 
     fn rwlock_mapped_write_guard(&self) -> TokenStream {
-        quote![::fieldx::r#async::RwLockMappedWriteGuard]
+        quote![::tokio::sync::RwLockMappedWriteGuard]
     }
 }

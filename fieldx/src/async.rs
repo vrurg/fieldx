@@ -2,5 +2,8 @@ mod fxlock;
 mod fxproxy;
 
 pub use fxlock::FXRwLockAsync;
-pub use fxproxy::{FXBuilderFallible, FXBuilderInfallible, FXProxyAsync, FXWrLockGuardAsync};
-pub use tokio::sync::{RwLock, RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};
+#[doc(hidden)]
+pub use fxproxy::{FXBuilderFallible, FXBuilderInfallible};
+pub use fxproxy::{FXProxyAsync, FXWrLockGuardAsync};
+// #[doc(hidden)]
+// pub use tokio::sync::{RwLock, RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};

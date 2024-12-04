@@ -1,3 +1,18 @@
+//! Argument nesting support module.
+//!
+//! In `fieldx` documentation these are named as _list_ or _function_ type arguments. For example, a typical nested
+//! argument is `get` which can be used as a plain keyword, as `get(copy)`, or `get("getter", clone)`. This kind of
+//! arguments require some additional amount of work to be implemented and this module is aimed as simplifying the task.
+//!
+//! Nesting is implemented as a two-stage construct. Parsing of its syntax structure is basically the same for all kinds
+//! of arguments, it's only their sub-arguments that require specialization. Thus, the idea is to have a nesting parser
+//! in a form of a container class which wraps objects implementing [`FromNestAttr`] trait.
+//!
+//! Subarguments are categorized as "literals" and "non-literals". In the `get` example above `"getter"` is a literal.
+//! See [`syn::Lit`] type for more details.
+//!
+//! Also, argument is allowed to be used in a form of plain keyword with no subarguments, like `get`.
+
 use crate::{with_origin::FXOrig, FXFrom, FXTriggerHelper};
 use darling::{ast::NestedMeta, FromMeta};
 use getset::Getters;
@@ -6,18 +21,24 @@ use quote::ToTokens;
 use std::ops::{Deref, DerefMut};
 use syn::{Lit, Meta};
 
+/// This trait is for types that would like to be able to support nesting. See [module
+/// documentation](crate::nesting_attr) for description.
+///
+/// Setting type parameter WITH_LITERALS to `false` disables literal subarguments.
 pub trait FromNestAttr<const WITH_LITERALS: bool = true>: FromMeta {
-    /// A constructor that supposed to create default object for when there is only keyword with no arguments.
-    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
-        Err(darling::Error::custom(
-            "Can't be used as plain keyword, arguments required",
-        ))
+    /// Constructor that supposed to create default object for when there is only keyword with no subarguments.
+    /// Default behavior is to error out.
+    fn for_keyword(path: &syn::Path) -> darling::Result<Self> {
+        Err(darling::Error::custom("Can't be used as plain keyword, arguments required").with_span(path))
     }
 
+    /// Wether literal subarguments are allowed. Defaults to the `WITH_LITERALS` type parameter.
     fn with_literals() -> bool {
         WITH_LITERALS
     }
 
+    /// Trait implementation must always override this method if `WITH_LITERALS` parameter is `true`. If it is `false`
+    /// then the method produces a standard error "literals are not supported".
     fn set_literals(self, literals: &Vec<Lit>) -> darling::Result<Self> {
         if WITH_LITERALS {
             Err(darling::Error::custom(format!(
@@ -31,11 +52,15 @@ pub trait FromNestAttr<const WITH_LITERALS: bool = true>: FromMeta {
         }
     }
 
+    /// Produce standard error when literal subarguments are used with argument not supporting them.
     fn no_literals(&self, literals: &Vec<Lit>) -> darling::Result<Self> {
         Err(darling::Error::custom("Literal values are not supported here").with_span(&literals[0]))
     }
 }
 
+/// The nesting container.
+///
+/// `WITH_LITERALS` parameter enables or disables support for literal subarguments.
 #[derive(Debug, Clone, Getters)]
 pub struct FXNestingAttr<T, const WITH_LITERALS: bool = true>
 where
@@ -46,6 +71,7 @@ where
 }
 
 impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> FXNestingAttr<T, WITH_LITERALS> {
+    /// `orig` parameter is the syntax object from which we're constructing argument instance
     #[inline]
     pub fn new(inner: T, orig: Option<Meta>) -> Self {
         Self { inner, orig }

@@ -1,6 +1,6 @@
 use crate::{
-    set_literals, validate_exclusives, FXAttributes, FXBoolArg, FXDefault, FXInto, FXNestingAttr, FXPubMode,
-    FXStringArg, FXTriggerHelper, FromNestAttr,
+    set_literals, validate_exclusives, FXAttributes, FXBool, FXDefault, FXInto, FXNestingAttr, FXPubMode, FXString,
+    FXTriggerHelper, FromNestAttr,
 };
 use darling::{
     ast::NestedMeta,
@@ -17,10 +17,10 @@ use syn::Lit;
 pub struct FXSerdeHelper {
     off:           Flag,
     public:        Option<FXNestingAttr<FXPubMode>>,
-    private:       Option<FXBoolArg>,
+    private:       Option<FXBool>,
     attributes:    Option<FXAttributes>,
-    serialize:     Option<FXBoolArg>,
-    deserialize:   Option<FXBoolArg>,
+    serialize:     Option<FXBool>,
+    deserialize:   Option<FXBool>,
     // Attributes of the original struct to be used with the shadow struct.
     forward_attrs: Option<PathList>,
     #[darling(rename = "default")]
@@ -28,7 +28,7 @@ pub struct FXSerdeHelper {
     default_value: Option<FXDefault<true>>,
     // Name of the new type to be used for deserialization. By default it's __<ident>Shadow
     #[getset(skip)]
-    shadow_name:   Option<FXStringArg>,
+    shadow_name:   Option<FXString>,
 }
 
 impl FromNestAttr for FXSerdeHelper {

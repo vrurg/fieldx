@@ -1,5 +1,6 @@
-use crate::{FXBoolArg, FXNestingAttr, FXPubMode, FXTriggerHelper};
+use crate::{FXBool, FXNestingAttr, FXPubMode, FXTriggerHelper};
 
+/// Generate implementation of `set_literals` method for [`FromNestAttr`](crate::nesting_attr::FromNestAttr) trait.
 #[macro_export]
 macro_rules! set_literals {
     ( $name:ident, $min:literal .. $($max:literal)? => $( $field:ident as $ty:path ),+ $( ; pre_validate => $pre_validate:ident )? ) => {
@@ -46,6 +47,8 @@ macro_rules! set_literals {
     };
 }
 
+/// Generate `validate_exclusives` that would return a [`darling::Result`] if two arguments of an attribute are
+/// conflicting with each other.
 #[macro_export]
 macro_rules! validate_exclusives {
     (or_alias: $name:expr, ) => {
@@ -137,8 +140,9 @@ macro_rules! validate_exclusives {
     };
 }
 
+#[doc(hidden)]
 #[inline]
-pub fn public_mode(public: &Option<FXNestingAttr<FXPubMode>>, private: &Option<FXBoolArg>) -> Option<FXPubMode> {
+pub fn public_mode(public: &Option<FXNestingAttr<FXPubMode>>, private: &Option<FXBool>) -> Option<FXPubMode> {
     if private.as_ref().map_or(false, |p| p.is_true()) {
         Some(FXPubMode::Private)
     }

@@ -8,7 +8,7 @@ use darling::FromMeta;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXSerde;
 use fieldx_aux::{
-    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBoolArg, FXBoolHelper, FXBuilder, FXFallible,
+    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBool, FXBoolHelper, FXBuilder, FXFallible,
     FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXSynValue, FXSyncMode, FXTriggerHelper,
 };
 use getset::Getters;
@@ -22,16 +22,16 @@ pub(crate) struct FXSArgs {
     mode:       Option<FXSynValue<FXSyncMode>>,
     #[getset(skip)]
     #[darling(rename = "sync")]
-    mode_sync:  Option<FXBoolArg>,
+    mode_sync:  Option<FXBool>,
     #[getset(skip)]
     #[darling(rename = "r#async")]
-    mode_async: Option<FXBoolArg>,
+    mode_async: Option<FXBool>,
 
     builder: Option<FXBuilder<true>>,
-    into:    Option<FXBoolArg>,
+    into:    Option<FXBool>,
 
-    no_new:  Option<FXBoolArg>,
-    default: Option<FXBoolArg>,
+    no_new:  Option<FXBool>,
+    default: Option<FXBool>,
     // Produce reference counted object; i.e. Rc<Self> or Arc<Self>.
     rc:      Option<FXHelper>,
 
@@ -51,15 +51,15 @@ pub(crate) struct FXSArgs {
     writer:       Option<FXHelper>,
     clearer:      Option<FXHelper>,
     predicate:    Option<FXHelper>,
-    optional:     Option<FXBoolArg>,
+    optional:     Option<FXBool>,
     public:       Option<FXNestingAttr<FXPubMode>>,
-    private:      Option<FXBoolArg>,
+    private:      Option<FXBool>,
     #[getset(get = "pub with_prefix")]
-    clone:        Option<FXBoolArg>,
+    clone:        Option<FXBool>,
     #[getset(get = "pub with_prefix")]
-    copy:         Option<FXBoolArg>,
-    lock:         Option<FXBoolArg>,
-    inner_mut:    Option<FXBoolArg>,
+    copy:         Option<FXBool>,
+    lock:         Option<FXBool>,
+    inner_mut:    Option<FXBool>,
     #[cfg(feature = "serde")]
     serde:        Option<FXSerde>,
 }

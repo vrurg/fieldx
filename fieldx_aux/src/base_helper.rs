@@ -1,12 +1,22 @@
+//! The most basic helper declaration
+
 use crate::{
-    set_literals, FXAttributes, FXBoolArg, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXStringArg,
-    FXTriggerHelper, FromNestAttr,
+    set_literals, FXAttributes, FXBool, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXString, FXTriggerHelper,
+    FromNestAttr,
 };
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
 use syn::Lit;
 
+/// Minimal helper declaration. For example, `fieldx` uses it for helpers like `reader` or `writer`.
+///
+/// The `BOOL_ONLY` parameter disables the literal subargument that specifies custom helper name. For example, with
+/// the following declaraion, argument `foo("my_name")` results in an error:
+///
+/// ```ignore
+///     foo: FXNestingAttr<FXBaseHelper<true>>,
+/// ```
 #[fxhelper]
 #[derive(Default, Debug)]
 pub struct FXBaseHelper<const BOOL_ONLY: bool = false> {}

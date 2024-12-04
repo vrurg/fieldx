@@ -193,7 +193,8 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
         #getters_derive
         #vis struct #ident #generics #where_clause {
             #[getset(skip)]
-            name:        Option<FXStringArg>,
+            name:        Option<FXString>,
+            /// If true then helper is disabled.
             #[getset(get = #getset_vis)]
             off:           Flag,
             #[getset(skip)]
@@ -201,7 +202,7 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
             #[getset(skip)]
             public: Option<FXNestingAttr<FXPubMode>>,
             #[getset(skip)]
-            private: Option<FXBoolArg>,
+            private: Option<FXBool>,
 
             #( #fields_tt ),*
         }

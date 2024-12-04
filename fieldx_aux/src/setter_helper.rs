@@ -1,5 +1,5 @@
 use crate::{
-    set_literals, FXAttributes, FXBoolArg, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXStringArg,
+    set_literals, FXAttributes, FXBool, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXString,
     FXTriggerHelper, FromNestAttr,
 };
 use darling::{util::Flag, FromMeta};
