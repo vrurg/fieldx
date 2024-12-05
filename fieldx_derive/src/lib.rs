@@ -323,11 +323,13 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// ```
 /// # use fieldx::fxstruct;
+/// # fn main() {
+/// # #[cfg(feature = "sync")]
+/// # {
 /// #[fxstruct(sync, reader, writer)]
 /// struct Foo {
 ///     description: String,
 /// }
-/// # fn main() {
 /// let obj = Foo::new();
 /// {
 ///     let mut wguard = obj.write_description();
@@ -337,6 +339,7 @@ use syn::{parse_macro_input, DeriveInput};
 ///     let rguard = obj.read_description();
 ///     assert_eq!(*rguard, "let's use something different".to_string());
 /// }
+/// # }
 /// # }
 /// ```
 ///
@@ -423,7 +426,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// as the trait implementation is automatically generated for it. See this example from a test:
 ///
 /// ```
-/// #[cfg(feature = "serde")]
+/// #[cfg(all(feature = "serde", feature = "sync"))]
 /// # mod inner {
 /// # use fieldx::fxstruct;
 /// # use serde::{Serialize, Deserialize};
@@ -456,11 +459,11 @@ use syn::{parse_macro_input, DeriveInput};
 ///     }
 /// }
 /// # } // mod inner
-/// # #[cfg(feature = "serde")]
+/// # #[cfg(all(feature = "serde", feature = "sync"))]
 /// # use inner::Baz;
 ///
 /// # fn main() {
-/// # #[cfg(feature = "serde")]
+/// # #[cfg(all(feature = "serde", feature = "sync"))]
 /// # {
 /// let json_src = r#"{"f1": "f1 json"}"#;
 /// let foo_de = serde_json::from_str::<Baz>(&json_src).expect("Bar deserialization failure");

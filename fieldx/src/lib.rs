@@ -8,11 +8,11 @@
 //! # use std::cell::RefCell;
 //! use fieldx::fxstruct;
 //!
-//! #[fxstruct( lazy )]
+//! #[fxstruct(lazy)]
 //! struct Foo {
 //!     count: usize,
 //!     foo:   String,
-//!     #[fieldx( lazy(off), get )]
+//!     #[fieldx(lazy(off), get)]
 //!     order: RefCell<Vec<&'static str>>,
 //! }
 //!
@@ -333,6 +333,9 @@
 //!
 //! ```
 //! # use fieldx::fxstruct;
+//! # fn main() {
+//! # #[cfg(feature = "sync")]
+//! # {
 //! #[fxstruct(sync)]
 //! struct Foo {
 //!     #[fieldx(get(copy), reader, lazy)]
@@ -347,9 +350,9 @@
 //!         outcome
 //!     }
 //! }
-//! # fn main() {
 //! let foo = Foo::new();
 //! assert_eq!(foo.do_something(), 2468);
+//! # }
 //! # }
 //! ```
 //!
@@ -371,6 +374,9 @@
 //!
 //! ```
 //! # use fieldx::fxstruct;
+//! # fn main() {
+//! # #[cfg(feature = "sync")]
+//! # {
 //! #[fxstruct(sync)]
 //! struct Foo {
 //!     #[fieldx(get_mut, get(copy), writer, lazy)]
@@ -393,7 +399,6 @@
 //!     }
 //! }
 //!
-//! # fn main() {
 //! let foo = Foo::new();
 //! foo.do_something1();
 //! assert_eq!(foo.bar(), 42);
@@ -401,6 +406,7 @@
 //! let foo = Foo::new();
 //! foo.do_something2();
 //! assert_eq!(foo.bar(), 12);
+//! # }
 //! # }
 //! ```
 //!

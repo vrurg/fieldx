@@ -94,6 +94,7 @@ pub(crate) use TODO;
 //     }
 // }
 
+#[allow(dead_code)]
 pub(crate) fn feature_required<T, O>(feature: &str, arg: &Option<T>) -> Option<darling::Error>
 where
     T: FXTriggerHelper + FXOrig<O>,
