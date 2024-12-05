@@ -8,6 +8,7 @@ struct FooPlain {
     v: i32,
 }
 
+#[cfg(feature = "sync")]
 #[fxstruct(sync, builder)]
 #[derive(Debug)]
 struct FooSync {
@@ -22,6 +23,7 @@ fn plain() {
     println!("plain: {:?}", foo);
 }
 
+#[cfg(feature = "sync")]
 #[test]
 fn sync() {
     let foo = FooSync::builder().build();

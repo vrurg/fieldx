@@ -36,6 +36,8 @@
     proc-macro = true
 
 [features]
+    async       = []
     diagnostics = ["darling/diagnostics"]
     serde       = ["dep:serde", "fieldx_aux/serde"]
+    sync        = []
     tracing     = []

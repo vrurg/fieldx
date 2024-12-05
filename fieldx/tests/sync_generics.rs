@@ -1,3 +1,4 @@
+#![cfg(feature = "sync")]
 use core::time;
 use crossbeam::{sync, thread};
 use num_cpus;

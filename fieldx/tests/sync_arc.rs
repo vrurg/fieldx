@@ -1,3 +1,4 @@
+#![cfg(feature = "sync")]
 use fieldx::{error::FieldXError, fxstruct};
 use std::sync::{Arc, Weak};
 

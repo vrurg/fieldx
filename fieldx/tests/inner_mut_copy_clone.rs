@@ -1,3 +1,4 @@
+#![cfg(feature = "sync")]
 // Make sure inner_mut doesn't break copy and clone getters
 
 use fieldx::fxstruct;

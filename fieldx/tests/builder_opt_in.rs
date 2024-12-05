@@ -10,6 +10,7 @@ struct FooPlain {
     unbuildable: String,
 }
 
+#[cfg(feature = "sync")]
 #[fxstruct(sync, builder(opt_in, into), default(off), get)]
 #[derive(Debug)]
 struct FooSync {
@@ -27,6 +28,7 @@ fn plain() {
     assert_eq!(foo.unbuildable(), "explicit");
 }
 
+#[cfg(feature = "sync")]
 #[test]
 fn nsync() {
     let foo = FooSync::builder().buildable("from builder").build().unwrap();

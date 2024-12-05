@@ -3,18 +3,16 @@ use crate::{
     util::needs_helper,
 };
 use darling::{util::Flag, FromField};
-#[cfg(feature = "serde")]
-use fieldx_aux::FXSerde;
 use fieldx_aux::{
     validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBool, FXBoolHelper, FXBuilder,
-    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXPunctuated, FXSetter, FXString,
-    FXSynValue, FXSyncMode, FXTriggerHelper, FromNestAttr,
+    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXPubMode, FXSerde, FXSetter, FXString, FXSynValue,
+    FXSyncMode, FXTriggerHelper, FromNestAttr,
 };
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote_spanned, ToTokens};
 use std::{cell::OnceCell, ops::Deref};
-use syn::{spanned::Spanned, Meta, Token};
+use syn::{spanned::Spanned, Meta};
 
 #[derive(Debug, FromField, Getters, Clone)]
 #[getset(get = "pub(crate)")]
@@ -68,7 +66,6 @@ pub(crate) struct FXFieldReceiver {
     copy:          Option<FXBool>,
     lock:          Option<FXBool>,
     inner_mut:     Option<FXBool>,
-    #[cfg(feature = "serde")]
     serde:         Option<FXSerde>,
 
     #[darling(skip)]
@@ -141,14 +138,36 @@ impl FXFieldReceiver {
     needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
 
     pub fn validate(&self) -> darling::Result<()> {
-        self.validate_exclusives()?; //.map_err(|err| err.with_span(self.span()))
+        let mut acc = darling::Error::accumulator();
 
-        if self.is_fallible().unwrap_or(false) && !self.is_lazy().unwrap_or(false) {
-            return Err(
-                darling::Error::custom("Parameter 'fallible' only makes sense when 'lazy' is set too")
-                    .with_span(&self.fallible().fx_span()),
-            );
+        if let Err(err) = self.validate_exclusives() {
+            acc.push(err);
         }
+
+        // XXX Make it a warning when possible.
+        // if self.is_fallible().unwrap_or(false) && !self.is_lazy().unwrap_or(false) {
+        //     return Err(
+        //         darling::Error::custom("Parameter 'fallible' only makes sense when 'lazy' is set too")
+        //             .with_span(&self.fallible().fx_span()),
+        //     );
+        // }
+
+        #[cfg(not(feature = "sync"))]
+        if let Some(err) = crate::util::feature_required("sync", &self.mode_sync) {
+            acc.push(err);
+        }
+
+        #[cfg(not(feature = "async"))]
+        if let Some(err) = crate::util::feature_required("async", &self.mode_async) {
+            acc.push(err);
+        }
+
+        #[cfg(not(feature = "serde"))]
+        if let Some(err) = crate::util::feature_required("serde", &self.serde) {
+            acc.push(err);
+        }
+
+        acc.finish()?;
 
         Ok(())
     }

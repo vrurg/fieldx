@@ -1,4 +1,5 @@
 pub(crate) mod args;
+use fieldx_aux::{FXOrig, FXTriggerHelper};
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -92,3 +93,18 @@ pub(crate) use TODO;
 //         eprintln!("Source: {}", span.source_text().unwrap_or("<unknown>".to_string()));
 //     }
 // }
+
+pub(crate) fn feature_required<T, O>(feature: &str, arg: &Option<T>) -> Option<darling::Error>
+where
+    T: FXTriggerHelper + FXOrig<O>,
+    O: syn::spanned::Spanned,
+{
+    if let Some(arg) = arg {
+        if arg.is_true() {
+            return Some(
+                darling::Error::custom(format!("feature '{}' is required", feature)).with_span(&arg.fx_span()),
+            );
+        }
+    }
+    None
+}

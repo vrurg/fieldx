@@ -63,7 +63,6 @@ pub mod builder_helper;
 pub mod default_arg;
 pub mod fallible;
 pub mod nesting_attr;
-#[cfg(feature = "serde")]
 pub mod serde_helper;
 pub mod setter_helper;
 pub mod syn_value;
@@ -73,8 +72,6 @@ pub mod util;
 pub mod value;
 pub mod with_origin;
 
-#[cfg(feature = "serde")]
-pub use crate::serde_helper::FXSerdeHelper;
 pub use crate::{
     accessor_helper::{FXAccessorHelper, FXAccessorMode},
     attributes::FXAttributes,
@@ -83,6 +80,7 @@ pub use crate::{
     default_arg::FXDefault,
     fallible::FXFallible,
     nesting_attr::{FXNestingAttr, FromNestAttr},
+    serde_helper::FXSerdeHelper,
     setter_helper::FXSetterHelper,
     syn_value::{FXPunctuated, FXSynTupleArg, FXSynValueArg},
     traits::{FXBoolHelper, FXFrom, FXHelperTrait, FXInto, FXTriggerHelper},
@@ -209,6 +207,5 @@ pub type FXAccessor<const BOOL_ONLY: bool = false> = FXNestingAttr<FXAccessorHel
 pub type FXSetter<const BOOL_ONLY: bool = false> = FXNestingAttr<FXSetterHelper<BOOL_ONLY>>;
 /// Builder helper
 pub type FXBuilder<const STRUCT: bool = false> = FXNestingAttr<FXBuilderHelper<STRUCT>>;
-#[cfg(feature = "serde")]
 /// `serde` argument
 pub type FXSerde = FXNestingAttr<FXSerdeHelper>;

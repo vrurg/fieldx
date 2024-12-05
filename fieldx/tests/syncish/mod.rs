@@ -1,3 +1,4 @@
+#![cfg(feature = "sync")]
 use fieldx::fxstruct;
 use parking_lot::Mutex;
 

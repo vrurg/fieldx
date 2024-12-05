@@ -1,5 +1,6 @@
 use fieldx::fxstruct;
 
+#[cfg(feature = "sync")]
 #[fxstruct(sync, lazy, get(clone))]
 struct FooS {
     #[fieldx(attributes_fn(allow(dead_code)))]
@@ -17,6 +18,7 @@ struct FooN {
     bare_field: f64,
 }
 
+#[cfg(feature = "sync")]
 impl FooS {
     fn build_bar(&self) -> String {
         "test sync".to_string()
@@ -30,12 +32,16 @@ impl FooN {
 }
 
 #[test]
-fn basic() {
-    let foo = FooS::new();
-    assert_eq!(foo.bar(), "test sync");
-    assert_eq!(foo.bare_field, 3.1415926);
-
+fn plain() {
     let foo = FooN::new();
     assert_eq!(foo.bar(), "test plain");
     assert_eq!(foo.bare_field, 321.654);
+}
+
+#[cfg(feature = "sync")]
+#[test]
+fn sync() {
+    let foo = FooS::new();
+    assert_eq!(foo.bar(), "test sync");
+    assert_eq!(foo.bare_field, 3.1415926);
 }

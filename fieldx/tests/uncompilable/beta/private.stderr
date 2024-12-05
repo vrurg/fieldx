@@ -1,8 +1,17 @@
-error[E0624]: method `read_foo` is private
+error: feature 'sync' is required
  --> tests/uncompilable/private.rs
   |
-  |         #[fieldx(private, lazy, reader)]
-  |                                 ------ private method defined here
-...
-  |     let foo = inner.read_foo();
-  |                     ^^^^^^^^ private method
+  |     #[fxstruct(sync)]
+  |                ^^^^
+
+error[E0433]: failed to resolve: could not find `Inner` in `inner`
+ --> tests/uncompilable/private.rs
+  |
+  |     let inner = inner::Inner::new();
+  |                        ^^^^^ could not find `Inner` in `inner`
+
+error[E0412]: cannot find type `Inner` in this scope
+ --> tests/uncompilable/private.rs
+  |
+  |     impl Inner {
+  |          ^^^^^ not found in this scope

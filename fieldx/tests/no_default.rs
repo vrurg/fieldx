@@ -44,6 +44,7 @@ impl Plain {
     }
 }
 
+#[cfg(feature = "sync")]
 #[fxstruct(sync, get(public), builder, no_new)]
 struct IsSync {
     #[fieldx(set)]
@@ -53,6 +54,7 @@ struct IsSync {
     b2: Bar,
 }
 
+#[cfg(feature = "sync")]
 impl IsSync {
     fn new(bar: Bar) -> Self {
         Self {
@@ -90,6 +92,7 @@ fn plain() {
     assert_eq!(plain.bar().note, "manual".to_string());
 }
 
+#[cfg(feature = "sync")]
 #[test]
 fn sync() {
     let sync = IsSync::new(Bar { note: "manual".into() });

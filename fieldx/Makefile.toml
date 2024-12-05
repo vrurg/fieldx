@@ -2,9 +2,20 @@
     category = "Test"
     description = "Test code compilability"
     script = '''
+!include_files ../makefile.ds
+
 echo Testing compilability with toolchain '${__FIELDX_DEFAULT_TOOLCHAIN__}'
 cm_run_task compile-default-features
-cm_run_task compile-serde-enabled
+
+features = array sync async serde
+feature_sets = generate_power_set ${features}
+
+for fs in ${feature_sets}
+    fs = array_join ${fs} ","
+    echo "Testing feature set '${fs}'"
+    set_env __FIELDX_FEATURE_SET__ ${fs}
+    cm_run_task compile-with-features
+end
 '''
     script_runner = "@duckscript"
     toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
@@ -16,9 +27,9 @@ cm_run_task compile-serde-enabled
     description = "Test code compilability with default feature set"
     toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
-[tasks.compile-serde-enabled]
-    args        = ["test", "--test", "compilation", "--features", "serde"]
+[tasks.compile-with-features]
+    args        = ["test", "--test", "compilation", "--features", "${__FIELDX_FEATURE_SET__}"]
     category    = "Test"
     command     = "cargo"
-    description = "Test code compilability with 'serde' feature"
+    description = "Test code compilability with '${__FIELDX_FEATURE_SET__}' features"
     toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"

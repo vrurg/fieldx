@@ -1,3 +1,4 @@
+#![cfg(feature = "async")]
 use fieldx::fxstruct;
 use std::sync::Arc;
 

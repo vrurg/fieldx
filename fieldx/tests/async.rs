@@ -1,3 +1,4 @@
+#![cfg(feature = "async")]
 use core::time;
 use fieldx::fxstruct;
 use num_cpus;

@@ -5,11 +5,10 @@ use crate::{
     util::needs_helper,
 };
 use darling::FromMeta;
-#[cfg(feature = "serde")]
-use fieldx_aux::FXSerde;
 use fieldx_aux::{
     validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBool, FXBoolHelper, FXBuilder, FXFallible,
-    FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSetter, FXSynValue, FXSyncMode, FXTriggerHelper,
+    FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSerde, FXSetter, FXSynValue, FXSyncMode,
+    FXTriggerHelper,
 };
 use getset::Getters;
 use proc_macro2::Span;
@@ -60,12 +59,12 @@ pub(crate) struct FXSArgs {
     copy:         Option<FXBool>,
     lock:         Option<FXBool>,
     inner_mut:    Option<FXBool>,
-    #[cfg(feature = "serde")]
     serde:        Option<FXSerde>,
+    // #[cfg(not(feature = "serde"))]
+    // serde:        Option<fieldx_aux::syn_value::FXPunctuated<syn::Meta, syn::Token![,]>>,
 }
 
 impl FXSArgs {
-    #[cfg(feature = "serde")]
     validate_exclusives!(
         "visibility": public; private;
         "accessor mode": copy; clone;
@@ -74,21 +73,36 @@ impl FXSArgs {
         "serde/ref.counting": serde; rc;
     );
 
-    #[cfg(not(feature = "serde"))]
-    validate_exclusives!(
-        "visibility": public; private;
-        "accessor mode": copy, clone;
-        "concurrency mode": mode_sync as "sync"; mode_async as "r#async"; inner_mut; mode;
-        "field mode": lazy; optional, inner_mut;
-    );
-
     // Generate needs_<helper> methods
     needs_helper! {accessor, accessor_mut, setter, reader, writer, clearer, predicate}
 
     #[inline]
     pub fn validate(self) -> Result<Self, darling::Error> {
-        self.validate_exclusives()
-            .map_err(|err| err.with_span(&Span::call_site()))?;
+        let mut acc = darling::Error::accumulator();
+        if let Err(err) = self
+            .validate_exclusives()
+            .map_err(|err| err.with_span(&Span::call_site()))
+        {
+            acc.push(err);
+        }
+
+        #[cfg(not(feature = "sync"))]
+        if let Some(err) = crate::util::feature_required("sync", &self.mode_sync) {
+            acc.push(err);
+        }
+
+        #[cfg(not(feature = "async"))]
+        if let Some(err) = crate::util::feature_required("async", &self.mode_async) {
+            acc.push(err);
+        }
+
+        #[cfg(not(feature = "serde"))]
+        if let Some(err) = crate::util::feature_required("serde", &self.serde) {
+            acc.push(err);
+        }
+
+        acc.finish()?;
+
         Ok(self)
     }
 

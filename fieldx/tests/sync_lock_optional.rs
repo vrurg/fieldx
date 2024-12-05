@@ -1,3 +1,4 @@
+#![cfg(feature = "sync")]
 use fieldx::fxstruct;
 
 #[derive(PartialEq, Debug)]

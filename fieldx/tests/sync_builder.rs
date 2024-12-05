@@ -1,3 +1,4 @@
+#![cfg(feature = "sync")]
 mod foo {
     use fieldx::fxstruct;
 

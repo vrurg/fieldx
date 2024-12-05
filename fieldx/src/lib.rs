@@ -468,8 +468,10 @@
 //! [`parking_lot`]: https://docs.rs/parking_lot
 //! [`serde`]: https://docs.rs/serde
 
+#[cfg(feature = "async")]
 pub mod r#async;
 pub mod error;
+#[cfg(feature = "sync")]
 pub mod sync;
 pub mod traits;
 
@@ -478,6 +480,7 @@ pub use fieldx_aux::FXOrig;
 pub use fieldx_derive::fxstruct;
 #[doc(hidden)]
 pub use once_cell::unsync::OnceCell;
+#[cfg(feature = "async")]
 pub use r#async::FXProxyAsync;
 #[doc(hidden)]
 pub use std::{
@@ -485,4 +488,5 @@ pub use std::{
     fmt,
     sync::atomic::Ordering,
 };
+#[cfg(feature = "sync")]
 pub use sync::FXProxySync;

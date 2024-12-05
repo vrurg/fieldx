@@ -1,3 +1,4 @@
+#![cfg(feature = "sync")]
 #![deny(dead_code)]
 
 mod inner {

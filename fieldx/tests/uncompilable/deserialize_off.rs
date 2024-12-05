@@ -1,0 +1,15 @@
+// Make sure shadow struct is not produced if both serialize and deserialize arguments of struct `serde` argument are
+// disabled.
+use fieldx::fxstruct;
+use serde::{Deserialize, Serialize};
+use serde_json;
+
+#[fxstruct(sync, serde(deserialize(off)))]
+#[derive(Clone)]
+struct Foo {
+    v: &'static str,
+}
+
+fn main() {
+    let _json = serde_json::from_str::<Foo>(r#"{"v": "whatever"}"#);
+}

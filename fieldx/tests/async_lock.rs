@@ -1,3 +1,4 @@
+#![cfg(feature = "async")]
 use fieldx::r#async::FXRwLockAsync;
 use tokio;
 

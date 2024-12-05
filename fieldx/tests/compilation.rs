@@ -10,17 +10,24 @@ use trybuild;
 
 struct UncompEnv {
     // .0 is a path of .stderr under the version subdir, .1 is the one used for testing
-    stderrs:  Vec<(PathBuf, PathBuf)>,
-    base_dir: String,
+    stderrs:     Vec<(PathBuf, PathBuf)>,
+    base_dir:    PathBuf,
+    outputs_dir: PathBuf,
 }
 
 impl UncompEnv {
     fn new(subdir: &str) -> Self {
-        let mut stderrs: Vec<(PathBuf, PathBuf)> = vec![];
         let manifest_dir = env!("CARGO_MANIFEST_DIR").to_string();
-        let base_dir = format!("{}/tests/{}", manifest_dir, subdir);
-        stderrs.append(&mut Self::collect_stderrs(&base_dir));
-        Self { stderrs, base_dir }
+        let base_dir = PathBuf::from(format!("{}/tests/{}", manifest_dir, subdir));
+        let outputs_dir = Self::outputs_dir(&base_dir).unwrap();
+        // stderrs.append(&mut Self::collect_stderrs(&outputs_dir));
+        let mut me = Self {
+            stderrs: Vec::new(),
+            base_dir,
+            outputs_dir,
+        };
+        me.collect_stderrs().unwrap();
+        me
     }
 
     fn stringify_fname(entry: Result<DirEntry, io::Error>, from_dir: &PathBuf) -> String {
@@ -54,19 +61,18 @@ impl UncompEnv {
         )
     }
 
-    fn collect_stderrs(from: &String) -> Vec<(PathBuf, PathBuf)> {
-        let dest_dir = PathBuf::from(&from);
-        let from_dir = PathBuf::from(format!("{}/{}", from, Self::version_group()));
+    fn collect_stderrs(&mut self) -> Result<(), io::Error> {
+        let dest_dir = &self.base_dir;
+        let from_dir = &self.outputs_dir;
 
         if !from_dir.exists() {
-            return vec![];
+            panic!("Outputs directory '{}' doesn't exists.", from_dir.display());
         }
 
         if !from_dir.is_dir() {
             panic!("'{}' is not a directory", from_dir.display());
         }
 
-        let mut stderrs: Vec<(PathBuf, PathBuf)> = vec![];
         for entry in std::fs::read_dir(&from_dir).expect(&format!("Failed to read '{}' directory", from_dir.display()))
         {
             let fname = Self::stringify_fname(entry, &from_dir);
@@ -76,11 +82,11 @@ impl UncompEnv {
                 let src_stderr = from_dir.join(&fname);
                 eprintln!("+ {} -> {}", src_stderr.display(), dest_stderr.display());
                 let _ = Self::copy_ok(&src_stderr, &dest_stderr);
-                stderrs.push((src_stderr, dest_stderr));
+                self.stderrs.push((src_stderr, dest_stderr));
             }
         }
 
-        stderrs
+        Ok(())
     }
 
     fn version_group() -> String {
@@ -122,21 +128,56 @@ impl UncompEnv {
         .to_string()
     }
 
-    fn check_for_new(&self) {
+    fn outputs_subdir() -> String {
+        #[allow(unused_mut)]
+        let mut groups = Vec::<String>::new();
+
+        #[cfg(feature = "serde")]
+        groups.push("serde".into());
+
+        #[cfg(feature = "sync")]
+        groups.push("sync".into());
+
+        #[cfg(feature = "async")]
+        groups.push("async".into());
+
+        #[cfg(feature = "diagnostics")]
+        groups.push("diagnostics".into());
+
+        if groups.len() > 0 {
+            format!("{}+{}", Self::version_group(), groups.join(","))
+        }
+        else {
+            Self::version_group()
+        }
+    }
+
+    fn outputs_dir(base_dir: &PathBuf) -> Result<PathBuf, io::Error> {
+        let outputs_dir = base_dir.join(Self::outputs_subdir());
+
+        if !outputs_dir.exists() {
+            std::fs::create_dir_all(&outputs_dir)?;
+        }
+
+        Ok(outputs_dir)
+    }
+
+    fn check_for_new(&self) -> Result<(), io::Error> {
         let test_dir = PathBuf::from(&self.base_dir);
         for entry in std::fs::read_dir(&test_dir).expect(&format!("Failed to read '{}' directory", test_dir.display()))
         {
             let fname = Self::stringify_fname(entry, &test_dir);
 
             if fname.ends_with(".stderr") {
-                let version_dir = PathBuf::from(&self.base_dir).join(Self::version_group());
                 let src_stderr = test_dir.join(&fname);
-                let dest_stderr = version_dir.join(&fname);
+                let dest_stderr = self.outputs_dir.join(&fname);
                 eprintln!("> {} -> {}", fname, dest_stderr.display());
                 let _ = Self::copy_ok(&src_stderr, &dest_stderr);
                 let _ = Self::remove_ok(&src_stderr);
             }
         }
+
+        Ok(())
     }
 }
 
@@ -158,7 +199,7 @@ impl Drop for UncompEnv {
 
         if try_build {
             // Pick up any new .stderrs
-            self.check_for_new();
+            self.check_for_new().unwrap();
         }
 
         if with_failures {
@@ -172,17 +213,7 @@ fn failures() {
     if std::env::var("__FIELDX_DEFAULT_TOOLCHAIN__").map_or(true, |v| v != "nightly") {
         let test_env = UncompEnv::new("uncompilable");
         let t = trybuild::TestCases::new();
-        t.compile_fail(format!("{}/*.rs", test_env.base_dir));
-    }
-}
-
-#[test]
-#[cfg(feature = "serde")]
-fn failures_serde() {
-    if std::env::var("__FIELDX_DEFAULT_TOOLCHAIN__").map_or(true, |v| v != "nightly") {
-        let test_env = UncompEnv::new("uncompilable_serde");
-        let t = trybuild::TestCases::new();
-        t.compile_fail(format!("{}/*.rs", test_env.base_dir));
+        t.compile_fail(format!("{}/*.rs", test_env.base_dir.display()));
     }
 }
 

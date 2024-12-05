@@ -1,4 +1,4 @@
-#![cfg(feature = "serde")]
+#![cfg(all(feature = "sync", feature = "serde"))]
 use fieldx::fxstruct;
 use serde::{Deserialize, Serialize};
 use serde_json;
