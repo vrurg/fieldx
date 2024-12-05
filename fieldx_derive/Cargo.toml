@@ -28,7 +28,7 @@
     thiserror             = { workspace = true }
 
 [dev-dependencies]
-    fieldx      = { workspace = true }
+    fieldx      = { workspace = true, features = ["sync", "serde"] }
     parking_lot = { workspace = true }
     serde_json  = { workspace = true }
 
