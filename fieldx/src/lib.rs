@@ -276,9 +276,11 @@
 //!
 //! | *Feature* | *Description* |
 //! |-|-|
-//! | `diagnostics` | Enable additional diagnostics for compile time errors. Requires Rust nightly toolset. |
+//! | `sync` | Support for sync-safe mode of operation |
+//! | `async` | Support for async mode of operation |
 //! | `serde` | Enable support for `serde` marshalling. |
 //! | `send_guard` | See corresponding feature of the [`parking_lot` crate](https://crates.io/crates/parking_lot) |
+//! | `diagnostics` | Enable additional diagnostics for compile time errors. Requires Rust nightly toolset. |
 //!
 //! # Usage
 //!
