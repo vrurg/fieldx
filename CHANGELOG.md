@@ -4,6 +4,43 @@
 
 ### Features
 
+- Implement `async` support
+- Allow use of `async` keyword
+- Implement support for fallible lazy builders
+- Support for builder's custom error type
+- Introduce 'sync' and 'async' features
+
+### Bug Fixes
+
+- Implement `Clone` for `FXProxyAsync`
+- Error diagnostics for serde-related code
+
+### Refactor
+
+- Rename internal structs for the sake of naming consistency
+
+### Documentation
+
+- Update docs with `async` addition
+- Completed documenting `fieldx_aux` crate
+
+### Testing
+
+- Only test failing compiles under the Makefile.toml environment
+- Fix testing documentation examples of `fieldx_derive` crate
+
+### Fix
+
+- Don't implement Default for shadow if it's not needed
+
+### Styling
+
+- Format all sources
+
+## [fieldx-v0.1.7] - 2024-11-22
+
+### Features
+
 - Implement builder `init` argument
 
 ### Documentation
