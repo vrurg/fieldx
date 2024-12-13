@@ -211,7 +211,7 @@ impl Drop for UncompEnv {
 #[test]
 fn failures() {
     if std::env::var("__FIELDX_DEFAULT_TOOLCHAIN__").map_or(false, |v| v != "nightly")
-        || std::env::var("__FIELDX_NO_UNCOMPILABLE__").map_or(false, |v| !v.is_empty())
+        && std::env::var("__FIELDX_NO_UNCOMPILABLE__").map_or(true, |v| v.is_empty())
     {
         let test_env = UncompEnv::new("uncompilable");
         let t = trybuild::TestCases::new();
