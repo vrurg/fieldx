@@ -46,18 +46,18 @@ impl FXSyncImplDetails for FXSyncImplementor {
     }
 
     fn rwlock_read_guard(&self) -> TokenStream {
-        quote![::parking_lot::RwLockReadGuard]
+        quote![::fieldx::sync::RwLockReadGuard]
     }
 
     fn rwlock_write_guard(&self) -> TokenStream {
-        quote![::parking_lot::RwLockWriteGuard]
+        quote![::fieldx::sync::RwLockWriteGuard]
     }
 
     fn rwlock_mapped_read_guard(&self) -> TokenStream {
-        quote![::parking_lot::MappedRwLockReadGuard]
+        quote![::fieldx::sync::MappedRwLockReadGuard]
     }
 
     fn rwlock_mapped_write_guard(&self) -> TokenStream {
-        quote![::parking_lot::MappedRwLockWriteGuard]
+        quote![::fieldx::sync::MappedRwLockWriteGuard]
     }
 }
