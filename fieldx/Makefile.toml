@@ -1,5 +1,39 @@
+[tasks.test-feature-sets]
+    category = "Test"
+    clear = true
+    description = "Test different feature sets"
+    script = '''
+!include_files ../makefile.ds
+
+echo Testing feature sets with toolchain '${__FIELDX_DEFAULT_TOOLCHAIN__}'
+
+features = array sync async serde
+#if eq ${__FIELDX_DEFAULT_TOOLCHAIN__} "nightly"
+#    array_push ${features} diagnostics
+#end
+feature_sets = generate_power_set ${features}
+
+for fs in ${feature_sets}
+    fs = array_join ${fs} ","
+    echo "Testing feature set '${fs}'"
+    set_env __FIELDX_FEATURE_SET__ ${fs}
+    cm_run_task test-with-features
+end
+'''
+    script_runner = "@duckscript"
+    toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
+
+[tasks.test-with-features]
+    args        = ["test", "--features", "${__FIELDX_FEATURE_SET__}"]
+    category    = "Test"
+    command     = "cargo"
+    description = "Test code compilability with '${__FIELDX_FEATURE_SET__}' features"
+    toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
+
+# Compilation is useful for updating the error outputs per version+features
 [tasks.test-compilation]
     category = "Test"
+    clear = true
     description = "Test code compilability"
     script = '''
 !include_files ../makefile.ds

@@ -2,11 +2,11 @@
     CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
     __FIELDX_DEFAULT_TOOLCHAIN__         = { value = "nightly", condition = { env_not_set = ["__FIELDX_DEFAULT_TOOLCHAIN__"] } }
     __FIELDX_TASK__                      = { value = "test", condition = { env_not_set = ["__FIELDX_TASK__"] } }
-    __FIELDX_TOOLCHAINS__                = "1.77 1.78 stable beta nightly"
+    __FIELDX_TOOLCHAINS__                = "1.77 stable nightly"
     __PREV_RELEASE_TESTING__             = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.release-tested"
 
 [config]
-    default_to_workspace = false
+    default_to_workspace = true
 
 [tasks.init]
     args    = ["-f", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/Cargo.lock"]
@@ -17,11 +17,11 @@
     command = "rm"
 
 [tasks.test]
-    category    = "Test"
-    clear       = true
-    description = "Extensive testing"
-    #dependencies = ["test-default", "test-serde", "test-diagnostics"]
-    dependencies = ["test-default", "test-serde"]
+    category     = "Test"
+    clear        = true
+    dependencies = ["test-default", "test-feature-sets"]
+    description  = "Extensive testing"
+    workspace    = true
 
 [tasks.test-versions]
     description = "TESTING SUPPORTED Rust VERSIONS"
@@ -54,13 +54,6 @@ writefile ${__PREV_RELEASE_TESTING__} ${commit.stdout}
     description = "Test with only the default features"
     toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
-[tasks.test-serde]
-    args        = ["test", "--workspace", "--features", "serde"]
-    category    = "Test"
-    command     = "cargo"
-    description = "Test with 'serde' feature"
-    toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
-
 [tasks.test-diagnostics]
     args = ["test", "--workspace", "--features", "diagnostics"]
     category = "Test"
@@ -80,6 +73,14 @@ exit 1
     description = "Run only the compilation test"
     script = '''
 echo Skipping compilation test for ${__FIELDX_DEFAULT_TOOLCHAIN__} in ${CARGO_MAKE_WORKING_DIRECTORY}
+'''
+    script_runner = "@duckscript"
+    workspace = true
+
+[tasks.test-feature-sets]
+    description = "Test different feature sets"
+    script = '''
+echo Skipping test of feature sets for ${__FIELDX_DEFAULT_TOOLCHAIN__} in ${CARGO_MAKE_WORKING_DIRECTORY}
 '''
     script_runner = "@duckscript"
     workspace = true
