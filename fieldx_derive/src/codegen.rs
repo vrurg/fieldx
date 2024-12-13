@@ -305,16 +305,6 @@ impl FXRewriter {
         }
     }
 
-    fn builder_struct_visibility(&self) -> TokenStream {
-        let ctx = self.ctx();
-        self.ctx()
-            .args()
-            .get_helper(FXHelperKind::Builder)
-            .and_then(|builder| builder.public_mode().map(|pm| pm.to_token_stream()))
-            .or_else(|| Some(ctx.input().vis().to_token_stream()))
-            .unwrap()
-    }
-
     fn builder_field_ctxs(&self) -> Vec<darling::Result<Ref<FXFieldCtx>>> {
         let ctx = self.ctx();
         let builder_field_idents = ctx.builder_field_ident().borrow();
@@ -326,7 +316,7 @@ impl FXRewriter {
 
     fn builder_impl(&self) -> TokenStream {
         let ctx = self.ctx();
-        let vis = self.builder_struct_visibility();
+        let vis = ctx.builder_struct_visibility();
         let builder_ident = ctx.builder_ident();
         let builders = ctx.builders_combined();
         let input_ident = ctx.input_ident();
@@ -432,7 +422,7 @@ impl FXRewriter {
             let generics = ctx.input().generics();
             let where_clause = &generics.where_clause;
             let span = ctx.helper_span(FXHelperKind::Builder);
-            let vis = self.builder_struct_visibility();
+            let vis = ctx.builder_struct_visibility();
             let attributes = args.builder_attributes();
             let builder_ident = ctx.builder_ident();
 

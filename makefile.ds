@@ -8,7 +8,6 @@ fn <scope> ask_user
     return ${reply}
 end
 
-
 # Function to generate the power set of an array
 fn <scope> generate_power_set
     input = set ${1}

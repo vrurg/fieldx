@@ -450,6 +450,14 @@ impl FXCodeGenCtx {
         })
     }
 
+    pub fn builder_struct_visibility(&self) -> TokenStream {
+        self.args()
+            .get_helper(FXHelperKind::Builder)
+            .and_then(|builder| builder.public_mode().map(|pm| pm.to_token_stream()))
+            .or_else(|| Some(self.input().vis().to_token_stream()))
+            .unwrap()
+    }
+
     #[inline(always)]
     pub fn builder_has_post_build(&self) -> bool {
         self.args.builder().as_ref().map_or(false, |b| b.has_post_build())

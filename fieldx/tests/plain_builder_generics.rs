@@ -4,13 +4,13 @@ use std::{
     marker::PhantomData,
 };
 
-trait Newish {
+pub trait Newish {
     fn new() -> Self;
 }
 
 #[fxstruct(builder, into)]
 #[derive(Debug)]
-struct Plain<'a, 'b, T>
+pub struct Plain<'a, 'b, T>
 where
     T: Display + Debug + Default + Newish,
     'b: 'a,

@@ -358,6 +358,7 @@ pub trait FXCodeGenContextual {
         if fctx.forced_builder() || fctx.needs_builder() {
             let ident = fctx.ident_tok();
             let mut builder_name = self.helper_name(fctx, FXHelperKind::Builder)?;
+            let vis = fctx.builder_method_visibility();
             // .builder_name(fctx)?;
             // .unwrap_or(format_ident!("{}", fctx.helper_base_name().expect("Field name")).to_token_stream());
             let span = fctx.helper_span(FXHelperKind::Builder);
@@ -366,7 +367,7 @@ pub trait FXCodeGenContextual {
             builder_name.set_span(span);
             Ok(quote_spanned![span=>
                 #attributes
-                pub fn #builder_name #gen_params(mut self, value: #val_type) -> Self {
+                #vis fn #builder_name #gen_params(mut self, value: #val_type) -> Self {
                     self.#ident = ::std::option::Option::Some(value #into_tok);
                     self
                 }

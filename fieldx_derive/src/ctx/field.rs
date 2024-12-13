@@ -429,6 +429,13 @@ impl FXFieldCtx {
         self.attrs().iter().cloned().collect()
     }
 
+    pub fn builder_method_visibility(&self) -> TokenStream {
+        self.builder().as_ref().and_then(|b| b.public_mode()).map_or_else(
+            || self.codegen_ctx().builder_struct_visibility(),
+            |pub_mode| pub_mode.to_token_stream(),
+        )
+    }
+
     pub fn set_builder_checker(&self, bc: TokenStream) {
         *self.builder_checker.borrow_mut() = Some(bc);
     }
