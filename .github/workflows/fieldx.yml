@@ -20,20 +20,28 @@ jobs:
           - stable
           - beta
           - nightly
-        feature: [serde, send_guard]
+        include:
+          - feature: async
+          - feature: sync
+          - feature: serde
+          - feature: async,sync
+          - feature: async,serde
+          - feature: sync,serde
+          - feature: async,sync,serde
         exclude:
           - os: windows
             toolchain: nightly
     env:
       __FIELDX_DEFAULT_TOOLCHAIN__: ${{ matrix.toolchain }}
+      __FIELDX_NO_UNCOMPILABLE__: ${{ matrix.toolchain == 'beta' && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
       - name: Show environment variables
         run: env
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo build --verbose --all --features sync,async,${{ matrix.feature }}
-      - run: cargo test --verbose --all --features sync,async,${{ matrix.feature }}
-      - run: cargo test --verbose --all --features serde,send_guard
+      - run: cargo build --verbose --all --features ${{ matrix.feature }}
+      - run: cargo test --verbose --all --features ${{ matrix.feature }}
+      - run: cargo test --verbose --all --features ${{ matrix.feature }},send_guard
         if: matrix.feature == 'serde'
   all_features:
     runs-on: ${{ matrix.os }}-latest
@@ -43,7 +51,6 @@ jobs:
         toolchain:
           - 1.77
           - stable
-          - beta
           - nightly
     env:
       __FIELDX_DEFAULT_TOOLCHAIN__: ${{ matrix.toolchain }}
@@ -63,7 +70,6 @@ jobs:
         toolchain:
           - 1.77
           - stable
-          - beta
           - nightly
     env:
       __FIELDX_DEFAULT_TOOLCHAIN__: ${{ matrix.toolchain }}
