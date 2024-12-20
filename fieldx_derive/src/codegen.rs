@@ -320,8 +320,7 @@ impl FXRewriter {
         let builder_ident = ctx.builder_ident();
         let builders = ctx.builders_combined();
         let input_ident = ctx.input_ident();
-        let generics = ctx.input().generics();
-        let where_clause = &generics.where_clause;
+        let (impl_generics, _, where_clause) = ctx.input().generics().split_for_impl();
         let generic_params = ctx.struct_generic_params();
         let attributes = ctx.args().builder_impl_attributes();
         let post_build_ident = ctx.builder_post_build_ident();
@@ -398,7 +397,7 @@ impl FXRewriter {
 
         quote![
             #attributes
-            impl #generics #builder_ident #generic_params
+            impl #impl_generics #builder_ident #generic_params
             #where_clause
             {
                 #fn_new
