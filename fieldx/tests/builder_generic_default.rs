@@ -1,3 +1,5 @@
+#![cfg(feature = "serde")]
+
 use fieldx::fxstruct;
 use serde::{Deserialize, Serialize};
 

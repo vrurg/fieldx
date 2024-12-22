@@ -10,14 +10,16 @@ error: feature 'serde' is required
   | #[fxstruct(sync, serde(deserialize(off)))]
   |                  ^^^^^
 
-error[E0432]: unresolved import `serde`
- --> tests/uncompilable/deserialize_off.rs
-  |
-  | use serde::{Deserialize, Serialize};
-  |     ^^^^^ use of undeclared crate or module `serde`
-
 error[E0412]: cannot find type `Foo` in this scope
  --> tests/uncompilable/deserialize_off.rs
   |
   |     let _json = serde_json::from_str::<Foo>(r#"{"v": "whatever"}"#);
   |                                        ^^^ not found in this scope
+
+warning: unused imports: `Deserialize` and `Serialize`
+ --> tests/uncompilable/deserialize_off.rs
+  |
+  | use serde::{Deserialize, Serialize};
+  |             ^^^^^^^^^^^  ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
