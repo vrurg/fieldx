@@ -258,7 +258,7 @@ impl FXRewriteSerde for super::FXRewriter {
             let mut serde_args: Vec<TokenStream> = vec![];
 
             let serde_helper = args.serde().as_ref().unwrap();
-            let generics = ctx.input().generics();
+            let (_, generics, _) = ctx.input().generics().split_for_impl();
             let shadow_ident = format!("{}{}", ctx.shadow_ident(), generics.to_token_stream());
             let serde_span = args.serde_helper_span().unwrap_or_else(|| Span::call_site());
 
@@ -344,8 +344,7 @@ impl FXRewriteSerde for super::FXRewriter {
             let struct_ident = ctx.input_ident();
             let shadow_var = ctx.shadow_var_ident();
             let mut fields = vec![];
-            let generics = ctx.input().generics();
-            let where_clause = &generics.where_clause;
+            let (_, generics, where_clause) = ctx.input().generics().split_for_impl();
             let span = args.serde_helper_span().unwrap_or_else(|| Span::call_site());
 
             for field in ctx.all_fields() {
@@ -397,8 +396,8 @@ impl FXRewriteSerde for super::FXRewriter {
             let mut fields = vec![];
             let mut lazy_inits = vec![];
             let me_var = ctx.me_var_ident();
-            let generics = ctx.input().generics();
-            let where_clause = &generics.where_clause;
+            let (_, generics, where_clause) = ctx.input().generics().split_for_impl();
+            let span = args.serde_helper_span().unwrap_or_else(|| Span::call_site());
 
             for field in ctx.all_fields() {
                 let fctx = ctx.field_ctx(field);
@@ -410,13 +409,14 @@ impl FXRewriteSerde for super::FXRewriter {
                         ctx.exec_or_record(|| {
                             let cgen = self.field_codegen(&fctx)?;
                             let fetch_struct_field = cgen.field_from_struct(&fctx)?;
+                            let span = *fctx.span();
 
                             if is_lazy {
                                 let init_call = cgen.field_lazy_initializer(&fctx, Some(quote![(&#me_var)]))?;
-                                lazy_inits.push(quote![ let _ = #init_call; ]);
+                                lazy_inits.push(quote_spanned![span=> let _ = #init_call; ]);
                             }
 
-                            fields.push(quote_spanned![*fctx.span()=> #field_ident: #fetch_struct_field ]);
+                            fields.push(quote_spanned![span=> #field_ident: #fetch_struct_field ]);
 
                             Ok(())
                         });
@@ -427,7 +427,7 @@ impl FXRewriteSerde for super::FXRewriter {
                 }
             }
 
-            ctx.tokens_extend(quote![
+            ctx.tokens_extend(quote_spanned![span=>
                 impl #generics ::std::convert::From<#struct_ident #generics> for #shadow_ident #generics #where_clause {
                     fn from(mut #me_var: #struct_ident #generics) -> Self {
                         #( #lazy_inits )*
