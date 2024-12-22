@@ -3,7 +3,7 @@
 use fieldx::fxstruct;
 use serde::{Deserialize, Serialize};
 
-#[fxstruct(no_new, builder, get, serde)]
+#[fxstruct(builder, get, serde)]
 #[derive(Clone)]
 struct Foo<S = String>
 where

@@ -295,8 +295,7 @@ impl FXRewriteSerde for super::FXRewriter {
             let fields = ctx.shadow_fields();
             let mut attrs = vec![];
             let derive_attr = crate::util::derive_toks(&self.serde_derive_traits());
-            let generics = ctx.input().generics();
-            let where_clause = &generics.where_clause;
+            let (_, generics, where_clause) = ctx.input().generics().split_for_impl();
             let vis = serde_helper.public_mode().map(|pm| pm.to_token_stream());
             let user_attributes = serde_helper.attributes();
 
