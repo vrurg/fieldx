@@ -37,6 +37,9 @@ struct Foo {
 
     #[fieldx(get, get_mut)]
     seq: Vec<u32>,
+
+    #[fieldx(inner_mut, get, get_mut)]
+    mutable: f32,
 }
 
 impl Foo {
@@ -131,4 +134,8 @@ fn mutable() {
         "assignment into a non-protected field"
     );
     assert_eq!(foo.seq_mut().pop().unwrap(), 666, "mutate a non-protected field");
+
+    let foo_ro = Foo::for_test();
+    *foo_ro.mutable_mut() = 42.21;
+    assert_eq!(*foo_ro.mutable(), 42.21, "write-lock on a non-optional field");
 }

@@ -130,7 +130,7 @@ impl FXFieldReceiver {
         "accessor mode": copy; clone;
         "field mode":  lazy; optional, inner_mut;
         "in-/fallible mode": fallible; lock, optional, inner_mut;
-        "concurrency mode": mode_sync as "sync"; mode_async as "async"; inner_mut; mode;
+        "concurrency mode": mode_sync as "sync"; mode_async as "async"; mode;
     }
 
     // Generate field-level needs_<helper> methods. The final decision of what's needed and what's not is done by
@@ -211,7 +211,7 @@ impl FXFieldReceiver {
     }
 
     pub fn is_plain(&self) -> Option<bool> {
-        self.is_inner_mut()
+        self.mode.as_ref().and_then(|m| Some(m.is_plain()))
     }
 
     pub fn is_sync(&self) -> Option<bool> {
@@ -303,7 +303,16 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn needs_lock(&self) -> Option<bool> {
-        self.lock.as_ref().map(|l| l.is_true())
+        self.lock.as_ref().map(|l| l.is_true()).or_else(|| {
+            self.is_sync().and_then(|s| {
+                if s {
+                    self.is_inner_mut()
+                }
+                else {
+                    None
+                }
+            })
+        })
     }
 
     #[cfg(feature = "serde")]

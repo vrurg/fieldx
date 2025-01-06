@@ -68,7 +68,7 @@ impl FXSArgs {
     validate_exclusives!(
         "visibility": public; private;
         "accessor mode": copy; clone;
-        "concurrency mode": mode_sync as "sync", mode_async as "r#async"; inner_mut; mode;
+        "concurrency mode": mode_sync as "sync", mode_async as "r#async"; mode;
         "field mode": lazy; optional, inner_mut;
         "serde/ref.counting": serde; rc;
     );
@@ -233,7 +233,16 @@ impl FXSArgs {
 
     #[inline]
     pub fn needs_lock(&self) -> Option<bool> {
-        self.lock.as_ref().map(|b| b.is_true())
+        self.lock.as_ref().map(|b| b.is_true()).or_else(|| {
+            self.is_sync().and_then(|s| {
+                if s {
+                    self.is_inner_mut()
+                }
+                else {
+                    None
+                }
+            })
+        })
     }
 
     #[inline]

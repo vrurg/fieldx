@@ -152,7 +152,11 @@ impl FXFieldCtx {
         self.field
             .needs_lock()
             .or_else(|| self.codegen_ctx().args().needs_lock())
-            .unwrap_or_else(|| self.needs_reader() || self.needs_writer() || self.is_optional())
+            .unwrap_or_else(|| {
+                self.needs_reader()
+                    || self.needs_writer()
+                    || (self.is_sync() && (self.is_optional() || self.is_inner_mut()))
+            })
     }
 
     #[cfg(feature = "serde")]
