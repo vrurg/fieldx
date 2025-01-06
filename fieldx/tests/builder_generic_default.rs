@@ -7,9 +7,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone)]
 struct Foo<S = String>
 where
-    S: AsRef<str> + Default + Clone,
+    S: AsRef<str> + Default + Clone + for<'a> From<&'a str>,
 {
+    #[fieldx(default(Self::default_foo()))]
     foo: S,
+}
+
+impl<S> Foo<S>
+where
+    S: AsRef<str> + Default + Clone + for<'a> From<&'a str>,
+{
+    fn default_foo() -> S {
+        "default foo".into()
+    }
 }
 
 #[test]
