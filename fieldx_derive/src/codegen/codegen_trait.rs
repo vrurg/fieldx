@@ -483,7 +483,7 @@ pub trait FXCodeGenContextual {
         let span = tokens.span();
         let mut fixed_tokens = TokenStream::new();
         let struct_ident = ctx.input_ident();
-        let generics = ctx.input().generics();
+        let (_, generics, _) = ctx.input().generics().split_for_impl();
 
         for t in tokens.into_iter() {
             match t {
