@@ -1,4 +1,4 @@
-use super::{FXCodeGenContextual, FXFieldCtx};
+use super::{method_constructor::MethodConstructor, FXCodeGenContextual, FXFieldCtx};
 use crate::helper::FXOrig;
 use darling::ast::NestedMeta;
 use proc_macro2::{Span, TokenStream};
@@ -109,7 +109,8 @@ pub trait FXCGenSerde: FXCodeGenContextual {
                 quote![]
             }
             else {
-                quote! [ #[serde( #( #serde_attr_args ),* )] ]
+                let span = fctx.serde_helper_span();
+                quote_spanned![span=> #[serde( #( #serde_attr_args ),* )] ]
             }
         }
         else {
@@ -176,11 +177,7 @@ pub trait FXCGenSerde: FXCodeGenContextual {
                     }),
             );
 
-            let span = self
-                .ctx()
-                .args()
-                .serde_helper_span()
-                .unwrap_or_else(|| Span::call_site());
+            let span = self.ctx().args().serde_helper_span();
 
             self.ctx()
                 .add_shadow_default_decl(quote_spanned![span=> #field_ident: #default_tok ]);
@@ -220,18 +217,18 @@ pub trait FXCGenSerde: FXCodeGenContextual {
     }
 }
 
-pub trait FXRewriteSerde {
-    fn serde_derive_traits(&self) -> Vec<TokenStream>;
-    fn serde_struct_attribute(&self) -> darling::Result<()>;
-    fn serde_shadow_struct(&self) -> darling::Result<()>;
-    fn serde_struct_from_shadow(&self);
-    fn serde_struct_into_shadow(&self);
-    fn serde_prepare_struct(&self);
-    fn serde_rewrite_struct(&self);
-    fn serde_shadow_default_fn(&self) -> darling::Result<Option<TokenStream>>;
+pub trait FXRewriteSerde<'a> {
+    fn serde_derive_traits(&'a self) -> Vec<TokenStream>;
+    fn serde_struct_attribute(&'a self) -> darling::Result<()>;
+    fn serde_shadow_struct(&'a self) -> darling::Result<()>;
+    fn serde_struct_from_shadow(&'a self);
+    fn serde_struct_into_shadow(&'a self);
+    fn serde_prepare_struct(&'a self);
+    fn serde_rewrite_struct(&'a self);
+    fn serde_shadow_default_fn(&'a self) -> darling::Result<Option<TokenStream>>;
 }
 
-impl FXRewriteSerde for super::FXRewriter {
+impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
     fn serde_derive_traits(&self) -> Vec<TokenStream> {
         let mut traits: Vec<TokenStream> = vec![];
         let ctx = self.ctx();
@@ -260,7 +257,7 @@ impl FXRewriteSerde for super::FXRewriter {
             let serde_helper = args.serde().as_ref().unwrap();
             let (_, generics, _) = ctx.input().generics().split_for_impl();
             let shadow_ident = format!("{}{}", ctx.shadow_ident(), generics.to_token_stream());
-            let serde_span = args.serde_helper_span().unwrap_or_else(|| Span::call_site());
+            let serde_span = args.serde_helper_span();
 
             if serde_helper.needs_deserialize().unwrap_or(true) {
                 let span = serde_helper.deserialize().orig_span().unwrap_or(serde_span);
@@ -285,12 +282,12 @@ impl FXRewriteSerde for super::FXRewriter {
         Ok(())
     }
 
-    fn serde_shadow_struct(&self) -> darling::Result<()> {
+    fn serde_shadow_struct(&'a self) -> darling::Result<()> {
         let ctx = self.ctx();
         let args = ctx.args();
         if args.is_serde() {
             let serde_helper = args.serde().as_ref().unwrap();
-            let span = args.serde_helper_span().unwrap_or_else(|| Span::call_site());
+            let span = args.serde_helper_span();
             let shadow_ident = ctx.shadow_ident();
             let fields = ctx.shadow_fields();
             let mut attrs = vec![];
@@ -335,7 +332,7 @@ impl FXRewriteSerde for super::FXRewriter {
     }
 
     // Impl From for the shadow struct
-    fn serde_struct_from_shadow(&self) {
+    fn serde_struct_from_shadow(&'a self) {
         let ctx = self.ctx();
         let args = ctx.args();
         if args.is_serde() && args.needs_deserialize() {
@@ -344,7 +341,7 @@ impl FXRewriteSerde for super::FXRewriter {
             let shadow_var = ctx.shadow_var_ident();
             let mut fields = vec![];
             let (_, generics, where_clause) = ctx.input().generics().split_for_impl();
-            let span = args.serde_helper_span().unwrap_or_else(|| Span::call_site());
+            let span = args.serde_helper_span();
 
             for field in ctx.all_fields() {
                 let fctx = ctx.field_ctx(field);
@@ -386,17 +383,25 @@ impl FXRewriteSerde for super::FXRewriter {
         }
     }
 
-    fn serde_struct_into_shadow(&self) {
+    fn serde_struct_into_shadow(&'a self) {
         let ctx = self.ctx();
         let args = ctx.args();
         if args.is_serde() && args.needs_serialize() {
+            let span = args.serde_helper_span();
+            let mut mc = MethodConstructor::new(quote_spanned! {span=> from});
+
             let shadow_ident = ctx.shadow_ident();
             let struct_ident = ctx.input_ident();
             let mut fields = vec![];
-            let mut lazy_inits = vec![];
             let me_var = ctx.me_var_ident();
             let (_, generics, where_clause) = ctx.input().generics().split_for_impl();
-            let span = args.serde_helper_span().unwrap_or_else(|| Span::call_site());
+
+            mc.set_self_ident(me_var.to_token_stream());
+            mc.set_self_borrow(false);
+            mc.set_self_type(Some(quote_spanned! {span=> #struct_ident #generics}));
+            mc.set_ret_type(quote_spanned! {span=> Self});
+            mc.set_span(span);
+            mc.set_self_mut(true);
 
             for field in ctx.all_fields() {
                 let fctx = ctx.field_ctx(field);
@@ -411,8 +416,8 @@ impl FXRewriteSerde for super::FXRewriter {
                             let span = *fctx.span();
 
                             if is_lazy {
-                                let init_call = cgen.field_lazy_initializer(&fctx, Some(quote![(&#me_var)]))?;
-                                lazy_inits.push(quote_spanned![span=> let _ = #init_call; ]);
+                                let lazy_init = cgen.field_lazy_initializer(&fctx, &mut mc)?;
+                                mc.add_statement(quote_spanned![span=> let _ = #me_var.#field_ident #lazy_init; ]);
                             }
 
                             fields.push(quote_spanned![span=> #field_ident: #fetch_struct_field ]);
@@ -426,20 +431,22 @@ impl FXRewriteSerde for super::FXRewriter {
                 }
             }
 
+            mc.set_ret_stmt(quote_spanned! {span=>
+                Self {
+                    #( #fields ),*
+                }
+            });
+            let from_method = mc.into_method();
+
             ctx.tokens_extend(quote_spanned![span=>
                 impl #generics ::std::convert::From<#struct_ident #generics> for #shadow_ident #generics #where_clause {
-                    fn from(mut #me_var: #struct_ident #generics) -> Self {
-                        #( #lazy_inits )*
-                        Self {
-                            #( #fields, )*
-                        }
-                    }
+                    #from_method
                 }
             ])
         }
     }
 
-    fn serde_prepare_struct(&self) {
+    fn serde_prepare_struct(&'a self) {
         let ctx = self.ctx();
         for field in ctx.all_fields() {
             let Ok(fctx) = ctx.field_ctx(field)
@@ -463,7 +470,7 @@ impl FXRewriteSerde for super::FXRewriter {
         ctx.ok_or_record(self.serde_struct_attribute());
     }
 
-    fn serde_rewrite_struct(&self) {
+    fn serde_rewrite_struct(&'a self) {
         self.ctx().ok_or_record(self.serde_shadow_struct());
         self.serde_struct_from_shadow();
         self.serde_struct_into_shadow();
@@ -484,8 +491,7 @@ impl FXRewriteSerde for super::FXRewriter {
             if default_value.has_value() {
                 let default_span = default_value
                     .orig_span()
-                    .or_else(|| self.ctx().args().serde_helper_span())
-                    .unwrap_or_else(|| Span::call_site());
+                    .unwrap_or_else(|| self.ctx().args().serde_helper_span());
 
                 let serde_default: TokenStream = if default_value.is_str() {
                     let default_str: String = default_value.try_into()?;

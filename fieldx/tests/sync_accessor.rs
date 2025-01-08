@@ -38,7 +38,7 @@ struct Foo {
     #[fieldx(get, get_mut)]
     seq: Vec<u32>,
 
-    #[fieldx(inner_mut, get, get_mut)]
+    #[fieldx(lazy, inner_mut, get, get_mut)]
     mutable: f32,
 }
 
@@ -65,6 +65,10 @@ impl Foo {
 
     fn build_queue(&self) -> Vec<String> {
         vec!["foo".into(), "bar".into()]
+    }
+
+    fn build_mutable(&self) -> f32 {
+        11.12
     }
 }
 

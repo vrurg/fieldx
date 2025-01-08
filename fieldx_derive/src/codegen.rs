@@ -1,4 +1,5 @@
 pub mod codegen_trait;
+mod method_constructor;
 mod plain;
 #[cfg(feature = "serde")]
 mod serde;
@@ -82,13 +83,13 @@ impl<T> FXValueRepr<T> {
 
 // Methods that are related to the current context if first place.
 
-pub struct FXRewriter {
+pub struct FXRewriter<'a> {
     codegen_ctx: Rc<FXCodeGenCtx>,
-    plain:       OnceCell<FXCodeGenerator>,
-    sync:        OnceCell<FXCodeGenerator>,
+    plain:       OnceCell<FXCodeGenerator<'a>>,
+    sync:        OnceCell<FXCodeGenerator<'a>>,
 }
 
-impl FXRewriter {
+impl<'a> FXRewriter<'a> {
     pub fn new(input: FXInputReceiver, args: FXSArgs) -> Self {
         let ctx = Rc::new(FXCodeGenCtx::new(input, args));
 
@@ -99,21 +100,21 @@ impl FXRewriter {
         }
     }
 
-    pub fn plain_gen(&self) -> &FXCodeGenerator {
+    pub fn plain_gen(&'a self) -> &'a FXCodeGenerator<'a> {
         self.plain
-            .get_or_init(|| FXCodeGenerator::ModePlain(FXCodeGenPlain::new(self.codegen_ctx.clone())))
+            .get_or_init(|| FXCodeGenerator::ModePlain(FXCodeGenPlain::new(self, self.codegen_ctx.clone())))
     }
 
-    pub fn sync_gen(&self) -> &FXCodeGenerator {
+    pub fn sync_gen(&'a self) -> &'a FXCodeGenerator<'a> {
         self.sync
-            .get_or_init(|| FXCodeGenerator::ModeSync(FXCodeGenSync::new(self.codegen_ctx.clone())))
+            .get_or_init(|| FXCodeGenerator::ModeSync(FXCodeGenSync::new(self, self.codegen_ctx.clone())))
     }
 
     pub fn ctx(&self) -> &Rc<FXCodeGenCtx> {
         &self.codegen_ctx
     }
 
-    pub fn field_codegen(&self, fctx: &FXFieldCtx) -> darling::Result<&FXCodeGenerator> {
+    pub fn field_codegen(&'a self, fctx: &FXFieldCtx) -> darling::Result<&'a FXCodeGenerator<'a>> {
         Ok(if fctx.is_sync() {
             self.sync_gen()
         }
@@ -122,7 +123,7 @@ impl FXRewriter {
         })
     }
 
-    pub fn struct_codegen(&self) -> &FXCodeGenerator {
+    pub fn struct_codegen(&'a self) -> &'a FXCodeGenerator<'a> {
         if self.ctx().is_rather_sync() {
             self.sync_gen()
         }
@@ -131,13 +132,13 @@ impl FXRewriter {
         }
     }
 
-    pub fn rewrite(&mut self) -> TokenStream {
+    pub fn rewrite(&'a mut self) -> TokenStream {
         self.prepare_struct();
         self.rewrite_struct();
         self.finalize()
     }
 
-    fn prepare_ref_counted(&self) {
+    fn prepare_ref_counted(&'a self) {
         let ctx = self.ctx();
         let args = ctx.args();
         if args.is_ref_counted() {
@@ -168,7 +169,7 @@ impl FXRewriter {
         }
     }
 
-    fn prepare_struct(&self) {
+    fn prepare_struct(&'a self) {
         self.prepare_ref_counted();
         let ctx = self.ctx();
 
@@ -184,7 +185,7 @@ impl FXRewriter {
         self.serde_prepare_struct();
     }
 
-    fn prepare_field(&self, fctx: Ref<FXFieldCtx>) -> darling::Result<()> {
+    fn prepare_field(&'a self, fctx: Ref<FXFieldCtx>) -> darling::Result<()> {
         let ctx = self.ctx();
 
         if fctx.needs_accessor() && fctx.is_copy() {
@@ -202,7 +203,7 @@ impl FXRewriter {
         Ok(())
     }
 
-    fn rewrite_struct(&self) {
+    fn rewrite_struct(&'a self) {
         let ctx = self.ctx();
 
         self.struct_extras();
@@ -223,7 +224,7 @@ impl FXRewriter {
         self.serde_rewrite_struct();
     }
 
-    fn struct_extras(&self) {
+    fn struct_extras(&'a self) {
         let ctx = self.ctx();
         let cgen = self.struct_codegen();
 
@@ -250,7 +251,7 @@ impl FXRewriter {
         }
     }
 
-    fn myself_methods(&self) {
+    fn myself_methods(&'a self) {
         let ctx = self.ctx();
         let args = ctx.args();
 
@@ -314,7 +315,7 @@ impl FXRewriter {
             .collect()
     }
 
-    fn builder_impl(&self) -> TokenStream {
+    fn builder_impl(&'a self) -> TokenStream {
         let ctx = self.ctx();
         let vis = ctx.builder_struct_visibility();
         let builder_ident = ctx.builder_ident();
@@ -410,7 +411,7 @@ impl FXRewriter {
         ]
     }
 
-    fn builder_struct(&self) -> TokenStream {
+    fn builder_struct(&'a self) -> TokenStream {
         let ctx = self.ctx();
 
         if ctx.needs_builder_struct() {
@@ -453,7 +454,7 @@ impl FXRewriter {
         }
     }
 
-    fn finalize(&self) -> TokenStream {
+    fn finalize(&'a self) -> TokenStream {
         let ctx = self.ctx();
 
         let &FXInputReceiver {

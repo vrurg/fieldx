@@ -1,4 +1,7 @@
-use super::{FXCodeGenCtx, FXCodeGenPlain, FXCodeGenSync, FXFieldCtx, FXInlining, FXValueRepr};
+use super::{
+    method_constructor::MethodConstructor, FXCodeGenCtx, FXCodeGenPlain, FXCodeGenSync, FXFieldCtx, FXInlining,
+    FXValueRepr,
+};
 use crate::{helper::*, FXInputReceiver};
 use darling::ast::NestedMeta;
 use enum_dispatch::enum_dispatch;
@@ -8,9 +11,9 @@ use std::rc::Rc;
 use syn::{spanned::Spanned, Ident, Lit};
 
 #[enum_dispatch]
-pub enum FXCodeGenerator {
-    ModePlain(FXCodeGenPlain),
-    ModeSync(FXCodeGenSync),
+pub enum FXCodeGenerator<'a> {
+    ModePlain(FXCodeGenPlain<'a>),
+    ModeSync(FXCodeGenSync<'a>),
 }
 
 #[enum_dispatch(FXCodeGenerator)]
@@ -32,7 +35,7 @@ pub trait FXCodeGenContextual {
     fn field_lazy_initializer(
         &self,
         fctx: &FXFieldCtx,
-        self_ident: Option<TokenStream>,
+        method_constructor: &mut MethodConstructor,
     ) -> darling::Result<TokenStream>;
     #[cfg(feature = "serde")]
     // How to move field from shadow struct
@@ -528,19 +531,21 @@ pub trait FXCodeGenContextual {
         quote_spanned![*span=> #field_ident: #set_toks ]
     }
 
-    fn maybe_ref_counted_self(&self, fctx: &FXFieldCtx) -> TokenStream {
+    fn maybe_ref_counted_self(&self, fctx: &FXFieldCtx, mc: &mut MethodConstructor) {
+        if mc.self_rc_ident().is_some() {
+            // Already set, no need to do it again
+            return;
+        }
         let ctx = self.ctx();
         let args = ctx.args();
         if args.is_ref_counted() {
             let (myself_method, _) = ctx.myself_names().unwrap();
-            let field_ident = fctx.ident();
-            let expect_msg = format!("Can't obtain weak reference to myself for field {}", field_ident);
-            // Unwrap must be safe here because if the object has been legally reached out by user code then
-            // it means there is at least one Arc instance alive and thus the strong count is > 0
-            quote![self.#myself_method().expect(#expect_msg)]
-        }
-        else {
-            quote![self]
+            let span = args.rc_span();
+            let self_rc = format_ident!("__fx_self_rc", span = span);
+            let self_ident = mc.self_ident();
+            let expect_msg = format!("Can't obtain weak reference to myself for field {}", fctx.ident());
+            mc.add_statement(quote_spanned! {span=> let #self_rc = #self_ident.#myself_method().expect(#expect_msg);});
+            mc.set_self_rc_ident(Some(self_rc.to_token_stream()));
         }
     }
 

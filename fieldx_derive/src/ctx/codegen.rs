@@ -277,11 +277,12 @@ impl FXCodeGenCtx {
     #[cfg(feature = "serde")]
     #[inline]
     pub fn shadow_ident(&self) -> syn::Ident {
+        let span = self.args().serde_helper_span();
         if let Some(custom_name) = self.args.serde().as_ref().and_then(|s| s.shadow_name()) {
-            quote::format_ident!("{}", custom_name)
+            quote::format_ident!("{}", custom_name, span = span)
         }
         else {
-            quote::format_ident!("__{}Shadow", self.input_ident())
+            quote::format_ident!("__{}Shadow", self.input_ident(), span = span)
         }
     }
 
@@ -289,14 +290,17 @@ impl FXCodeGenCtx {
     #[inline]
     // How to reference shadow instance in an associated function
     pub fn shadow_var_ident(&self) -> &syn::Ident {
-        self.shadow_var_ident.get_or_init(|| format_ident!("__shadow"))
+        let span = self.args().serde_helper_span();
+        self.shadow_var_ident
+            .get_or_init(|| format_ident!("__shadow", span = span))
     }
 
     // How to reference struct instance in an associated function
     #[cfg(feature = "serde")]
     #[inline]
     pub fn me_var_ident(&self) -> &syn::Ident {
-        self.me_var_ident.get_or_init(|| format_ident!("__me"))
+        let span = self.args().serde_helper_span();
+        self.me_var_ident.get_or_init(|| format_ident!("__me", span = span))
     }
 
     #[allow(dead_code)]

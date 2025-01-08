@@ -5,8 +5,8 @@ use crate::{
 use darling::{util::Flag, FromField};
 use fieldx_aux::{
     validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBool, FXBoolHelper, FXBuilder,
-    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXPubMode, FXSerde, FXSetter, FXString, FXSynValue,
-    FXSyncMode, FXTriggerHelper, FromNestAttr,
+    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSerde, FXSetter, FXString,
+    FXSynValue, FXSyncMode, FXTriggerHelper, FromNestAttr,
 };
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
@@ -128,7 +128,7 @@ impl FXFieldReceiver {
     validate_exclusives! {
         "visibility": public; private;
         "accessor mode": copy; clone;
-        "field mode":  lazy; optional, inner_mut;
+        "field mode":  lazy; optional;
         "in-/fallible mode": fallible; lock, optional, inner_mut;
         "concurrency mode": mode_sync as "sync"; mode_async as "async"; mode;
     }
@@ -394,6 +394,12 @@ impl FXFieldReceiver {
                     .as_ref()
                     .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).orig_span())
             })
+    }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub fn serde_helper_span(&self) -> Option<Span> {
+        self.serde.as_ref().and_then(|s| s.orig_span())
     }
 
     #[inline]

@@ -9,6 +9,8 @@ use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::rc::Rc;
 use syn::spanned::Spanned;
 
+use super::method_constructor::MethodConstructor;
+
 pub trait FXSyncImplDetails {
     fn async_decl(&self) -> TokenStream;
     fn await_call(&self) -> TokenStream;
@@ -25,15 +27,17 @@ pub trait FXSyncImplDetails {
     fn rwlock_write_guard(&self) -> TokenStream;
 }
 
-pub struct FXCodeGenSync {
+pub struct FXCodeGenSync<'a> {
+    codegen:    &'a crate::codegen::FXRewriter<'a>,
     ctx:        Rc<FXCodeGenCtx>,
     impl_async: impl_async::FXAsyncImplementor,
     impl_sync:  impl_sync::FXSyncImplementor,
 }
 
-impl FXCodeGenSync {
-    pub fn new(ctx: Rc<FXCodeGenCtx>) -> Self {
+impl<'a> FXCodeGenSync<'a> {
+    pub fn new(codegen: &'a crate::codegen::FXRewriter<'a>, ctx: Rc<FXCodeGenCtx>) -> Self {
         Self {
+            codegen,
             ctx,
             impl_async: impl_async::FXAsyncImplementor,
             impl_sync: impl_sync::FXSyncImplementor,
@@ -62,52 +66,40 @@ impl FXCodeGenSync {
 
     fn field_reader_method(&self, fctx: &FXFieldCtx, helper_kind: FXHelperKind) -> darling::Result<TokenStream> {
         let span = self.helper_span(fctx, helper_kind);
-        let method_name = self.helper_name(fctx, helper_kind)?;
+        let mut mc = MethodConstructor::new(self.helper_name(fctx, helper_kind)?);
         let ident = fctx.ident_tok();
-        let vis_tok = fctx.vis_tok(helper_kind);
         let ty = fctx.ty();
-        let attributes_fn = self.attributes_fn(fctx, helper_kind, FXInlining::Always);
-        let rwlock_guard = self.implementor(fctx).rwlock_read_guard();
-        let async_decl = self.implementor(fctx).async_decl();
-        let await_call = self.implementor(fctx).await_call();
+        let implementor = self.implementor(fctx);
+        let rwlock_guard = implementor.rwlock_read_guard();
+        let await_call = implementor.await_call();
         let read_method = self.read_method_name(fctx, false, &span);
+        let lifetime = quote_spanned! {span=> 'fx_reader_lifetime};
 
-        Ok(if fctx.is_lazy() {
-            let read_arg = self.maybe_ref_counted_self(fctx);
-            let implementor = self.implementor(fctx);
-            let async_decl = implementor.async_decl();
-            let await_call = implementor.await_call();
+        self.maybe_ref_counted_self(fctx, &mut mc);
+        mc.set_vis(fctx.vis_tok(helper_kind));
+        mc.set_span(span);
+        mc.set_async(fctx.is_async());
+        mc.maybe_add_attribute(self.attributes_fn(fctx, helper_kind, FXInlining::Always));
+
+        if fctx.is_lazy() {
             let mapped_guard = self.implementor(fctx).rwlock_mapped_read_guard();
-            let fallible_ty =
-                self.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard<'fx_reader_lifetime, #ty> })?;
+            let self_rc = mc.self_maybe_rc();
 
-            quote_spanned! [span=>
-                #attributes_fn
-                #vis_tok #async_decl fn #method_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> #fallible_ty {
-                    self.#ident.#read_method(&#read_arg)#await_call
-                }
-            ]
+            mc.set_self_lifetime(lifetime.clone());
+            mc.set_ret_type(self.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard<#lifetime, #ty> })?);
+            mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method(&#self_rc)#await_call});
         }
         else if fctx.is_optional() {
-            let ty = quote_spanned! {span=> #rwlock_guard<'fx_reader_lifetime, ::std::option::Option<#ty>> };
-
-            quote_spanned! [span=>
-                #attributes_fn
-                #vis_tok #async_decl fn #method_name<'fx_reader_lifetime>(&'fx_reader_lifetime self) -> #ty {
-                    self.#ident.#read_method()#await_call
-                }
-            ]
+            mc.set_ret_type(quote_spanned! {span=> #rwlock_guard<#lifetime, ::std::option::Option<#ty>> });
+            mc.set_self_lifetime(lifetime);
+            mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method()#await_call});
         }
         else {
-            let ty = quote_spanned! {span=> #rwlock_guard<#ty> };
+            mc.set_ret_type(quote_spanned! {span=> #rwlock_guard<#ty> });
+            mc.set_ret_stmt(quote_spanned! {span=> self.#ident.read()#await_call});
+        }
 
-            quote_spanned! [span=>
-                #attributes_fn
-                #vis_tok #async_decl fn #method_name(&self) -> #ty {
-                    self.#ident.read()#await_call
-                }
-            ]
-        })
+        Ok(mc.into_method())
     }
 
     #[inline(always)]
@@ -170,7 +162,7 @@ impl FXCodeGenSync {
     }
 }
 
-impl FXCodeGenContextual for FXCodeGenSync {
+impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
     #[inline(always)]
     fn ctx(&self) -> &Rc<FXCodeGenCtx> {
         &self.ctx
@@ -214,14 +206,22 @@ impl FXCodeGenContextual for FXCodeGenSync {
             let is_copy = fctx.is_copy();
             let is_clone = fctx.is_clone();
             let is_lazy = fctx.is_lazy();
-            let is_optional = fctx.is_optional();
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Accessor, FXInlining::Always);
+
+            if !(is_copy || is_clone) && (is_lazy || fctx.needs_lock()) {
+                return self.field_reader_method(fctx, FXHelperKind::Accessor);
+            }
+
             let span = self.helper_span(fctx, FXHelperKind::Accessor);
+            let mut mc = MethodConstructor::new(self.accessor_name(fctx)?);
+            let is_optional = fctx.is_optional();
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok(FXHelperKind::Accessor);
-            let accessor_name = self.accessor_name(fctx)?;
             let ty = fctx.ty();
             let read_method = self.read_method_name(fctx, false, &span);
+
+            self.maybe_ref_counted_self(fctx, &mut mc);
+            mc.set_span(span);
+            mc.set_vis(fctx.vis_tok(FXHelperKind::Accessor));
+            mc.maybe_add_attribute(self.attributes_fn(fctx, FXHelperKind::Accessor, FXInlining::Always));
 
             if is_clone || is_copy {
                 // unwrap won't panic because somewhere out there a copy/clone argument exists.
@@ -243,65 +243,43 @@ impl FXCodeGenContextual for FXCodeGenSync {
                         quote_spanned![cc_span=> .clone()]
                     }
                 };
+
                 if is_lazy {
                     let implementor = self.implementor(fctx);
-                    let async_decl = implementor.async_decl();
                     let await_call = implementor.await_call();
-                    let read_arg = self.maybe_ref_counted_self(fctx);
+                    let self_rc = mc.self_maybe_rc();
                     let ty = self.fallible_return_type(fctx, ty)?;
-                    let ret = fctx.fallible_ok_return(quote_spanned! {span=> (*rlock)#cmethod});
 
-                    quote_spanned![span=>
-                        #attributes_fn
-                        #vis_tok #async_decl fn #accessor_name(&self) -> #ty {
-                            let rlock = self.#ident.#read_method(&#read_arg) #await_call #shortcut;
-                            #ret
-                        }
-                    ]
+                    mc.set_async(fctx.is_async());
+                    mc.set_ret_type(ty);
+                    mc.add_statement(
+                        quote_spanned! {span=> let rlock = self.#ident.#read_method(&#self_rc) #await_call #shortcut; },
+                    );
+                    mc.set_ret_stmt(fctx.fallible_ok_return(quote_spanned! {span=> (*rlock)#cmethod}));
                 }
                 else if fctx.needs_lock() {
-                    let ty = self.maybe_optional_ty(fctx, ty);
-
-                    quote_spanned![span=>
-                        #attributes_fn
-                        #vis_tok fn #accessor_name(&self) -> #ty {
-                            let rlock = self.#ident.read() #shortcut;
-                            (*rlock)#cmethod
-                        }
-                    ]
+                    mc.set_ret_type(self.maybe_optional_ty(fctx, ty));
+                    mc.add_statement(quote_spanned! {span=> let rlock = self.#ident.read() #shortcut; });
+                    mc.set_ret_stmt(quote_spanned! {span=> (*rlock)#cmethod});
                 }
                 else if is_optional {
-                    let ty = self.maybe_optional_ty(fctx, ty);
-                    quote_spanned![span=>
-                        #attributes_fn
-                        #vis_tok fn #accessor_name(&self) -> #ty {
-                            self.#ident #cmethod
-                        }
-                    ]
+                    mc.set_ret_type(self.maybe_optional_ty(fctx, ty));
+                    mc.set_ret_stmt(quote_spanned! {span=> self.#ident #cmethod });
                 }
                 else {
                     let cmethod = if fctx.is_copy() { quote![] } else { quote![.clone()] };
-                    quote_spanned![span=>
-                        #attributes_fn
-                        #vis_tok fn #accessor_name(&self) -> #ty {
-                            self.#ident #cmethod
-                        }
-                    ]
+                    mc.set_ret_type(ty.to_token_stream());
+                    mc.set_ret_stmt(quote_spanned! {span=> self.#ident #cmethod });
                 }
-            }
-            else if is_lazy || fctx.needs_lock() {
-                self.field_reader_method(fctx, FXHelperKind::Accessor)?
             }
             else {
                 let ty = self.fallible_return_type(fctx, &self.maybe_optional_ty(fctx, ty))?;
 
-                quote_spanned![span=>
-                    #attributes_fn
-                    #vis_tok fn #accessor_name(&self) -> &#ty {
-                        &self.#ident
-                    }
-                ]
+                mc.set_ret_type(quote_spanned! {span=> &#ty });
+                mc.set_ret_stmt(quote_spanned! {span=> &self.#ident });
             }
+
+            mc.into_method()
         }
         else {
             quote![]
@@ -310,28 +288,30 @@ impl FXCodeGenContextual for FXCodeGenSync {
 
     fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         Ok(if fctx.needs_accessor_mut() {
-            let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok(FXHelperKind::Accessor);
-            let accessor_name = self.accessor_mut_name(fctx)?;
-            let ty = fctx.ty();
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Accessor, FXInlining::Always);
+            let mut mc = MethodConstructor::new(self.accessor_mut_name(fctx)?);
             let span = self.helper_span(fctx, FXHelperKind::Accessor);
+            let ident = fctx.ident_tok();
+            let ty = fctx.ty();
             let read_method = self.read_method_name(fctx, true, &span);
 
+            self.maybe_ref_counted_self(fctx, &mut mc);
+            mc.set_span(span);
+            mc.set_vis(fctx.vis_tok(FXHelperKind::Accessor));
+            mc.maybe_add_attribute(self.attributes_fn(fctx, FXHelperKind::Accessor, FXInlining::Always));
+
             if fctx.is_lazy() {
-                let read_arg = self.maybe_ref_counted_self(fctx);
                 let implementor = self.implementor(fctx);
-                let async_decl = implementor.async_decl();
+                let self_rc = mc.self_maybe_rc();
                 let await_call = implementor.await_call();
                 let mapped_guard = self.implementor(fctx).rwlock_mapped_write_guard();
-                let ty = self.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard<'fx_get_mut, #ty> })?;
+                let lifetime = quote_spanned! {span=> 'fx_get_mut};
 
-                quote_spanned![span=>
-                    #attributes_fn
-                    #vis_tok #async_decl fn #accessor_name<'fx_get_mut>(&'fx_get_mut self) -> #ty {
-                        self.#ident.#read_method(&#read_arg)#await_call
-                    }
-                ]
+                mc.set_async(fctx.is_async());
+                mc.set_self_lifetime(lifetime.clone());
+                mc.set_ret_type(
+                    self.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard<#lifetime, #ty> })?,
+                );
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method(&#self_rc) #await_call });
             }
             else {
                 let ty_toks = if fctx.is_optional() {
@@ -344,25 +324,19 @@ impl FXCodeGenContextual for FXCodeGenSync {
                 if fctx.needs_lock() {
                     let lock_span = fctx.lock_span();
                     let wrguard = self.implementor(fctx).rwlock_write_guard();
-                    let ty_toks = quote_spanned! [lock_span=> #wrguard<#ty_toks>];
 
-                    quote_spanned! [span=>
-                        #attributes_fn
-                        #vis_tok fn #accessor_name(&self) -> #ty_toks {
-                            self.#ident.write()
-                        }
-                    ]
+                    mc.set_ret_type(quote_spanned! [lock_span=> #wrguard<#ty_toks>]);
+                    mc.set_ret_stmt(quote_spanned! [lock_span=> self.#ident.write()]);
                 }
                 else {
                     // Bare field
-                    quote_spanned![span=>
-                        #attributes_fn
-                        #vis_tok fn #accessor_name(&mut self) -> &mut #ty_toks {
-                            &mut self.#ident
-                        }
-                    ]
+                    return self.codegen.plain_gen().field_accessor_mut(fctx);
+                    // mc.set_ret_type(quote_spanned! {span=> &mut #ty});
+                    // mc.set_ret_stmt(quote_spanned! {span=> &mut self.#ident });
                 }
             }
+
+            mc.into_method()
         }
         else {
             quote![]
@@ -424,14 +398,9 @@ impl FXCodeGenContextual for FXCodeGenSync {
         })
     }
 
-    fn field_lazy_initializer(
-        &self,
-        fctx: &FXFieldCtx,
-        self_ident: Option<TokenStream>,
-    ) -> darling::Result<TokenStream> {
-        let ident = fctx.ident_tok();
-        let self_var = self_ident.unwrap_or(quote![self]);
-        Ok(quote![#self_var.#ident.lazy_init(#self_var)])
+    fn field_lazy_initializer(&self, _fctx: &FXFieldCtx, mc: &mut MethodConstructor) -> darling::Result<TokenStream> {
+        let self_var = mc.self_maybe_rc();
+        Ok(quote![.lazy_init(&#self_var)])
     }
 
     #[cfg(feature = "serde")]

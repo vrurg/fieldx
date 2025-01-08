@@ -9,7 +9,7 @@ use delegate::delegate;
 use fieldx_aux::FXSerde;
 use fieldx_aux::{FXAccessorMode, FXAttributes, FXBool, FXBuilder, FXHelperTrait, FXOrig, FXPubMode};
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 use std::{
     cell::{OnceCell, RefCell},
     rc::Rc,
@@ -382,6 +382,7 @@ impl FXFieldCtx {
             )
     }
 
+    #[inline]
     pub fn helper_base_name(&self) -> darling::Result<syn::Ident> {
         if let Some(bn) = self.base_name() {
             Ok(bn.clone())
@@ -391,10 +392,12 @@ impl FXFieldCtx {
         }
     }
 
+    #[inline]
     pub fn helper_span(&self, helper_kind: FXHelperKind) -> Span {
         self.get_helper_span(helper_kind).unwrap_or_else(|| Span::call_site())
     }
 
+    #[inline]
     pub fn optional_span(&self) -> Span {
         self.optional()
             .map_or_else(
@@ -407,6 +410,7 @@ impl FXFieldCtx {
             .unwrap_or_else(|| Span::call_site())
     }
 
+    #[inline]
     pub fn lock_span(&self) -> Span {
         self.lock().and_then(|l| l.orig_span()).unwrap_or_else(|| {
             self.get_helper_span(FXHelperKind::Reader)
@@ -417,16 +421,26 @@ impl FXFieldCtx {
 
     // Origin of span information almost follows the rules of finding out the mode information:
     // arguments of fieldx(get()) -> arguments of fieldx() -> arguments of fxstruct(get()) -> arguments of fxstruct()
+    #[inline]
     pub fn accessor_mode_span(&self) -> Option<Span> {
         self.field()
             .accessor_mode_span()
             .or_else(|| self.codegen_ctx().args().accessor_mode_span())
     }
 
+    #[inline]
     pub fn inner_mut_span(&self) -> Span {
         self.inner_mut()
             .and_then(|im| im.orig_span())
             .unwrap_or_else(|| Span::call_site())
+    }
+
+    #[cfg(feature = "serde")]
+    #[inline]
+    pub fn serde_helper_span(&self) -> Span {
+        self.field()
+            .serde_helper_span()
+            .unwrap_or_else(|| self.codegen_ctx().args().serde_helper_span())
     }
 
     pub fn all_attrs(&self) -> Vec<syn::Attribute> {
@@ -474,7 +488,8 @@ impl FXFieldCtx {
 
     pub fn fallible_shortcut(&self) -> TokenStream {
         if self.is_fallible() {
-            quote![?]
+            let span = self.fallible_span();
+            quote_spanned![span=> ?]
         }
         else {
             quote![]

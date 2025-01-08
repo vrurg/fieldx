@@ -6,11 +6,18 @@ struct Foo {
 
     #[fieldx(predicate)]
     std: String,
+
+    #[fieldx(lazy, inner_mut)]
+    mutable: String,
 }
 
 impl Foo {
     fn build_lazish(&self) -> String {
         "got from the builder".to_string()
+    }
+
+    fn build_mutable(&self) -> String {
+        "mutable".to_string()
     }
 }
 
@@ -37,4 +44,8 @@ fn mutables() {
         "manual assignment into mutable accessor"
     );
     assert!(foo.has_std(), "manual assignment set predicate to true");
+
+    let foo_ro = Foo::new();
+    assert_eq!(*foo_ro.mutable(), "mutable");
+    foo_ro.mutable_mut().push_str(" is mutable");
 }

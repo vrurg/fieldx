@@ -69,7 +69,7 @@ impl FXSArgs {
         "visibility": public; private;
         "accessor mode": copy; clone;
         "concurrency mode": mode_sync as "sync", mode_async as "r#async"; mode;
-        "field mode": lazy; optional, inner_mut;
+        "field mode": lazy; optional;
         "serde/ref.counting": serde; rc;
     );
 
@@ -303,10 +303,21 @@ impl FXSArgs {
         self.fallible.as_ref().and_then(|f| f.error_type().map(|et| et.value()))
     }
 
+    #[inline]
+    pub fn rc_span(&self) -> Span {
+        self.rc
+            .as_ref()
+            .and_then(|r| r.orig_span())
+            .unwrap_or_else(|| Span::call_site())
+    }
+
     #[cfg(feature = "serde")]
     #[inline]
-    pub fn serde_helper_span(&self) -> Option<Span> {
-        self.serde.as_ref().and_then(|sw| sw.orig_span())
+    pub fn serde_helper_span(&self) -> Span {
+        self.serde
+            .as_ref()
+            .and_then(|sw| sw.orig_span())
+            .unwrap_or_else(|| Span::call_site())
     }
 }
 
