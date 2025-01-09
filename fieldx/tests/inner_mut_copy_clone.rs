@@ -15,6 +15,7 @@ struct Foo {
     m3: i32,
 }
 
+#[cfg(feature = "sync")]
 impl Foo {
     fn build_m3(&self) -> i32 {
         42
