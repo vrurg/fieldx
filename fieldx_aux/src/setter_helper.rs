@@ -1,6 +1,6 @@
 use crate::{
-    set_literals, FXAttributes, FXBool, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXString,
-    FXTriggerHelper, FromNestAttr,
+    set_literals, FXAttributes, FXBool, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXString, FXTriggerHelper,
+    FromNestAttr,
 };
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;

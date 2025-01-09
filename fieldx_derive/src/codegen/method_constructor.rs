@@ -145,11 +145,11 @@ impl MethodConstructor {
             quote! {}
         };
 
-        let self_borrow = if self.self_borrow {
+        let self_spec = if self.self_borrow {
             quote_spanned! {span=> & #self_lifetime #self_mut }
         }
         else {
-            quote! {}
+            quote_spanned! {span=> #self_mut }
         };
         let body = self.body;
         let ret_stmt = self.ret_stmt;
@@ -160,19 +160,17 @@ impl MethodConstructor {
             ret = quote_spanned! {span=> -> #ret };
         }
 
-        let self_type = if let Some(self_type) = self.self_type {
-            quote_spanned! {span=> #self_borrow #self_type }
+        let mut params = vec![if let Some(self_type) = self.self_type {
+            if self.self_borrow {
+                quote_spanned! {span=> #self_ident: #self_spec #self_type}
+            }
+            else {
+                quote_spanned! {span=> #self_spec #self_ident: #self_type}
+            }
         }
         else {
-            quote_spanned! {span => #self_borrow Self }
-        };
-
-        let mut params = if self.self_borrow {
-            vec![quote_spanned! {span=> #self_ident: #self_type}]
-        }
-        else {
-            vec![quote_spanned! {span=> #self_mut #self_ident: #self_type}]
-        };
+            quote_spanned! {span=> #self_spec #self_ident }
+        }];
 
         if self.params.len() > 0 {
             params.extend(self.params);
