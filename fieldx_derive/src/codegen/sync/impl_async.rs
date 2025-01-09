@@ -54,8 +54,8 @@ impl FXSyncImplDetails for FXAsyncImplementor {
         Ok(quote_spanned![span=> ::std::boxed::Box::new(<#input_type>::#wrapper_name)])
     }
 
-    fn async_decl(&self) -> TokenStream {
-        quote![async]
+    fn is_async(&self) -> bool {
+        true
     }
 
     fn await_call(&self) -> TokenStream {

@@ -33,8 +33,8 @@ impl FXSyncImplDetails for FXSyncImplementor {
         Ok(quote_spanned![span=> <#input_type>::#lazy_builder_name])
     }
 
-    fn async_decl(&self) -> TokenStream {
-        quote![]
+    fn is_async(&self) -> bool {
+        false
     }
 
     fn await_call(&self) -> TokenStream {

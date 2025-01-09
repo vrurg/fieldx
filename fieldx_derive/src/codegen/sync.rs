@@ -12,7 +12,7 @@ use syn::spanned::Spanned;
 use super::method_constructor::MethodConstructor;
 
 pub trait FXSyncImplDetails {
-    fn async_decl(&self) -> TokenStream;
+    fn is_async(&self) -> bool;
     fn await_call(&self) -> TokenStream;
     fn field_proxy_type(&self) -> TokenStream;
     fn fx_mapped_write_guard(&self) -> TokenStream;
@@ -434,41 +434,36 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
     fn field_writer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         Ok(if fctx.needs_writer() {
             let span = self.helper_span(fctx, FXHelperKind::Writer);
-            let writer_name = self.writer_name(fctx)?;
+            let mut mc = MethodConstructor::new(self.writer_name(fctx)?);
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok(FXHelperKind::Writer);
-            let ty = fctx.ty();
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Writer, FXInlining::Always);
-            let wrlock_guard = self.implementor(fctx).rwlock_write_guard();
-            let async_decl = self.implementor(fctx).async_decl();
+            let mut ret_ty = fctx.ty().to_token_stream();
             let await_call = self.implementor(fctx).await_call();
 
+            mc.set_vis(fctx.vis_tok(FXHelperKind::Writer));
+            mc.maybe_add_attribute(self.attributes_fn(fctx, FXHelperKind::Writer, FXInlining::Always));
+            mc.set_async(self.implementor(fctx).is_async());
+
             if fctx.is_lazy() {
+                let lazy_span = fctx.helper_span(FXHelperKind::Lazy);
+                let lifetime = quote_spanned! {lazy_span=> 'fx_writer_lifetime};
                 let fx_wrlock_guard = self.implementor(fctx).fx_mapped_write_guard();
                 let builder_wrapper_type = self.builder_wrapper_type(fctx, false)?;
-                quote_spanned! [span=>
-                    #attributes_fn
-                    #vis_tok #async_decl fn #writer_name<'fx_writer_lifetime>(&'fx_writer_lifetime self) -> #fx_wrlock_guard<'fx_writer_lifetime, #builder_wrapper_type> {
-                        self.#ident.write()#await_call
-                    }
-                ]
-            }
-            else if fctx.is_optional() {
-                quote_spanned![span=>
-                    #attributes_fn
-                    #vis_tok #async_decl fn #writer_name(&self) -> #wrlock_guard<::std::option::Option<#ty>> {
-                        self.#ident.write()#await_call
-                    }
-                ]
+
+                mc.set_self_lifetime(lifetime.clone());
+                mc.set_ret_type(quote_spanned! {span=> #fx_wrlock_guard<#lifetime, #builder_wrapper_type>});
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident.write()#await_call});
             }
             else {
-                quote_spanned![span=>
-                    #attributes_fn
-                    #vis_tok #async_decl fn #writer_name(&self) -> #wrlock_guard<#ty> {
-                        self.#ident.write()#await_call
-                    }
-                ]
+                let wrlock_guard = self.implementor(fctx).rwlock_write_guard();
+                if fctx.is_optional() {
+                    ret_ty = quote_spanned! {span=> ::std::option::Option<#ret_ty>};
+                }
+
+                mc.set_ret_type(quote_spanned! {span=> #wrlock_guard<#ret_ty>});
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident.write()#await_call});
             }
+
+            mc.into_method()
         }
         else {
             TokenStream::new()
@@ -478,56 +473,57 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
     fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         Ok(if fctx.needs_setter() {
             let span = self.helper_span(fctx, FXHelperKind::Setter);
-            let set_name = self.setter_name(fctx)?;
+            let mut mc = MethodConstructor::new(self.setter_name(fctx)?);
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok(FXHelperKind::Setter);
             let ty = fctx.ty();
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Setter, FXInlining::Always);
-            let (gen_params, val_type, into_tok) = self.into_toks(fctx, fctx.is_setter_into());
-            let needs_lock = fctx.needs_lock();
-            let async_decl = self.implementor(fctx).async_decl();
+            let (val_type, gen_params, into_tok) = self.into_toks(fctx, fctx.is_setter_into());
             let await_call = self.implementor(fctx).await_call();
+            let value_tok = quote_spanned! {span=> value #into_tok};
+            let is_lazy = fctx.is_lazy();
+            let is_optional = fctx.is_optional();
+            let needs_lock = fctx.needs_lock();
 
-            if fctx.is_lazy() {
-                quote_spanned! [span=>
-                    #attributes_fn
-                    #vis_tok #async_decl fn #set_name #gen_params(&self, value: #val_type) -> ::std::option::Option<#ty> {
-                        self.#ident.write()#await_call.store(value #into_tok)
-                    }
-                ]
+            mc.set_span(span);
+            mc.set_vis(fctx.vis_tok(FXHelperKind::Setter));
+            mc.maybe_add_attribute(self.attributes_fn(fctx, FXHelperKind::Setter, FXInlining::Always));
+            mc.maybe_add_generic(gen_params);
+            mc.add_param(quote_spanned! {span=> value: #val_type});
+
+            if is_lazy || is_optional || needs_lock {
+                mc.set_async(self.implementor(fctx).is_async());
             }
-            else if fctx.is_optional() {
-                let (lock_method, mutable, opt_async_decl, opt_await_call) = if needs_lock {
+
+            if is_lazy {
+                mc.set_ret_type(quote_spanned! {span=> ::std::option::Option<#ty>});
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident.write()#await_call.store(#value_tok)});
+            }
+            else if is_optional {
+                let opt_span = fctx.optional_span();
+                let (lock_method, opt_await_call) = if needs_lock {
                     let lock_span = fctx.lock().span();
-                    (quote_spanned![lock_span=> .write()], quote![], async_decl, await_call)
+                    (quote_spanned! {lock_span=> .write()}, await_call)
                 }
                 else {
-                    (quote![], quote![mut], quote![], quote![])
+                    mc.set_self_mut(true);
+
+                    (quote![], quote![])
                 };
-                quote_spanned![span=>
-                    #attributes_fn
-                    #vis_tok #opt_async_decl fn #set_name #gen_params(& #mutable self, value: #val_type) -> ::std::option::Option<#ty> {
-                        self.#ident #lock_method #opt_await_call .replace(value #into_tok)
-                    }
-                ]
+
+                mc.set_ret_type(quote_spanned! {opt_span=> ::std::option::Option<#ty>});
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident #lock_method #opt_await_call.replace(#value_tok)});
             }
-            else if fctx.needs_lock() {
-                quote_spanned![span=>
-                    #attributes_fn
-                    #vis_tok #async_decl fn #set_name #gen_params(&self, value: #val_type) -> #ty {
-                        let mut wlock = self.#ident.write()#await_call;
-                        ::std::mem::replace(&mut *wlock, value #into_tok)
-                    }
-                ]
+            else if needs_lock {
+                mc.set_ret_type(ty.to_token_stream());
+                mc.add_statement(quote_spanned! {span=> let mut wlock = self.#ident.write()#await_call; });
+                mc.set_ret_stmt(quote_spanned! {span=> ::std::mem::replace(&mut *wlock, #value_tok)});
             }
             else {
-                quote_spanned! [span=>
-                    #attributes_fn
-                    #vis_tok fn #set_name #gen_params(&mut self, value: #val_type) -> #ty {
-                        ::std::mem::replace(&mut self.#ident, value #into_tok)
-                    }
-                ]
+                mc.set_ret_type(ty.to_token_stream());
+                mc.set_self_mut(true);
+                mc.set_ret_stmt(quote_spanned! {span=> ::std::mem::replace(&mut self.#ident, #value_tok)});
             }
+
+            mc.into_method()
         }
         else {
             TokenStream::new()
@@ -537,33 +533,25 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
     fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         Ok(if fctx.needs_clearer() {
             let span = self.helper_span(fctx, FXHelperKind::Clearer);
-            let clear_name = self.clearer_name(fctx)?;
+            let mut mc = MethodConstructor::new(self.clearer_name(fctx)?);
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok(FXHelperKind::Clearer);
             let ty = fctx.ty();
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Clearer, FXInlining::Always);
-            let async_decl = self.implementor(fctx).async_decl();
             let await_call = self.implementor(fctx).await_call();
 
+            mc.set_vis(fctx.vis_tok(FXHelperKind::Clearer));
+            mc.maybe_add_attribute(self.attributes_fn(fctx, FXHelperKind::Clearer, FXInlining::Always));
+            mc.set_async(self.implementor(fctx).is_async());
+            mc.set_ret_type(quote_spanned! {span=> ::std::option::Option<#ty>});
+
             if fctx.is_lazy() {
-                quote_spanned![span=>
-                    #[inline]
-                    #attributes_fn
-                    #vis_tok #async_decl fn #clear_name(&self) -> ::std::option::Option<#ty> {
-                        self.#ident.clear()#await_call
-                    }
-                ]
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident.clear()#await_call});
             }
             else {
                 // If not lazy then it's optional
-                quote_spanned![span=>
-                    #[inline]
-                    #attributes_fn
-                    #vis_tok #async_decl fn #clear_name(&self) -> ::std::option::Option<#ty> {
-                       self.#ident.write()#await_call.take()
-                    }
-                ]
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident.write()#await_call.take()});
             }
+
+            mc.into_method()
         }
         else {
             TokenStream::new()
@@ -573,42 +561,28 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
     fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         Ok(if fctx.needs_predicate() {
             let span = self.helper_span(fctx, FXHelperKind::Predicate);
-            let pred_name = self.predicate_name(fctx)?;
+            let mut mc = MethodConstructor::new(self.predicate_name(fctx)?);
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok(FXHelperKind::Predicate);
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Predicate, FXInlining::Always);
+
+            mc.set_vis(fctx.vis_tok(FXHelperKind::Predicate));
+            mc.maybe_add_attribute(self.attributes_fn(fctx, FXHelperKind::Predicate, FXInlining::Always));
+            mc.set_ret_type(quote_spanned! {span=> bool});
 
             if fctx.is_lazy() {
-                quote_spanned![span=>
-                    #[inline]
-                    #attributes_fn
-                    #vis_tok fn #pred_name(&self) -> bool {
-                        self.#ident.is_set()
-                    }
-                ]
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident.is_set()});
             }
             // If not lazy then it's optional
             else if fctx.needs_lock() {
-                let async_decl = self.implementor(fctx).async_decl();
+                mc.set_async(self.implementor(fctx).is_async());
                 let await_call = self.implementor(fctx).await_call();
                 let read_method = self.read_method_name(fctx, false, &span);
-                quote_spanned![span=>
-                    #[inline]
-                    #attributes_fn
-                    #vis_tok #async_decl fn #pred_name(&self) -> bool {
-                      self.#ident.#read_method()#await_call.is_some()
-                   }
-                ]
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method()#await_call.is_some()});
             }
             else {
-                quote_spanned![span=>
-                    #[inline]
-                    #attributes_fn
-                    #vis_tok fn #pred_name(&self) -> bool {
-                      self.#ident.is_some()
-                   }
-                ]
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident.is_some()});
             }
+
+            mc.into_method()
         }
         else {
             TokenStream::new()

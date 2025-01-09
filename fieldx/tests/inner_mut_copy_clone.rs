@@ -21,7 +21,7 @@ impl Foo {
     }
 }
 
-#[fxstruct(sync, builder, set, get_mut)]
+#[fxstruct(builder, set, get_mut)]
 struct Bar {
     #[fieldx(inner_mut, get(copy))]
     m1: u32,

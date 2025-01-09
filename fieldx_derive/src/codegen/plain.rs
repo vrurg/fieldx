@@ -163,6 +163,8 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
             let span = self.helper_span(fctx, FXHelperKind::Accessor);
             let ty_tok = fctx.ty_tok().clone();
             let mode_span = fctx.accessor_mode_span().unwrap_or(span);
+            let is_copy = fctx.is_copy();
+            let is_clone = fctx.is_clone();
 
             self.maybe_ref_counted_self(fctx, &mut mc);
             mc.set_span(span);
@@ -183,7 +185,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                 let ret = self.maybe_inner_mut_map(fctx, &mc, accessor, Some(lazy_init));
                 let shortcut = fctx.fallible_shortcut();
 
-                let ret_type = if fctx.is_inner_mut() {
+                let ret_type = if fctx.is_inner_mut() && !(is_copy || is_clone) {
                     self.inner_mut_return_type(
                         fctx,
                         &mut mc,
@@ -203,7 +205,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
 
                 if fctx.is_inner_mut() {
                     let inner_mut_span = fctx.inner_mut_span();
-                    let (deref, ty_tok) = if fctx.is_clone() || fctx.is_copy() {
+                    let (deref, ty_tok) = if is_clone || is_copy {
                         // With copy/clone we don't return Ref
                         (quote![*], quote_spanned![inner_mut_span=> #ty_tok])
                     }
@@ -308,94 +310,99 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         let field_default = self.field_default_wrap(fctx)?;
 
         Ok(if !fctx.forced_builder() && !fctx.needs_builder() {
-            quote![#field_ident: #field_default]
+            quote_spanned![span=> #field_ident: #field_default]
         }
-        else if fctx.is_lazy() {
-            quote_spanned![span=>
-                #field_ident: if self.#field_ident.is_some() {
-                    ::fieldx::OnceCell::from(self.#field_ident.take().unwrap())
+        else {
+            let as_lazy = fctx.is_lazy();
+            let as_optional = fctx.is_optional() && !fctx.is_builder_required();
+            if as_lazy || as_optional {
+                let mut field_value = if as_lazy {
+                    quote_spanned! {span=> ::fieldx::OnceCell::from(self.#field_ident.take().unwrap()) }
                 }
                 else {
-                    #field_default
-                }
-            ]
-        }
-        else if fctx.is_optional() && !fctx.is_builder_required() {
-            // When there is a value from user then we use this code.
-            let mut some_value = quote![self.#field_ident.take()];
-            if fctx.is_inner_mut() {
-                some_value = quote![::fieldx::RefCell::from(#some_value)];
-            }
+                    // as_optional
+                    quote_spanned! {span=> self.#field_ident.take()}
+                };
 
-            quote_spanned![span=>
-                #field_ident: if self.#field_ident.is_some() {
-                        #some_value
+                if fctx.is_inner_mut() {
+                    field_value = quote_spanned! {span=> ::fieldx::RefCell::new(#field_value)};
+                }
+
+                quote_spanned! {span=>
+                    #field_ident: if self.#field_ident.is_some() {
+                        #field_value
                     }
                     else {
                         #field_default
                     }
-            ]
-        }
-        else {
-            self.simple_field_build_setter(fctx, field_ident, &span)
+                }
+            }
+            else {
+                self.simple_field_build_setter(fctx, field_ident, &span)
+            }
         })
     }
 
     fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         Ok(if fctx.needs_setter() {
-            let setter_name = self.setter_name(fctx)?;
             let span = self.helper_span(fctx, FXHelperKind::Setter);
+            let mut mc = MethodConstructor::new(self.setter_name(fctx)?);
             let ident = fctx.ident_tok();
-            let vis_tok = fctx.vis_tok(FXHelperKind::Setter);
-            let mut ty_tok = fctx.ty_tok().clone();
-            let attributes_fn = self.attributes_fn(fctx, FXHelperKind::Setter, FXInlining::Always);
-            let (gen_params, val_type, into_tok) = self.into_toks(fctx, fctx.is_setter_into());
+            let ty_tok = fctx.ty_tok().clone();
+            let (val_type, gen_params, into_tok) = self.into_toks(fctx, fctx.is_setter_into());
+            let mut value_tok = quote_spanned! {span=> value #into_tok};
+            let is_optional = fctx.is_optional();
+            let is_inner_mut = fctx.is_inner_mut();
+
+            mc.set_span(span);
+            mc.set_vis(fctx.vis_tok(FXHelperKind::Setter));
+            mc.maybe_add_attribute(self.attributes_fn(fctx, FXHelperKind::Setter, FXInlining::Always));
+            mc.maybe_add_generic(gen_params);
+            mc.add_param(quote_spanned! {span=> value: #val_type });
 
             if fctx.is_lazy() {
-                quote_spanned![span=>
-                    #attributes_fn
-                    #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> ::std::option::Option<#ty_tok> {
-                        let old = self.#ident.take();
-                        let _ = self.#ident.set(value #into_tok);
-                        old
-                    }
-                ]
-            }
-            else {
-                ty_tok = self.maybe_optional(fctx, ty_tok);
-
-                if fctx.is_inner_mut() {
-                    let value_tok = if fctx.is_optional() {
-                        quote![Some(value #into_tok)]
-                    }
-                    else {
-                        quote![value #into_tok]
-                    };
-
-                    quote_spanned! [span=>
-                        #attributes_fn
-                        #vis_tok fn #setter_name #gen_params(&self, value: #val_type) -> #ty_tok {
-                            self.#ident.replace(#value_tok) }
-
-                    ]
-                }
-                else if fctx.is_optional() {
-                    quote_spanned! [span=>
-                        #attributes_fn
-                        #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> #ty_tok {
-                            self.#ident.replace(value #into_tok)
-                        }
-                    ]
+                let accessor = if is_inner_mut {
+                    let inner_mut_span = fctx.inner_mut_span();
+                    let accessor_name = format_ident!("{}_ref", fctx.ident_str(), span = inner_mut_span);
+                    mc.add_statement(
+                        quote_spanned! {inner_mut_span=> let mut #accessor_name = self.#ident.borrow_mut();},
+                    );
+                    accessor_name.to_token_stream()
                 }
                 else {
-                    quote_spanned![span=>
-                        #attributes_fn
-                        #vis_tok fn #setter_name #gen_params(&mut self, value: #val_type) -> #ty_tok {
-                            ::std::mem::replace(&mut self.#ident, value #into_tok)
+                    quote_spanned! {span=> self.#ident}
+                };
+
+                mc.set_self_mut(true);
+                mc.set_ret_type(quote_spanned! {span=> ::std::option::Option<#ty_tok>});
+                mc.add_statement(quote_spanned! {span=>
+                    let old = #accessor.take();
+                    let _ = #accessor.set(#value_tok);
+                });
+                mc.set_ret_stmt(quote_spanned! {span=> old });
+            }
+            else {
+                mc.set_ret_type(self.maybe_optional(fctx, ty_tok));
+
+                if is_inner_mut || is_optional {
+                    if is_inner_mut {
+                        if is_optional {
+                            value_tok = quote_spanned![span=> Some(#value_tok) ];
                         }
-                    ]
+                    }
+                    else {
+                        mc.set_self_mut(true);
+                    }
+
+                    mc.set_ret_stmt(quote_spanned! {span=> self.#ident.replace(#value_tok) });
+                }
+                else {
+                    mc.set_self_mut(true);
+                    mc.set_ret_stmt(quote_spanned! {span=> ::std::mem::replace(&mut self.#ident, #value_tok) });
                 }
             }
+
+            mc.into_method()
         }
         else {
             TokenStream::new()

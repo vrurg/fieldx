@@ -210,14 +210,15 @@ impl<'a> FXRewriter<'a> {
 
         if ctx.needs_builder_struct() {
             let builder_ident = ctx.builder_ident();
+            let span = ctx.helper_span(FXHelperKind::Builder);
             let generic_params = ctx.struct_generic_params();
             let vis = self.ctx().input().vis();
-            ctx.add_method_decl(quote![
+            ctx.add_method_decl(quote_spanned! {span=>
                 #[inline]
                 #vis fn builder() -> #builder_ident #generic_params {
                     #builder_ident::new()
                 }
-            ])
+            })
         }
 
         #[cfg(feature = "serde")]
@@ -317,6 +318,7 @@ impl<'a> FXRewriter<'a> {
 
     fn builder_impl(&'a self) -> TokenStream {
         let ctx = self.ctx();
+        let span = ctx.helper_span(FXHelperKind::Builder);
         let vis = ctx.builder_struct_visibility();
         let builder_ident = ctx.builder_ident();
         let builders = ctx.builders_combined();
@@ -331,12 +333,12 @@ impl<'a> FXRewriter<'a> {
         let mut builder_checkers = vec![];
         let mut fields_new = vec![];
         if let Some(myself_field) = ctx.myself_field() {
-            fields_new.push(quote! { #myself_field: ::std::default::Default::default() });
+            fields_new.push(quote_spanned! {span=> #myself_field: ::std::default::Default::default() });
         }
         for fctx in self.builder_field_ctxs() {
             if let Ok(fctx) = fctx {
                 let ident = fctx.ident();
-                fields_new.push(quote! { #ident: None });
+                fields_new.push(quote_spanned! {span=> #ident: None });
 
                 let fgen = match self.field_codegen(&fctx) {
                     Ok(fgen) => fgen,
@@ -363,7 +365,7 @@ impl<'a> FXRewriter<'a> {
         }
 
         let default_initializer = if use_default && ctx.needs_default() {
-            quote![..::std::default::Default::default()]
+            quote_spanned! {span=> ..::std::default::Default::default()}
         }
         else {
             quote![]
@@ -372,7 +374,7 @@ impl<'a> FXRewriter<'a> {
         let cgen = self.struct_codegen();
         let builder_return_type = cgen.maybe_ref_counted(&cgen.builder_return_type());
 
-        let fn_new = quote! {
+        let fn_new = quote_spanned! {span=>
             #vis fn new() -> Self {
                 Self {
                     #( #fields_new ),*
@@ -382,21 +384,21 @@ impl<'a> FXRewriter<'a> {
 
         let construction = cgen.maybe_ref_counted_create(
             &input_ident.to_token_stream(),
-            &quote![
+            &quote_spanned! {span=>
                     #(#field_setters,)*
                     #default_initializer
-            ],
+            },
             post_build_ident,
         );
 
         let builder_error_type = if let Some(error_type) = ctx.builder_error_type() {
-            quote![#error_type]
+            quote_spanned![span=> #error_type]
         }
         else {
-            quote! {::fieldx::error::FieldXError}
+            quote_spanned! {span=> ::fieldx::error::FieldXError}
         };
 
-        quote![
+        quote_spanned! {span=>
             #attributes
             impl #impl_generics #builder_ident #generic_params
             #where_clause
@@ -408,7 +410,7 @@ impl<'a> FXRewriter<'a> {
                     Ok(#construction)
                 }
             }
-        ]
+        }
     }
 
     fn builder_struct(&'a self) -> TokenStream {
@@ -430,13 +432,13 @@ impl<'a> FXRewriter<'a> {
                 let (_, weak_type) = cgen.ref_count_types();
                 let mf = ctx.myself_field();
                 let input_ident = ctx.input_ident();
-                quote![#mf: #weak_type<#input_ident #generics>,]
+                quote_spanned![span=> #mf: #weak_type<#input_ident #generics>,]
             }
             else {
                 quote![]
             };
 
-            quote_spanned![span=>
+            quote_spanned! {span=>
                 // #derive_attr
                 #attributes
                 #vis struct #builder_ident #generics
@@ -447,7 +449,7 @@ impl<'a> FXRewriter<'a> {
                 }
 
                 #builder_impl
-            ]
+            }
         }
         else {
             quote![]

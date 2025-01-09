@@ -358,27 +358,27 @@ pub trait FXCodeGenContextual {
     }
 
     fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        if fctx.forced_builder() || fctx.needs_builder() {
-            let ident = fctx.ident_tok();
-            let mut builder_name = self.helper_name(fctx, FXHelperKind::Builder)?;
-            let vis = fctx.builder_method_visibility();
-            // .builder_name(fctx)?;
-            // .unwrap_or(format_ident!("{}", fctx.helper_base_name().expect("Field name")).to_token_stream());
+        Ok(if fctx.forced_builder() || fctx.needs_builder() {
+            let mut mc = MethodConstructor::new(self.helper_name(fctx, FXHelperKind::Builder)?);
             let span = fctx.helper_span(FXHelperKind::Builder);
-            let (gen_params, val_type, into_tok) = self.into_toks(fctx, fctx.is_builder_into());
-            let attributes = self.attributes_fn(fctx, FXHelperKind::Builder, FXInlining::Always);
-            builder_name.set_span(span);
-            Ok(quote_spanned![span=>
-                #attributes
-                #vis fn #builder_name #gen_params(mut self, value: #val_type) -> Self {
-                    self.#ident = ::std::option::Option::Some(value #into_tok);
-                    self
-                }
-            ])
+            let ident = fctx.ident_tok();
+            let (val_type, gen_params, into_tok) = self.into_toks(fctx, fctx.is_builder_into());
+
+            mc.set_vis(fctx.builder_method_visibility());
+            mc.maybe_add_attribute(self.attributes_fn(fctx, FXHelperKind::Builder, FXInlining::Always));
+            mc.maybe_add_generic(gen_params);
+            mc.set_self_mut(true);
+            mc.add_param(quote_spanned! {span=> value: #val_type});
+            mc.set_self_borrow(false);
+            mc.set_ret_type(quote_spanned! {span=> Self});
+            mc.add_statement(quote_spanned! {span=> self.#ident = ::std::option::Option::Some(value #into_tok);});
+            mc.set_ret_stmt(quote_spanned! {span=> self});
+
+            mc.into_method()
         }
         else {
-            Ok(quote![])
-        }
+            quote![]
+        })
     }
 
     fn field_builder_field(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
@@ -511,17 +511,17 @@ pub trait FXCodeGenContextual {
     }
 
     // TokenStreams used to produce methods with Into support.
-    fn into_toks(&self, fctx: &FXFieldCtx, use_into: bool) -> (TokenStream, TokenStream, TokenStream) {
+    fn into_toks(&self, fctx: &FXFieldCtx, use_into: bool) -> (TokenStream, Option<TokenStream>, Option<TokenStream>) {
         let ty = fctx.ty();
         if use_into {
             (
-                quote![<FXVALINTO: ::std::convert::Into<#ty>>],
                 quote![FXVALINTO],
-                quote![.into()],
+                Some(quote![FXVALINTO: ::std::convert::Into<#ty>]),
+                Some(quote![.into()]),
             )
         }
         else {
-            (quote![], quote![#ty], quote![])
+            (quote![#ty], None, None)
         }
     }
 

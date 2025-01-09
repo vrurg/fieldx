@@ -54,11 +54,6 @@ impl MethodConstructor {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn add_generic(&mut self, generic: TokenStream) {
-        self.generics.push(generic);
-    }
-
-    #[allow(dead_code)]
     pub(crate) fn add_where_bound(&mut self, bound: TokenStream) {
         self.where_bounds.push(bound);
     }
@@ -79,6 +74,13 @@ impl MethodConstructor {
     pub(crate) fn maybe_add_attribute(&mut self, attribute: Option<TokenStream>) {
         if let Some(attribute) = attribute {
             self.add_attribute(attribute);
+        }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn maybe_add_generic(&mut self, generic: Option<TokenStream>) {
+        if let Some(generic) = generic {
+            self.generics.push(generic);
         }
     }
 
