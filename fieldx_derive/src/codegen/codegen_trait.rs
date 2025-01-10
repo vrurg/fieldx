@@ -192,6 +192,7 @@ pub trait FXCodeGenContextual {
         helper_kind: FXHelperKind,
         inlining: FXInlining,
     ) -> Option<TokenStream> {
+        let span = fctx.helper_span(helper_kind);
         let attrs = fctx
             .get_helper(helper_kind)
             .and_then(|h| h.attributes_fn())
@@ -205,8 +206,8 @@ pub trait FXCodeGenContextual {
 
         match inlining {
             FXInlining::Default => attrs.map(|a| quote![#a]),
-            FXInlining::Inline => Some(quote![#[inline] #attrs]),
-            FXInlining::Always => Some(quote![#[inline(always)] #attrs]),
+            FXInlining::Inline => Some(quote_spanned![span=> #[inline] #attrs]),
+            FXInlining::Always => Some(quote_spanned![span=> #[inline(always)] #attrs]),
         }
     }
 
@@ -364,6 +365,7 @@ pub trait FXCodeGenContextual {
             let ident = fctx.ident_tok();
             let (val_type, gen_params, into_tok) = self.into_toks(fctx, fctx.is_builder_into());
 
+            mc.set_span(span);
             mc.set_vis(fctx.builder_method_visibility());
             mc.maybe_add_attribute(self.attributes_fn(fctx, FXHelperKind::Builder, FXInlining::Always));
             mc.maybe_add_generic(gen_params);

@@ -2,7 +2,7 @@ error: method `foo` is never used
  --> tests/uncompilable/unused_builder.rs
   |
   | #[fxstruct(builder)]
-  | ------------------ method in this implementation
+  |            ------- method in this implementation
 ...
   |         builder(attributes_fn(deny(dead_code)))
   |         ^^^^^^^

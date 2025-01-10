@@ -446,7 +446,6 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
 
             if fctx.is_lazy() {
                 return Ok(quote_spanned! [span=>
-                    #[inline]
                     #attributes_fn
                     #vis_tok fn #predicate_name(&self) -> bool {
                         self.#ident.get().is_some()
