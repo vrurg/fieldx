@@ -10,7 +10,7 @@ error[E0277]: the trait bound `Foo: Deserialize<'_>` is not satisfied
  --> tests/uncompilable/deserialize_off.rs
   |
   |     let _json = serde_json::from_str::<Foo>(r#"{"v": "whatever"}"#);
-  |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Deserialize<'_>` is not implemented for `Foo`
+  |                                        ^^^ the trait `Deserialize<'_>` is not implemented for `Foo`
   |
   = note: for local types consider adding `#[derive(serde::Deserialize)]` to your `Foo` type
   = note: for types from other crates check whether the crate offers a `serde` feature flag
