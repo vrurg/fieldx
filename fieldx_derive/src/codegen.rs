@@ -115,16 +115,17 @@ impl<'a> FXRewriter<'a> {
     }
 
     pub fn field_codegen(&'a self, fctx: &FXFieldCtx) -> darling::Result<&'a FXCodeGenerator<'a>> {
-        Ok(if fctx.is_sync() {
-            self.sync_gen()
+        Ok(if fctx.is_plain() {
+            self.plain_gen()
         }
         else {
-            self.plain_gen()
+            // Sync or async go here
+            self.sync_gen()
         })
     }
 
     pub fn struct_codegen(&'a self) -> &'a FXCodeGenerator<'a> {
-        if self.ctx().is_rather_sync() {
+        if self.ctx().is_syncish() {
             self.sync_gen()
         }
         else {
@@ -149,7 +150,7 @@ impl<'a> FXRewriter<'a> {
 
             // Safe because of is_ref_counted
             let myself_field = ctx.myself_field().unwrap();
-            let (_, weak_type) = if ctx.is_rather_sync() {
+            let (_, weak_type) = if ctx.is_syncish() {
                 self.sync_gen().ref_count_types()
             }
             else {

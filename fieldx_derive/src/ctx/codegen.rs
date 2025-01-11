@@ -50,7 +50,7 @@ pub struct FXCodeGenCtx {
     builder_field_ident: RefCell<Vec<syn::Ident>>,
     copyable_types:      RefCell<Vec<syn::Type>>,
 
-    is_rather_sync: RefCell<OnceCell<bool>>,
+    is_syncish: RefCell<OnceCell<bool>>,
 }
 
 impl FXCodeGenCtx {
@@ -406,7 +406,7 @@ impl FXCodeGenCtx {
                 return true;
             }
 
-            let is_sync = self.is_rather_sync();
+            let is_sync = self.is_syncish();
 
             if self
                 .input()
@@ -438,12 +438,16 @@ impl FXCodeGenCtx {
 
     // Try to infer what mode applies to the struct. If it's explicitly declared as sync or async then there is no
     // doubt. Otherwise see if any field is asking for sync mode.
-    pub fn is_rather_sync(&self) -> bool {
-        *self.is_rather_sync.borrow_mut().get_or_init(|| {
+    pub fn is_syncish(&self) -> bool {
+        *self.is_syncish.borrow_mut().get_or_init(|| {
             self.args.is_sync().map_or_else(
                 || {
                     for field in self.all_fields() {
-                        if let Some(is_sync) = field.is_sync() {
+                        if let Some(is_sync) = field
+                            .is_sync()
+                            .or_else(|| field.is_async())
+                            .or_else(|| field.is_syncish())
+                        {
                             return is_sync;
                         }
                     }

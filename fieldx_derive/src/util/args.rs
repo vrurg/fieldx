@@ -111,11 +111,7 @@ impl FXSArgs {
         self.mode_sync
             .as_ref()
             .map(|th| th.is_true())
-            .or_else(|| self.mode.as_ref().map(|m| m.is_sync() || m.is_async()))
-            .or_else(|| self.is_async())
-            .or_else(|| self.lock().as_ref().map(|th| th.is_true()))
-            .or_else(|| self.reader().as_ref().map(|th| th.is_true()))
-            .or_else(|| self.writer().as_ref().map(|th| th.is_true()))
+            .or_else(|| self.mode.as_ref().map(|m| m.is_sync()))
     }
 
     #[inline]
@@ -124,6 +120,11 @@ impl FXSArgs {
             .as_ref()
             .map(|th| th.is_true())
             .or_else(|| self.mode.as_ref().map(|m| m.is_async()))
+    }
+
+    #[inline]
+    pub fn is_plain(&self) -> Option<bool> {
+        self.mode.as_ref().map(|m| m.is_plain())
     }
 
     #[inline]

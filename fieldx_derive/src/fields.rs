@@ -203,6 +203,14 @@ impl FXFieldReceiver {
     }
 
     #[inline]
+    pub fn is_sync(&self) -> Option<bool> {
+        self.mode_sync
+            .as_ref()
+            .map(|th| th.is_true())
+            .or_else(|| self.mode.as_ref().map(|m| m.is_sync()))
+    }
+
+    #[inline]
     pub fn is_async(&self) -> Option<bool> {
         self.mode_async
             .as_ref()
@@ -210,30 +218,19 @@ impl FXFieldReceiver {
             .or_else(|| self.mode.as_ref().map(|m| m.is_async()))
     }
 
+    #[inline]
     pub fn is_plain(&self) -> Option<bool> {
         self.mode.as_ref().and_then(|m| Some(m.is_plain()))
     }
 
-    pub fn is_sync(&self) -> Option<bool> {
-        self.mode_sync
+    /// Only ever return `Some(true)` if either `lock`, `writer`, or `reader` are set.
+    #[inline]
+    pub fn is_syncish(&self) -> Option<bool> {
+        self.lock()
             .as_ref()
-            .map(|th| th.is_true())
-            .or_else(|| self.mode.as_ref().map(|m| m.is_sync()))
-            .or_else(|| self.is_async())
-            .or_else(|| self.lock().as_ref().map(|th| th.is_true()))
-            .or_else(|| self.is_plain().map(|b| !b))
-            .or_else(|| {
-                // Setting reader or writer to off doesn't mean the field becomes plain. It's better be decided at the
-                // struct level then.
-                if self.reader().as_ref().map_or(false, |th| th.is_true())
-                    || self.writer().as_ref().map_or(false, |th| th.is_true())
-                {
-                    Some(true)
-                }
-                else {
-                    None
-                }
-            })
+            .and_then(|l| l.true_or_none())
+            .or_else(|| self.reader().as_ref().and_then(|r| r.true_or_none()))
+            .or_else(|| self.writer().as_ref().and_then(|w| w.true_or_none()))
     }
 
     #[inline]

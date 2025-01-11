@@ -182,17 +182,63 @@ impl FXFieldCtx {
 
     #[inline]
     pub fn is_sync(&self) -> bool {
-        self.field
+        let field = &self.field;
+        field
             .is_sync()
-            .unwrap_or_else(|| self.codegen_ctx().is_rather_sync())
+            .or_else(|| {
+                // If either async or plain then not sync.
+                if field.is_async().unwrap_or(false) || field.is_plain().unwrap_or(false) {
+                    Some(false)
+                }
+                else {
+                    None
+                }
+            })
+            .or_else(|| self.codegen_ctx().args().is_sync())
+            .unwrap_or(false)
     }
 
     #[inline]
     pub fn is_async(&self) -> bool {
-        self.field
+        let field = &self.field;
+        field
             .is_async()
+            .or_else(|| {
+                // If either sync or plain then not async.
+                if field.is_sync().unwrap_or(false) || field.is_plain().unwrap_or(false) {
+                    Some(false)
+                }
+                else {
+                    None
+                }
+            })
             .or_else(|| self.codegen_ctx().args().is_async())
             .unwrap_or(false)
+    }
+
+    #[inline]
+    pub fn is_plain(&self) -> bool {
+        let field = &self.field;
+        field
+            .is_plain()
+            .or_else(|| {
+                // If either sync or async then not plain.
+                if field.is_sync().unwrap_or(false) || field.is_async().unwrap_or(false) {
+                    Some(false)
+                }
+                else {
+                    None
+                }
+            })
+            .or_else(|| {
+                // If either explicit plain on args or neither explicit sync nor explicit async.
+                let args = self.codegen_ctx().args();
+                args.is_plain()
+                    .or_else(|| args.is_sync().map(|s| !s))
+                    .or_else(|| args.is_async().map(|a| !a))
+            })
+            // If no other explicits then default to plain
+            .unwrap_or(true)
     }
 
     #[inline]

@@ -4,6 +4,14 @@ use crate::{FXAttributes, FXPubMode};
 pub trait FXTriggerHelper {
     /// Trigger value
     fn is_true(&self) -> bool;
+    fn true_or_none(&self) -> Option<bool> {
+        if self.is_true() {
+            Some(true)
+        }
+        else {
+            None
+        }
+    }
 }
 
 /// Where it is not possible to use the standard `From`/`Into` traits due to conflicting implementations this crate is
@@ -23,6 +31,17 @@ pub trait FXBoolHelper {
     fn is_true_opt(&self) -> Option<bool>;
     fn not_true(&self) -> bool {
         !self.is_true()
+    }
+    /// Only returns Some(true) or None, but never Some(false).
+    fn true_or_none(&self) -> Option<bool> {
+        self.is_true_opt().and_then(|v| {
+            if v {
+                Some(true)
+            }
+            else {
+                None
+            }
+        })
     }
 }
 
