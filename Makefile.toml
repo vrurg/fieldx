@@ -144,8 +144,11 @@ end
 [tasks.version-patch-bump]
     clear = true
     description = "Bump release version"
+    cwd = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}"
     script = '''
-!include_files ./makefile.ds
+!include_files makefile.ds
+
+exec pwd
 reply = ask_user "Do you want to bump release version patch?"
 reply = lowercase ${reply}
 if eq ${reply} "y"
