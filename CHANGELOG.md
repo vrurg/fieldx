@@ -4,6 +4,24 @@
 
 ### Features
 
+- Allow inner_mut to be used in sync mode
+- Allow wider use of inner_mut
+
+### Bug Fixes
+
+- Remove erroneous `documentation` field from `Cargo.toml`
+- Builder methods visibility must not always be public
+- Regression, parking_lot types must be re-exported
+- Incorrect codegen for const generic params with default
+- Generics for serde shadow struct
+- Incorrect generation of serde shadow Default implementation
+- Incorrect generic handling in Self fixup
+- Sanitize the logic for choosing field concurrency mode
+
+## [fieldx-v0.1.8] - 2024-12-05
+
+### Features
+
 - Implement `async` support
 - Allow use of `async` keyword
 - Implement support for fallible lazy builders
@@ -14,6 +32,7 @@
 
 - Implement `Clone` for `FXProxyAsync`
 - Error diagnostics for serde-related code
+- Fieldx_derive must depend on fieldx by path in dev-deps
 
 ### Refactor
 
