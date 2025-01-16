@@ -6,7 +6,7 @@
     __PREV_RELEASE_TESTING__             = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.release-tested"
 
 [config]
-    default_to_workspace = true
+    default_to_workspace = false
 
 [tasks.init]
     args    = ["-f", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/Cargo.lock"]
@@ -143,8 +143,8 @@ end
 
 [tasks.version-patch-bump]
     clear = true
-    description = "Bump release version"
     cwd = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}"
+    description = "Bump release version"
     script = '''
 !include_files makefile.ds
 
