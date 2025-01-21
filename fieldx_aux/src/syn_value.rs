@@ -49,10 +49,6 @@ where
             }),
         })
     }
-
-    fn from_list(_items: &[NestedMeta]) -> darling::Result<Self> {
-        Err(darling::Error::unsupported_format("NYI"))
-    }
 }
 
 impl<T, const AS_KEYWORD: bool> From<T> for FXSynValueArg<T, AS_KEYWORD>

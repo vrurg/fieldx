@@ -3,12 +3,11 @@ use super::{
     FXValueRepr,
 };
 use crate::{helper::*, FXInputReceiver};
-use darling::ast::NestedMeta;
 use enum_dispatch::enum_dispatch;
 use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::rc::Rc;
-use syn::{spanned::Spanned, Ident, Lit};
+use syn::{spanned::Spanned, Ident};
 
 #[enum_dispatch]
 pub enum FXCodeGenerator<'a> {
@@ -336,19 +335,9 @@ pub trait FXCodeGenContextual {
         let field = fctx.field();
 
         if let Some(def_meta) = fctx.default_value() {
-            let mut is_str = false;
             let span = def_meta.span();
 
-            if let NestedMeta::Lit(Lit::Str(_lit_val)) = def_meta {
-                is_str = true;
-            }
-
-            FXValueRepr::Versatile(if is_str {
-                quote_spanned! [span=> ::std::string::String::from(#def_meta) ]
-            }
-            else {
-                quote_spanned! [span=> #def_meta ]
-            })
+            FXValueRepr::Versatile(quote_spanned! [span=> #def_meta ])
         }
         else if fctx.is_lazy() || fctx.is_optional() {
             FXValueRepr::None

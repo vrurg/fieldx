@@ -11,7 +11,7 @@ struct Plain {
     pub pi: f32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(clearer, predicate, set, default("bazzification"))]
+    #[fieldx(clearer, predicate, set, default(String::from("bazzification")))]
     baz: String,
 
     #[fieldx(lazy, clearer, rename("piquant"), default(off, "this won't be used"))]

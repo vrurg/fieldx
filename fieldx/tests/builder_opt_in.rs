@@ -6,7 +6,7 @@ struct FooPlain {
     #[fieldx(builder)]
     buildable: String,
 
-    #[fieldx(default("explicit"))]
+    #[fieldx(default("explicit".into()))]
     unbuildable: String,
 }
 
@@ -17,7 +17,7 @@ struct FooSync {
     #[fieldx(builder)]
     buildable: String,
 
-    #[fieldx(default("explicit"))]
+    #[fieldx(default("explicit".into()))]
     unbuildable: String,
 }
 

@@ -17,7 +17,15 @@ where
     // pub pi: f32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(writer, reader, get(off), clearer, predicate, set, default("bazzification"))]
+    #[fieldx(
+        writer,
+        reader,
+        get(off),
+        clearer,
+        predicate,
+        set,
+        default(String::from("bazzification"))
+    )]
     baz: String,
 
     #[fieldx(lazy, clearer)]

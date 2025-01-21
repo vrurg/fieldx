@@ -3,7 +3,6 @@ use crate::{
     fields::FXField,
     helper::{FXHelperContainer, FXHelperKind},
 };
-use darling::ast::NestedMeta;
 use delegate::delegate;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXSerde;
@@ -338,9 +337,12 @@ impl FXFieldCtx {
             .unwrap_or(FXAccessorMode::None)
     }
 
-    pub fn default_value(&self) -> Option<&NestedMeta> {
+    pub fn default_value(&self) -> Option<TokenStream> {
         if self.field.has_default_value() {
-            self.field.default_value().as_ref().and_then(|dv| dv.value().as_ref())
+            self.field
+                .default_value()
+                .as_ref()
+                .and_then(|d| d.value().map(|dv| dv.to_token_stream()))
         }
         else {
             None

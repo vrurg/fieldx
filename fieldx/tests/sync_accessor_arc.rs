@@ -30,7 +30,7 @@ struct Foo {
     lazy_bar_clone: BarClone,
 
     // Make sure it is possible to lock-protect a field
-    #[fieldx(reader, writer("write_lb"), default("protected"))]
+    #[fieldx(reader, writer("write_lb"), default(String::from("protected")))]
     locked_bar: String,
 
     #[fieldx(lazy, get_mut)]

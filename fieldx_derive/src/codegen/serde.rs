@@ -1,9 +1,8 @@
 use super::{method_constructor::MethodConstructor, FXCodeGenContextual, FXFieldCtx};
 use crate::helper::FXOrig;
-use darling::ast::NestedMeta;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
-use syn::{spanned::Spanned, Meta};
+use syn::spanned::Spanned;
 
 pub trait FXCGenSerde: FXCodeGenContextual {
     // Field is an Option in the shadow struct if it is optional or lazy and has no default value
@@ -73,6 +72,7 @@ pub trait FXCGenSerde: FXCodeGenContextual {
                     if default_value.has_value() {
                         let serde_default_str: String = if default_value.is_str() {
                             default_value.try_into()?
+                            // (&**default_value).try_into()?
                         }
                         else {
                             let struct_ident = ctx.input_ident();
@@ -494,6 +494,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                     .unwrap_or_else(|| self.ctx().args().serde_helper_span());
 
                 let serde_default: TokenStream = if default_value.is_str() {
+                    // let default_str: String = (&**default_value).try_into()?;
                     let default_str: String = default_value.try_into()?;
                     let expr: syn::ExprPath = syn::parse_str(&default_str).map_err(|err| {
                         darling::Error::custom(format!("Invalid default string: {}", err)).with_span(&span)
@@ -501,18 +502,18 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                     quote_spanned![default_span=> #expr()]
                 }
                 else {
-                    let default_code = default_value.value().as_ref().unwrap();
-                    if let NestedMeta::Meta(Meta::NameValue(_)) = default_code {
-                        let err = darling::Error::custom(format!("Unexpected kind of argument")).with_span(&span);
-                        #[cfg(feature = "diagnostics")]
-                        let err = err.note(format!(
-                            "{}\n{}\n{}",
-                            "Consider using a string, as with serde `default`: \"Type::function\"`",
-                            "                                       or a path: `Type::static_or_constant`",
-                            "                       or a call-like expression: `Type::function()`"
-                        ));
-                        return Err(err);
-                    }
+                    let default_code = default_value.value().cloned();
+                    // if let NestedMeta::Meta(Meta::NameValue(_)) = default_code {
+                    //     let err = darling::Error::custom(format!("Unexpected kind of argument")).with_span(&span);
+                    //     #[cfg(feature = "diagnostics")]
+                    //     let err = err.note(format!(
+                    //         "{}\n{}\n{}",
+                    //         "Consider using a string, as with serde `default`: \"Type::function\"`",
+                    //         "                                       or a path: `Type::static_or_constant`",
+                    //         "                       or a call-like expression: `Type::function()`"
+                    //     ));
+                    //     return Err(err);
+                    // }
                     quote_spanned![default_span=> #default_code]
                 };
 

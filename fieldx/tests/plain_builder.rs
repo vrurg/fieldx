@@ -17,7 +17,7 @@ struct Plain {
         clearer,
         predicate,
         set,
-        default("bazzification"),
+        default("bazzification".to_string()),
         builder(attributes_fn(allow(dead_code)))
     )]
     baz: String,

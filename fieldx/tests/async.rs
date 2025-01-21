@@ -21,10 +21,10 @@ pub struct Foo {
     bar: i32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(r#async, reader, writer, get(off), clearer, predicate, set, default("bazzification"))]
+    #[fieldx(r#async, reader, writer, get(off), clearer, predicate, set, default("bazzification".to_string()))]
     baz: String,
 
-    #[fieldx(lazy, clearer, default("fufubarik!"))]
+    #[fieldx(lazy, clearer, default("fufubarik!".to_string()))]
     fubar: String,
 
     bar_builds: Mutex<i32>,

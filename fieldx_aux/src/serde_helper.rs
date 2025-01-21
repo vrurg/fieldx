@@ -3,7 +3,6 @@ use crate::{
     FXTriggerHelper, FromNestAttr,
 };
 use darling::{
-    ast::NestedMeta,
     util::{Flag, PathList},
     FromMeta,
 };
@@ -25,7 +24,7 @@ pub struct FXSerdeHelper {
     forward_attrs: Option<PathList>,
     #[darling(rename = "default")]
     #[getset(skip)]
-    default_value: Option<FXDefault<true>>,
+    default_value: Option<FXDefault>,
     // Name of the new type to be used for deserialization. By default it's __<ident>Shadow
     #[getset(skip)]
     shadow_name:   Option<FXString>,
@@ -100,16 +99,16 @@ impl FXSerdeHelper {
         self.default_value.as_ref().map_or(false, |d| d.is_true())
     }
 
-    pub fn default_value(&self) -> Option<&NestedMeta> {
+    pub fn default_value(&self) -> Option<&syn::Expr> {
         if self.has_default() {
-            self.default_value.as_ref().and_then(|d| d.value().as_ref())
+            self.default_value.as_ref().and_then(|d| d.value())
         }
         else {
             None
         }
     }
 
-    pub fn default_value_raw(&self) -> Option<&FXDefault<true>> {
+    pub fn default_value_raw(&self) -> Option<&FXDefault> {
         self.default_value.as_ref()
     }
 
