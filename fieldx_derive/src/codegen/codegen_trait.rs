@@ -291,7 +291,12 @@ pub trait FXCodeGenContextual {
         let attributes = fctx.all_attrs();
         let vis = fctx.vis();
 
-        let ty_tok = self.type_tokens(&fctx)?;
+        let ty_tok = if fctx.is_skipped() {
+            fctx.ty_tok()
+        }
+        else {
+            self.type_tokens(&fctx)?
+        };
         // No check for None is needed because we're only applying to named structs.
         let ident = fctx.ident_tok();
 
@@ -327,7 +332,8 @@ pub trait FXCodeGenContextual {
     fn field_default(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
         let def_tok = if fctx.is_skipped() {
             let span = fctx.field().skip().span();
-            quote_spanned! {span=> ::std::default::Default::default() }
+            fctx.default_value()
+                .unwrap_or(quote_spanned! {span=> ::std::default::Default::default() })
         }
         else {
             self.field_default_wrap(fctx)?

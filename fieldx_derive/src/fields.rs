@@ -320,7 +320,16 @@ impl FXFieldReceiver {
 
     #[inline]
     pub fn is_optional(&self) -> Option<bool> {
-        self.optional.is_true_opt().or_else(|| self.is_lazy().map(|l| !l))
+        self.optional.is_true_opt().or_else(|| {
+            self.is_lazy().and_then(|l| {
+                if l {
+                    Some(false)
+                }
+                else {
+                    None
+                }
+            })
+        })
     }
 
     #[cfg(feature = "serde")]
