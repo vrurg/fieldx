@@ -325,7 +325,13 @@ pub trait FXCodeGenContextual {
     }
 
     fn field_default(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
-        let def_tok = self.field_default_wrap(fctx)?;
+        let def_tok = if fctx.is_skipped() {
+            let span = fctx.field().skip().span();
+            quote_spanned! {span=> ::std::default::Default::default() }
+        }
+        else {
+            self.field_default_wrap(fctx)?
+        };
         let ident = fctx.ident_tok();
         self.ctx().add_defaults_decl(quote! [ #ident: #def_tok ]);
         Ok(())

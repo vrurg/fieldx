@@ -144,7 +144,7 @@ impl<'a> FXRewriter<'a> {
         let args = ctx.args();
         if args.is_ref_counted() {
             #[allow(unused_mut)]
-            let mut fieldx_args: Vec<TokenStream> = vec![quote![skip], quote![builder(off)]];
+            let mut fieldx_args: Vec<TokenStream> = vec![quote![skip]];
             #[cfg(feature = "serde")]
             fieldx_args.push(quote![serde(off)]);
 
@@ -188,15 +188,19 @@ impl<'a> FXRewriter<'a> {
 
     fn prepare_field(&'a self, fctx: Ref<FXFieldCtx>) -> darling::Result<()> {
         let ctx = self.ctx();
+        let is_active = !fctx.is_skipped();
 
-        if fctx.needs_accessor() && fctx.is_copy() {
-            ctx.add_for_copy_trait_check(&fctx);
+        if is_active {
+            if fctx.needs_accessor() && fctx.is_copy() {
+                ctx.add_for_copy_trait_check(&fctx);
+            }
         }
 
         let codegen = self.field_codegen(&fctx)?;
-
         codegen.field_default(&fctx)?;
-        codegen.field_methods(&fctx)?;
+        if is_active {
+            codegen.field_methods(&fctx)?;
+        }
 
         // Has to always be the last here as it may use attributes added by the previous methods.
         codegen.field_decl(&fctx)?;
