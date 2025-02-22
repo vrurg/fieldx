@@ -1,11 +1,12 @@
 [workspace.package]
-    authors      = ["Vadim Belman"]
-    categories   = ["concurrency", "development-tools::procedural-macro-helpers", "rust-patterns"]
-    edition      = "2021"
-    exclude      = ["Makefile.toml", "release.toml"]
-    keywords     = ["lazy", "field", "macro", "builder", "struct"]
-    license-file = "LICENSE"
-    repository   = "https://github.com/vrurg/fieldx.git"
+    authors       = ["Vadim Belman"]
+    categories    = ["concurrency", "development-tools::procedural-macro-helpers", "rust-patterns"]
+    documentation = "https://docs.rs/fieldx"
+    edition       = "2021"
+    exclude       = ["Makefile.toml", "release.toml"]
+    keywords      = ["lazy", "field", "macro", "builder", "struct"]
+    license-file  = "LICENSE"
+    repository    = "https://github.com/vrurg/fieldx.git"
 
 [workspace]
     members  = ["fieldx", "fieldx_aux", "fieldx_derive", "fieldx_derive_support"]
@@ -18,10 +19,10 @@
     darling               = ">=0.20.7"
     delegate              = "0.13"
     enum_dispatch         = "0.3"
-    fieldx                = { version = "0.1.10", path = "fieldx" }
-    fieldx_aux            = { version = "0.1.10", path = "fieldx_aux" }
-    fieldx_derive         = { version = "0.1.10", path = "fieldx_derive" }
-    fieldx_derive_support = { version = "0.1.10", path = "fieldx_derive_support" }
+    fieldx                = { version = "0.1.11-beta.1", path = "fieldx" }
+    fieldx_aux            = { version = "0.1.11-beta.1", path = "fieldx_aux" }
+    fieldx_derive         = { version = "0.1.11-beta.1", path = "fieldx_derive" }
+    fieldx_derive_support = { version = "0.1.11-beta.1", path = "fieldx_derive_support" }
     getset                = "0.1"
     num_cpus              = "1.16"
     once_cell             = "1.20"
