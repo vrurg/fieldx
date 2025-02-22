@@ -4,6 +4,17 @@
 
 ### Features
 
+- Allow `default` to take expressions as arguments
+
+### Bug Fixes
+
+- Insufficiently strict handling of 'skip'
+- Lazy fields picking up `optional` from struct level
+
+## [fieldx-v0.1.9] - 2025-01-16
+
+### Features
+
 - Allow inner_mut to be used in sync mode
 - Allow wider use of inner_mut
 
