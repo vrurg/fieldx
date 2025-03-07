@@ -1,6 +1,6 @@
 use crate::{
-    set_literals, validate_exclusives, FXAttributes, FXBool, FXDefault, FXInto, FXNestingAttr, FXPubMode, FXString,
-    FXTriggerHelper, FromNestAttr,
+    set_literals, validate_exclusives, FXAttributes, FXBool, FXDefault, FXInto, FXNestingAttr, FXOrig, FXProp,
+    FXPropBool, FXPubMode, FXString, FXTriggerHelper, FromNestAttr,
 };
 use darling::{
     util::{Flag, PathList},
@@ -39,8 +39,8 @@ impl FromNestAttr for FXSerdeHelper {
 }
 
 impl FXTriggerHelper for FXSerdeHelper {
-    fn is_true(&self) -> bool {
-        !self.off.is_present()
+    fn is_true(&self) -> FXProp<bool> {
+        FXProp::from(self.off).not()
     }
 }
 
@@ -53,40 +53,53 @@ impl FXSerdeHelper {
         Ok(self)
     }
 
-    pub fn needs_serialize(&self) -> Option<bool> {
-        self.serialize
-            .as_ref()
-            .map(|s| s.is_true())
-            .or_else(|| self.deserialize.as_ref().map(|d| !d.is_true()))
+    pub fn needs_serialize(&self) -> Option<FXProp<bool>> {
+        self.serialize.as_ref().map(|s| s.into()).or_else(|| {
+            self.deserialize
+                .as_ref()
+                .map(|d| FXProp::new(!*d.is_true(), d.orig_span()))
+        })
     }
 
-    pub fn needs_deserialize(&self) -> Option<bool> {
-        self.deserialize
-            .as_ref()
-            .map(|d| d.is_true())
-            .or_else(|| self.serialize.as_ref().map(|s| !s.is_true()))
+    pub fn needs_deserialize(&self) -> Option<FXProp<bool>> {
+        self.deserialize.as_ref().map(|d| d.into()).or_else(|| {
+            self.serialize
+                .as_ref()
+                .map(|s| FXProp::new(!*s.is_true(), s.orig_span()))
+        })
     }
 
-    pub fn is_serde(&self) -> Option<bool> {
+    /// `span` provides the span to use when neither `serialize`, `deserialize`, nor `off` is explicitly set.
+    pub fn is_serde(&self, default_span: Option<Span>) -> Option<FXProp<bool>> {
         // Consider as Some(true) if not `serde(off)` or any of `serialize` or `deserialize` is defined and not both are
         // `off`. I.e. since `serde(deserialize(off))` implies `serialize` being `on` then the outcome is `Some(true)`.
-        if self.is_true() {
-            let is_serialize = self.serialize.as_ref().map(|s| s.is_true());
-            let is_deserialize = self.deserialize.as_ref().map(|d| d.is_true());
+        if *self.is_true() {
+            let is_serialize: Option<FXProp<bool>> = self.serialize.as_ref().map(|s| s.into());
+            let is_deserialize: Option<FXProp<bool>> = self.deserialize.as_ref().map(|d| d.into());
 
             if is_serialize.is_none() && is_deserialize.is_none() {
-                return None;
+                None
             }
-
-            Some(is_serialize.unwrap_or(true) || is_deserialize.unwrap_or(true))
+            else if is_serialize.is_some()
+                && is_deserialize.is_some()
+                && !(*is_serialize.unwrap() || *is_deserialize.unwrap())
+            {
+                Some(FXProp::new(false, default_span))
+            }
+            else if is_serialize.is_some() && *is_serialize.unwrap() {
+                is_serialize
+            }
+            else {
+                is_deserialize
+            }
         }
         else {
-            Some(false)
+            Some(FXProp::new(false, Some(self.off.span())))
         }
     }
 
     #[inline(always)]
-    pub fn public_mode(&self) -> Option<FXPubMode> {
+    pub fn public_mode(&self) -> Option<FXProp<FXPubMode>> {
         crate::util::public_mode(&self.public, &self.private)
     }
 
@@ -96,7 +109,7 @@ impl FXSerdeHelper {
     }
 
     pub fn has_default(&self) -> bool {
-        self.default_value.as_ref().map_or(false, |d| d.is_true())
+        self.default_value.as_ref().map_or(false, |d| *d.is_true())
     }
 
     pub fn default_value(&self) -> Option<&syn::Expr> {
@@ -112,7 +125,9 @@ impl FXSerdeHelper {
         self.default_value.as_ref()
     }
 
-    pub fn shadow_name(&self) -> Option<&String> {
-        self.shadow_name.as_ref().and_then(|sn| sn.value())
+    pub fn shadow_name(&self) -> Option<FXProp<String>> {
+        self.shadow_name
+            .as_ref()
+            .and_then(|sn| sn.value().map(|name| FXProp::new(name.clone(), sn.orig_span())))
     }
 }

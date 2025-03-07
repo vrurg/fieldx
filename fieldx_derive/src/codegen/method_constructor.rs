@@ -2,11 +2,29 @@ use getset::{Getters, Setters};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 
+macro_rules! tokenstream_setter {
+    ( $($name:ident),+ $(,)? ) => {
+        $(
+            ::paste::paste! {
+                pub fn [<set_ $name>]<T: ToTokens>(&mut self, value: T) {
+                    let tt = value.to_token_stream();
+                    self.$name = if tt.is_empty() {
+                        None
+                    }
+                    else {
+                        Some(value.to_token_stream())
+                    }
+                }
+            }
+        )+
+    }
+}
+
 #[derive(Default, Debug, Getters, Setters)]
-#[getset(get = "pub(crate)", set = "pub(crate)")]
+#[getset(get = "pub(crate)")]
 pub(crate) struct MethodConstructor {
     name:          TokenStream,
-    vis:           TokenStream,
+    vis:           Option<TokenStream>,
     #[getset(skip)]
     is_async:      bool,
     // Here and below, self refers to the first parameter of the method, even if it's not actually a variant of Self.
@@ -19,7 +37,9 @@ pub(crate) struct MethodConstructor {
     self_lifetime: Option<TokenStream>,
     // Strong rc-wrapped.
     self_rc_ident: Option<TokenStream>,
+    #[getset(set = "pub(crate)")]
     self_borrow:   bool,
+    #[getset(set = "pub(crate)")]
     self_mut:      bool,
     #[getset(get_mut)]
     attributes:    Vec<TokenStream>,
@@ -33,14 +53,19 @@ pub(crate) struct MethodConstructor {
     params:        Vec<TokenStream>,
     #[getset(get_mut)]
     body:          Vec<TokenStream>,
-    ret_stmt:      TokenStream,
-    ret_type:      TokenStream,
+    ret_stmt:      Option<TokenStream>,
+    ret_type:      Option<TokenStream>,
+    #[getset(set = "pub(crate)")]
     ret_mut:       bool,
     #[getset(skip)]
     span:          Option<Span>,
 }
 
 impl MethodConstructor {
+    tokenstream_setter! {
+        vis, self_type, self_rc_ident, ret_type, ret_stmt
+    }
+
     pub(crate) fn new<T: ToTokens>(name: T) -> Self {
         Self {
             name: name.to_token_stream(),
@@ -67,11 +92,11 @@ impl MethodConstructor {
         self.body.push(body);
     }
 
-    pub(crate) fn add_attribute(&mut self, attribute: TokenStream) {
-        self.attributes.push(attribute);
+    pub(crate) fn add_attribute<T: ToTokens>(&mut self, attribute: T) {
+        self.attributes.push(attribute.to_token_stream());
     }
 
-    pub(crate) fn maybe_add_attribute(&mut self, attribute: Option<TokenStream>) {
+    pub(crate) fn maybe_add_attribute<T: ToTokens>(&mut self, attribute: Option<T>) {
         if let Some(attribute) = attribute {
             self.add_attribute(attribute);
         }
@@ -154,11 +179,13 @@ impl MethodConstructor {
         let body = self.body;
         let ret_stmt = self.ret_stmt;
         let attributes = &self.attributes;
-        let mut ret = self.ret_type;
 
-        if !ret.is_empty() {
-            ret = quote_spanned! {span=> -> #ret };
+        let ret = if let Some(return_type) = self.ret_type {
+            quote_spanned! {span=> -> #return_type }
         }
+        else {
+            quote![]
+        };
 
         let mut params = vec![if let Some(self_type) = self.self_type {
             if self.self_borrow {

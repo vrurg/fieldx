@@ -13,7 +13,7 @@
 //!
 //! Also, argument is allowed to be used in a form of plain keyword with no subarguments, like `get`.
 
-use crate::{with_origin::FXOrig, FXFrom, FXTriggerHelper};
+use crate::{with_origin::FXOrig, FXFrom, FXProp, FXTriggerHelper};
 use darling::{ast::NestedMeta, FromMeta};
 use getset::Getters;
 use proc_macro2::TokenStream;
@@ -219,7 +219,7 @@ where
     T: FXTriggerHelper + FromNestAttr<WITH_LITERALS>,
 {
     #[inline(always)]
-    fn is_true(&self) -> bool {
+    fn is_true(&self) -> FXProp<bool> {
         self.inner.is_true()
     }
 }

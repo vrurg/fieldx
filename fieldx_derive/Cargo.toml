@@ -19,6 +19,7 @@
     fieldx_aux            = { workspace = true }
     fieldx_derive_support = { workspace = true }
     getset                = { workspace = true }
+    once_cell             = { workspace = true }
     paste                 = { workspace = true }
     proc-macro2           = { workspace = true }
     quote                 = { workspace = true }

@@ -1,4 +1,4 @@
-use crate::{FXBool, FXNestingAttr, FXPubMode, FXTriggerHelper};
+use crate::{FXBool, FXNestingAttr, FXOrig, FXProp, FXPubMode, FXTriggerHelper};
 
 /// Generate implementation of `set_literals` method for [`FromNestAttr`](crate::nesting_attr::FromNestAttr) trait.
 #[macro_export]
@@ -73,7 +73,7 @@ macro_rules! validate_exclusives {
                         let fref = self.$field.as_ref();
                         subgroup.push( ( validate_exclusives!(or_alias:
                                             stringify!($field), $( $alias )? ),
-                                            fref.map(|f| f.is_true()).unwrap_or(false),
+                                            fref.map(|f| *f.is_true()).unwrap_or(false),
                                             fref.map(|f| f.to_token_stream()) ) );
                     )+
                 )+
@@ -142,11 +142,11 @@ macro_rules! validate_exclusives {
 
 #[doc(hidden)]
 #[inline]
-pub fn public_mode(public: &Option<FXNestingAttr<FXPubMode>>, private: &Option<FXBool>) -> Option<FXPubMode> {
-    if private.as_ref().map_or(false, |p| p.is_true()) {
-        Some(FXPubMode::Private)
+pub fn public_mode(public: &Option<FXNestingAttr<FXPubMode>>, private: &Option<FXBool>) -> Option<FXProp<FXPubMode>> {
+    if private.as_ref().map_or(false, |p| *p.is_true()) {
+        Some(FXProp::new(FXPubMode::Private, private.as_ref().unwrap().orig_span()))
     }
     else {
-        public.as_ref().map(|pm| (**pm).clone())
+        public.as_ref().map(|pm| FXProp::new((**pm).clone(), pm.orig_span()))
     }
 }

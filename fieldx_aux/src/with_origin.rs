@@ -18,7 +18,7 @@ where
     }
 
     /// If there is original syntax element then its span is returned. Otherwise call site is used.
-    fn fx_span(&self) -> Span {
+    fn final_span(&self) -> Span {
         self.orig_span().unwrap_or_else(|| Span::call_site())
     }
 }
@@ -36,7 +36,7 @@ where
         self.as_ref().and_then(|s| s.orig_span())
     }
 
-    fn fx_span(&self) -> Span {
-        self.as_ref().map_or_else(|| Span::call_site(), |s| s.fx_span())
+    fn final_span(&self) -> Span {
+        self.as_ref().map_or_else(|| Span::call_site(), |s| s.final_span())
     }
 }

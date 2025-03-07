@@ -5,20 +5,6 @@ use quote::{quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
 
 pub trait FXCGenSerde: FXCodeGenContextual {
-    // Field is an Option in the shadow struct if it is optional or lazy and has no default value
-    fn is_serde_optional(&self, fctx: &FXFieldCtx) -> bool {
-        fctx.is_optional() || fctx.is_lazy()
-    }
-
-    fn serde_optional_span(&self, fctx: &FXFieldCtx) -> Span {
-        if fctx.is_optional() {
-            fctx.optional_span()
-        }
-        else {
-            fctx.helper_span(super::FXHelperKind::Lazy)
-        }
-    }
-
     fn filter_shadow_attributes<'a>(&'a self, fctx: &'a FXFieldCtx) -> impl Iterator<Item = &'a syn::Attribute> {
         // Only use `serde` attribute and those listed in forward_attrs
         let serde_helper = fctx.serde().as_ref().or_else(|| self.ctx().args().serde().as_ref());
@@ -32,7 +18,7 @@ pub trait FXCGenSerde: FXCodeGenContextual {
         // - no `serde` argument
         // - it is not `serde(off)`
         // - and no more than one of `deserialize` or `serialize` is `off`
-        if self.ctx().args().is_serde() {
+        if self.ctx().arg_props().is_serde() {
             let helper_span = field_ctx
                 .serde()
                 .as_ref()
@@ -53,7 +39,7 @@ pub trait FXCGenSerde: FXCodeGenContextual {
 
     fn serde_field_attribute(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let ctx = self.ctx();
-        Ok(if ctx.args().is_serde() {
+        Ok(if ctx.arg_props().is_serde() {
             let skip_toks = self.serde_skip_toks(fctx);
             let mut serde_attr_args = vec![];
 
@@ -232,16 +218,13 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
     fn serde_derive_traits(&self) -> Vec<TokenStream> {
         let mut traits: Vec<TokenStream> = vec![];
         let ctx = self.ctx();
-        if ctx.args().is_serde() {
-            let serde_arg = ctx.args().serde().as_ref();
-            let serde_helper = serde_arg.unwrap();
-            let serde_helper_span = serde_helper.to_token_stream().span();
-
-            if serde_helper.needs_serialize().unwrap_or(true) {
-                traits.push(quote_spanned![serde_helper_span=> Serialize]);
+        let arg_props = ctx.arg_props();
+        if arg_props.is_serde() {
+            if arg_props.needs_serialize() {
+                traits.push(quote_spanned![arg_props.serialize().fx_span()=> Serialize]);
             }
-            if serde_helper.needs_deserialize().unwrap_or(true) {
-                traits.push(quote_spanned![serde_helper_span=> Deserialize]);
+            if arg_props.needs_deserialize() {
+                traits.push(quote_spanned![arg_props.deserialize().fx_span()=> Deserialize]);
             }
         }
         return traits;
@@ -249,23 +232,22 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
 
     fn serde_struct_attribute(&self) -> darling::Result<()> {
         let ctx = self.ctx();
-        let args = ctx.args();
+        let arg_props = ctx.arg_props();
 
-        ctx.add_attr_from(if args.is_serde() {
+        ctx.add_attr_from(if arg_props.is_serde() {
             let mut serde_args: Vec<TokenStream> = vec![];
 
-            let serde_helper = args.serde().as_ref().unwrap();
             let (_, generics, _) = ctx.input().generics().split_for_impl();
             let shadow_ident = format!("{}{}", ctx.shadow_ident(), generics.to_token_stream());
-            let serde_span = args.serde_helper_span();
+            let serde_span = arg_props.serde().span();
 
-            if serde_helper.needs_deserialize().unwrap_or(true) {
-                let span = serde_helper.deserialize().orig_span().unwrap_or(serde_span);
-                serde_args.push(quote_spanned![span=> from = #shadow_ident]);
-            }
-            if serde_helper.needs_serialize().unwrap_or(true) {
-                let span = serde_helper.serialize().orig_span().unwrap_or(serde_span);
+            if arg_props.needs_serialize() {
+                let span = arg_props.serialize().fx_span();
                 serde_args.push(quote_spanned![span=> into = #shadow_ident]);
+            }
+            if arg_props.needs_deserialize() {
+                let span = arg_props.deserialize().fx_span();
+                serde_args.push(quote_spanned![span=> from = #shadow_ident]);
             }
 
             if serde_args.len() > 0 {
@@ -284,10 +266,10 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
 
     fn serde_shadow_struct(&'a self) -> darling::Result<()> {
         let ctx = self.ctx();
-        let args = ctx.args();
-        if args.is_serde() {
-            let serde_helper = args.serde().as_ref().unwrap();
-            let span = args.serde_helper_span();
+        let arg_props = ctx.arg_props();
+        if arg_props.is_serde() {
+            let serde_helper = ctx.args().serde().as_ref().unwrap();
+            let span = arg_props.serde().final_span();
             let shadow_ident = ctx.shadow_ident();
             let fields = ctx.shadow_fields();
             let mut attrs = vec![];
@@ -334,33 +316,32 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
     // Impl From for the shadow struct
     fn serde_struct_from_shadow(&'a self) {
         let ctx = self.ctx();
-        let args = ctx.args();
-        if args.is_serde() && args.needs_deserialize() {
+        let arg_props = ctx.arg_props();
+        if arg_props.is_serde() && arg_props.needs_deserialize() {
             let shadow_ident = ctx.shadow_ident();
             let struct_ident = ctx.input_ident();
             let shadow_var = ctx.shadow_var_ident();
             let mut fields = vec![];
             let (_, generics, where_clause) = ctx.input().generics().split_for_impl();
-            let span = args.serde_helper_span();
+            let span = arg_props.serde().final_span();
 
-            for field in ctx.all_fields() {
-                let fctx = ctx.field_ctx(field);
-                if let Ok(fctx) = fctx {
-                    if fctx.is_serde() && fctx.needs_deserialize() {
-                        ctx.exec_or_record(|| {
-                            let cgen = self.field_codegen(&fctx)?;
-                            let field_ident = fctx.ident_tok();
-                            let fetch_shadow_field = cgen.field_from_shadow(&fctx)?;
-                            fields.push(quote_spanned![*fctx.span()=>
-                                #field_ident: #fetch_shadow_field
-                            ]);
-                            Ok(())
-                        });
-                    }
+            for fctx in ctx.all_field_ctx() {
+                // if let Ok(fctx) = fctx {
+                if fctx.is_serde() && fctx.needs_deserialize() {
+                    ctx.exec_or_record(|| {
+                        let cgen = self.field_codegen(&fctx)?;
+                        let field_ident = fctx.ident_tok();
+                        let fetch_shadow_field = cgen.field_from_shadow(&fctx)?;
+                        fields.push(quote_spanned![*fctx.span()=>
+                            #field_ident: #fetch_shadow_field
+                        ]);
+                        Ok(())
+                    });
                 }
-                else {
-                    ctx.push_error(fctx.unwrap_err())
-                }
+                // }
+                // else {
+                //     ctx.push_error(fctx.unwrap_err())
+                // }
             }
 
             let init_from_default = if ctx.needs_default() {
@@ -385,9 +366,9 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
 
     fn serde_struct_into_shadow(&'a self) {
         let ctx = self.ctx();
-        let args = ctx.args();
-        if args.is_serde() && args.needs_serialize() {
-            let span = args.serde_helper_span();
+        let arg_props = ctx.arg_props();
+        if arg_props.is_serde() && arg_props.needs_serialize() {
+            let span = arg_props.serde().final_span();
             let mut mc = MethodConstructor::new(quote_spanned! {span=> from});
 
             let shadow_ident = ctx.shadow_ident();
@@ -403,31 +384,25 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
             mc.set_span(span);
             mc.set_self_mut(true);
 
-            for field in ctx.all_fields() {
-                let fctx = ctx.field_ctx(field);
-                if let Ok(fctx) = fctx {
-                    if fctx.is_serde() && fctx.needs_serialize() {
-                        let field_ident = fctx.ident_tok();
-                        let is_lazy = fctx.is_lazy();
+            for fctx in ctx.all_field_ctx() {
+                if fctx.is_serde() && fctx.needs_serialize() {
+                    let field_ident = fctx.ident_tok();
+                    let is_lazy = fctx.is_lazy();
 
-                        ctx.exec_or_record(|| {
-                            let cgen = self.field_codegen(&fctx)?;
-                            let fetch_struct_field = cgen.field_from_struct(&fctx)?;
-                            let span = *fctx.span();
+                    ctx.exec_or_record(|| {
+                        let cgen = self.field_codegen(&fctx)?;
+                        let fetch_struct_field = cgen.field_from_struct(&fctx)?;
+                        let span = *fctx.span();
 
-                            if is_lazy {
-                                let lazy_init = cgen.field_lazy_initializer(&fctx, &mut mc)?;
-                                mc.add_statement(quote_spanned![span=> let _ = #me_var.#field_ident #lazy_init; ]);
-                            }
+                        if is_lazy {
+                            let lazy_init = cgen.field_lazy_initializer(&fctx, &mut mc)?;
+                            mc.add_statement(quote_spanned![span=> let _ = #me_var.#field_ident #lazy_init; ]);
+                        }
 
-                            fields.push(quote_spanned![span=> #field_ident: #fetch_struct_field ]);
+                        fields.push(quote_spanned![span=> #field_ident: #fetch_struct_field ]);
 
-                            Ok(())
-                        });
-                    }
-                }
-                else {
-                    ctx.push_error(fctx.unwrap_err())
+                        Ok(())
+                    });
                 }
             }
 
@@ -448,12 +423,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
 
     fn serde_prepare_struct(&'a self) {
         let ctx = self.ctx();
-        for field in ctx.all_fields() {
-            let Ok(fctx) = ctx.field_ctx(field)
-            else {
-                continue;
-            };
-
+        for fctx in ctx.all_field_ctx() {
             if fctx.is_serde() {
                 match self.field_codegen(&fctx) {
                     Ok(cgen) => {

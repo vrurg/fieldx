@@ -1,6 +1,6 @@
 //! Literal value arguments
 
-use crate::{FXFrom, FXSynValueArg, FXTriggerHelper, FromNestAttr};
+use crate::{FXFrom, FXProp, FXPropBool, FXSynValueArg, FXTriggerHelper, FromNestAttr};
 use darling::{util::Flag, FromMeta};
 use syn::Lit;
 
@@ -44,7 +44,7 @@ impl<T, const BOOL_ONLY: bool> FXValueArg<T, BOOL_ONLY> {
     }
 
     pub fn value(&self) -> Option<&T> {
-        if self.is_true() {
+        if *self.is_true() {
             self.value.as_ref()
         }
         else {
@@ -54,8 +54,8 @@ impl<T, const BOOL_ONLY: bool> FXValueArg<T, BOOL_ONLY> {
 }
 
 impl<T, const BOOL_ONLY: bool> FXTriggerHelper for FXValueArg<T, BOOL_ONLY> {
-    fn is_true(&self) -> bool {
-        !self.off.is_present()
+    fn is_true(&self) -> FXProp<bool> {
+        FXProp::from(self.off).not()
     }
 }
 

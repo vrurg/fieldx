@@ -24,7 +24,7 @@ use std::{
     cell::{OnceCell, Ref},
     rc::Rc,
 };
-use syn::{parse_quote, spanned::Spanned};
+use syn::{parse_quote, parse_quote_spanned, spanned::Spanned};
 pub use sync::FXCodeGenSync;
 
 #[allow(dead_code)]
@@ -91,7 +91,7 @@ pub struct FXRewriter<'a> {
 
 impl<'a> FXRewriter<'a> {
     pub fn new(input: FXInputReceiver, args: FXSArgs) -> Self {
-        let ctx = Rc::new(FXCodeGenCtx::new(input, args));
+        let ctx = FXCodeGenCtx::new(input, args);
 
         Self {
             codegen_ctx: ctx,
@@ -115,7 +115,7 @@ impl<'a> FXRewriter<'a> {
     }
 
     pub fn field_codegen(&'a self, fctx: &FXFieldCtx) -> darling::Result<&'a FXCodeGenerator<'a>> {
-        Ok(if fctx.is_plain() {
+        Ok(if *fctx.mode_plain() {
             self.plain_gen()
         }
         else {
@@ -125,7 +125,7 @@ impl<'a> FXRewriter<'a> {
     }
 
     pub fn struct_codegen(&'a self) -> &'a FXCodeGenerator<'a> {
-        if self.ctx().is_syncish() {
+        if *self.ctx().syncish() {
             self.sync_gen()
         }
         else {
@@ -141,30 +141,32 @@ impl<'a> FXRewriter<'a> {
 
     fn prepare_ref_counted(&'a self) {
         let ctx = self.ctx();
-        let args = ctx.args();
-        if args.is_ref_counted() {
+        let arg_props = ctx.arg_props();
+        let rc = arg_props.rc();
+
+        if *rc {
             #[allow(unused_mut)]
-            let mut fieldx_args: Vec<TokenStream> = vec![quote![skip]];
+            let mut fieldx_args: Vec<TokenStream> = vec![quote_spanned![rc.final_span()=> skip]];
             #[cfg(feature = "serde")]
-            fieldx_args.push(quote![serde(off)]);
+            fieldx_args.push(quote_spanned![rc.final_span()=> serde(off)]);
 
             // Safe because of is_ref_counted
-            let myself_field = ctx.myself_field().unwrap();
-            let (_, weak_type) = if ctx.is_syncish() {
+            let myself_field = arg_props.myself_field_ident().unwrap();
+            let (_, weak_type) = if *ctx.syncish() {
                 self.sync_gen().ref_count_types()
             }
             else {
                 self.plain_gen().ref_count_types()
             };
 
-            let field: syn::Field = parse_quote![
+            let field: syn::Field = parse_quote_spanned![rc.final_span()=>
                 #[fieldx( #( #fieldx_args ),* )]
                 #myself_field: #weak_type<Self>
             ];
 
             ctx.exec_or_record(|| {
                 let field = FXField::from_field(&field)?;
-                self.ctx().add_field(field);
+                self.ctx().add_extra_field(field);
                 Ok(())
             });
         }
@@ -174,24 +176,20 @@ impl<'a> FXRewriter<'a> {
         self.prepare_ref_counted();
         let ctx = self.ctx();
 
-        for field in self.ctx().all_fields() {
-            let Ok(fctx) = ctx.field_ctx(field)
-            else {
-                continue;
-            };
-            ctx.ok_or_record(self.prepare_field(fctx));
+        for fctx in self.ctx().all_field_ctx() {
+            ctx.ok_or_record(self.prepare_field(&fctx));
         }
 
         #[cfg(feature = "serde")]
         self.serde_prepare_struct();
     }
 
-    fn prepare_field(&'a self, fctx: Ref<FXFieldCtx>) -> darling::Result<()> {
+    fn prepare_field(&'a self, fctx: &FXFieldCtx) -> darling::Result<()> {
         let ctx = self.ctx();
-        let is_active = !fctx.is_skipped();
+        let is_active = !*fctx.skipped();
 
         if is_active {
-            if fctx.needs_accessor() && fctx.is_copy() {
+            if *fctx.accessor() && fctx.accessor_mode().is_copy() {
                 ctx.add_for_copy_trait_check(&fctx);
             }
         }
@@ -210,12 +208,15 @@ impl<'a> FXRewriter<'a> {
 
     fn rewrite_struct(&'a self) {
         let ctx = self.ctx();
+        let arg_props = ctx.arg_props();
 
         self.struct_extras();
 
-        if ctx.needs_builder_struct() {
-            let builder_ident = ctx.builder_ident();
-            let span = ctx.helper_span(FXHelperKind::Builder);
+        let builder_struct = arg_props.builder_struct();
+
+        if *builder_struct {
+            let builder_ident = arg_props.builder_ident();
+            let span = builder_struct.final_span();
             let generic_params = ctx.struct_generic_params();
             let vis = self.ctx().input().vis();
             ctx.add_method_decl(quote_spanned! {span=>
@@ -236,38 +237,47 @@ impl<'a> FXRewriter<'a> {
 
         self.myself_methods();
 
-        if ctx.needs_default() {
+        let needs_default = ctx.needs_default();
+        let needs_new = ctx.needs_new();
+
+        if *needs_default {
+            let span = needs_default.final_span();
             // Generate fn new()
-            let new_name = if ctx.args().needs_new() {
-                quote![new]
+            let new_name = if *needs_new {
+                quote_spanned! {needs_new.final_span()=> new}
             }
             else {
-                quote![__fieldx_new]
+                quote_spanned! {span=> __fieldx_new}
             };
 
-            let return_type = cgen.maybe_ref_counted(&quote![Self]);
-            let body = cgen.maybe_ref_counted_create(&quote![Self], &quote![..Self::default()], None);
+            let return_type = cgen.maybe_ref_counted(&quote_spanned![span=> Self]);
+            let body = cgen.maybe_ref_counted_create(
+                &quote_spanned![span=> Self],
+                &quote_spanned![span=> ..Self::default()],
+                None,
+            );
 
-            ctx.add_method_decl(quote![
+            ctx.add_method_decl(quote_spanned! {span=>
                 #[inline]
                 pub fn #new_name() -> #return_type {
                     #body
                 }
-            ]);
+            });
         }
     }
 
     fn myself_methods(&'a self) {
         let ctx = self.ctx();
-        let args = ctx.args();
+        let arg_props = ctx.arg_props();
+        let rc = arg_props.rc();
 
-        if args.is_ref_counted() {
-            let rc_helper = args.rc().as_ref().unwrap();
-            let rc_span = rc_helper.orig().map_or_else(|| Span::call_site(), |orig| orig.span());
-            let (myself_name, downgrade_name) = ctx.myself_names().unwrap();
-            let myself_field = ctx.myself_field();
+        if *rc {
+            let myself_name = arg_props.myself_name();
+            let downgrade_name = arg_props.myself_downgrade_name();
+            let myself_field = arg_props.myself_field_ident();
             let (rc_type, weak_type) = self.struct_codegen().ref_count_types();
-            let visibility = rc_helper.public_mode();
+            let visibility = arg_props.rc_visibility();
+            let rc_span = rc.final_span();
 
             ctx.add_method_decl(quote_spanned![rc_span=>
                 #[allow(dead_code)]
@@ -289,30 +299,30 @@ impl<'a> FXRewriter<'a> {
     fn default_impl(&self) -> TokenStream {
         let ctx = self.ctx();
 
-        if !ctx.needs_default() {
+        let needs_default = ctx.needs_default();
+
+        if !*needs_default {
             return quote![];
         }
 
-        let defaults = ctx.defaults_combined();
         let ident = ctx.input().ident();
         let (impl_generics, type_generics, where_clause) = ctx.input().generics().split_for_impl();
 
-        if !defaults.is_empty() {
-            quote! [
+        if let Some(defaults) = ctx.defaults_combined() {
+            quote_spanned! {needs_default.final_span()=>
                 impl #impl_generics Default for #ident #type_generics #where_clause {
                     fn default() -> Self {
                         Self { #defaults }
                     }
                 }
-            ]
+            }
         }
         else {
-            // It's already empty, what sense in allocating another copy?
-            defaults
+            quote![]
         }
     }
 
-    fn builder_field_ctxs(&self) -> Vec<darling::Result<Ref<FXFieldCtx>>> {
+    fn builder_field_ctxs(&self) -> Vec<darling::Result<Rc<FXFieldCtx>>> {
         let ctx = self.ctx();
         let builder_field_idents = ctx.builder_field_ident().borrow();
         builder_field_idents
@@ -323,21 +333,22 @@ impl<'a> FXRewriter<'a> {
 
     fn builder_impl(&'a self) -> TokenStream {
         let ctx = self.ctx();
-        let span = ctx.helper_span(FXHelperKind::Builder);
-        let vis = ctx.builder_struct_visibility();
-        let builder_ident = ctx.builder_ident();
+        let arg_props = ctx.arg_props();
+        let span = arg_props.builder().unwrap().final_span();
+        let vis = arg_props.builder_struct_visibility();
+        let builder_ident = arg_props.builder_ident().unwrap();
         let builders = ctx.builders_combined();
         let input_ident = ctx.input_ident();
         let (impl_generics, _, where_clause) = ctx.input().generics().split_for_impl();
         let generic_params = ctx.struct_generic_params();
         let attributes = ctx.args().builder_impl_attributes();
-        let post_build_ident = ctx.builder_post_build_ident();
+        let post_build_ident = arg_props.post_build_ident().cloned();
 
         let mut field_setters = Vec::<TokenStream>::new();
         let mut use_default = false;
         let mut builder_checkers = vec![];
         let mut fields_new = vec![];
-        if let Some(myself_field) = ctx.myself_field() {
+        if let Some(myself_field) = arg_props.myself_field_ident() {
             fields_new.push(quote_spanned! {span=> #myself_field: ::std::default::Default::default() });
         }
         for fctx in self.builder_field_ctxs() {
@@ -369,7 +380,7 @@ impl<'a> FXRewriter<'a> {
             }
         }
 
-        let default_initializer = if use_default && ctx.needs_default() {
+        let default_initializer = if use_default && *arg_props.needs_default() {
             quote_spanned! {span=> ..::std::default::Default::default()}
         }
         else {
@@ -396,7 +407,7 @@ impl<'a> FXRewriter<'a> {
             post_build_ident,
         );
 
-        let builder_error_type = if let Some(error_type) = ctx.builder_error_type() {
+        let builder_error_type = if let Some(error_type) = arg_props.builder_error_type() {
             quote_spanned![span=> #error_type]
         }
         else {
@@ -420,22 +431,24 @@ impl<'a> FXRewriter<'a> {
 
     fn builder_struct(&'a self) -> TokenStream {
         let ctx = self.ctx();
+        let arg_props = ctx.arg_props();
+        let builder_struct = arg_props.builder_struct();
 
-        if ctx.needs_builder_struct() {
+        if *builder_struct {
             let args = ctx.args();
             let cgen = self.struct_codegen();
             let builder_fields = ctx.builder_fields_combined();
             let builder_impl = self.builder_impl();
             let generics = ctx.input().generics();
             let where_clause = &generics.where_clause;
-            let span = ctx.helper_span(FXHelperKind::Builder);
-            let vis = ctx.builder_struct_visibility();
+            let span = builder_struct.final_span();
+            let vis = arg_props.builder_struct_visibility();
             let attributes = args.builder_attributes();
-            let builder_ident = ctx.builder_ident();
+            let builder_ident = arg_props.builder_struct_ident();
 
-            let myself_field = if args.is_ref_counted() {
+            let myself_field = if *arg_props.rc() {
                 let (_, weak_type) = cgen.ref_count_types();
-                let mf = ctx.myself_field();
+                let mf = arg_props.myself_field_ident();
                 let input_ident = ctx.input_ident();
                 quote_spanned![span=> #mf: #weak_type<#input_ident #generics>,]
             }

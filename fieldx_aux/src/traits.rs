@@ -1,17 +1,9 @@
-use crate::{FXAttributes, FXPubMode};
+use crate::{FXAttributes, FXProp, FXPubMode};
 
 /// Trait for arguments with trigger behavior. For example, `fieldx` `get` which can be disabled by `off` subargument.
 pub trait FXTriggerHelper {
     /// Trigger value
-    fn is_true(&self) -> bool;
-    fn true_or_none(&self) -> Option<bool> {
-        if self.is_true() {
-            Some(true)
-        }
-        else {
-            None
-        }
-    }
+    fn is_true(&self) -> FXProp<bool>;
 }
 
 /// Where it is not possible to use the standard `From`/`Into` traits due to conflicting implementations this crate is
@@ -27,34 +19,20 @@ pub trait FXInto<T> {
 
 /// Implements `FXTriggerHelper`-like functionality for types that are optional.
 pub trait FXBoolHelper {
-    fn is_true(&self) -> bool;
-    fn is_true_opt(&self) -> Option<bool>;
-    fn not_true(&self) -> bool {
-        !self.is_true()
-    }
-    /// Only returns Some(true) or None, but never Some(false).
-    fn true_or_none(&self) -> Option<bool> {
-        self.is_true_opt().and_then(|v| {
-            if v {
-                Some(true)
-            }
-            else {
-                None
-            }
-        })
-    }
+    fn is_true(&self) -> FXProp<bool>;
+    fn is_true_opt(&self) -> Option<FXProp<bool>>;
 }
 
 /// Base functionality of helper types.
 pub trait FXHelperTrait: FXTriggerHelper {
     /// Helper method name.
-    fn name(&self) -> Option<&str>;
-    /// Public mode for generated helper. Must be private if `None`
-    fn public_mode(&self) -> Option<FXPubMode>;
+    fn name(&self) -> Option<FXProp<&str>>;
     /// For helper methods that are backed by additional types these are attributes to be applied to the types.
     fn attributes(&self) -> Option<&FXAttributes>;
     /// Additional attributes to apply to generated helper.
     fn attributes_fn(&self) -> Option<&FXAttributes>;
+    /// Helper visibility if explicitly set
+    fn visibility(&self) -> Option<&syn::Visibility>;
 }
 
 impl<T, U> FXInto<U> for T
@@ -69,12 +47,12 @@ where
 
 impl<H: FXTriggerHelper> FXBoolHelper for Option<H> {
     #[inline]
-    fn is_true(&self) -> bool {
-        self.as_ref().map_or(false, |h| h.is_true())
+    fn is_true(&self) -> FXProp<bool> {
+        self.as_ref().map_or(FXProp::new(false, None), |h| h.is_true())
     }
 
     #[inline]
-    fn is_true_opt(&self) -> Option<bool> {
+    fn is_true_opt(&self) -> Option<FXProp<bool>> {
         self.as_ref().map(|h| h.is_true())
     }
 }

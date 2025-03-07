@@ -38,33 +38,32 @@ impl ToString for FXHelperKind {
 
 impl FXHelperKind {
     #[inline]
-    pub(crate) fn default_prefix(&self) -> Option<&str> {
+    pub(crate) fn default_prefix(&self) -> &str {
         match self {
-            FXHelperKind::AccessorMut => None,
-            FXHelperKind::Accessor => None,
-            FXHelperKind::Builder => None,
-            FXHelperKind::Clearer => Some("clear_"),
-            FXHelperKind::Lazy => Some("build_"),
-            FXHelperKind::Predicate => Some("has_"),
-            FXHelperKind::Reader => Some("read_"),
-            FXHelperKind::Setter => Some("set_"),
-            FXHelperKind::Writer => Some("write_"),
+            FXHelperKind::AccessorMut => "",
+            FXHelperKind::Accessor => "",
+            FXHelperKind::Builder => "",
+            FXHelperKind::Clearer => "clear_",
+            FXHelperKind::Lazy => "build_",
+            FXHelperKind::Predicate => "has_",
+            FXHelperKind::Reader => "read_",
+            FXHelperKind::Setter => "set_",
+            FXHelperKind::Writer => "write_",
         }
-        .into()
     }
 
     #[inline]
-    pub(crate) fn default_suffix(&self) -> Option<&str> {
+    pub(crate) fn default_suffix(&self) -> &str {
         match self {
-            FXHelperKind::AccessorMut => Some("_mut"),
-            FXHelperKind::Accessor => None,
-            FXHelperKind::Builder => None,
-            FXHelperKind::Clearer => None,
-            FXHelperKind::Lazy => None,
-            FXHelperKind::Predicate => None,
-            FXHelperKind::Reader => None,
-            FXHelperKind::Setter => None,
-            FXHelperKind::Writer => None,
+            FXHelperKind::AccessorMut => "_mut",
+            FXHelperKind::Accessor => "",
+            FXHelperKind::Builder => "",
+            FXHelperKind::Clearer => "",
+            FXHelperKind::Lazy => "",
+            FXHelperKind::Predicate => "",
+            FXHelperKind::Reader => "",
+            FXHelperKind::Setter => "",
+            FXHelperKind::Writer => "",
         }
     }
 }

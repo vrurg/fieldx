@@ -63,6 +63,7 @@ pub mod builder_helper;
 pub mod default_arg;
 pub mod fallible;
 pub mod nesting_attr;
+pub mod property;
 pub mod serde_helper;
 pub mod setter_helper;
 pub mod syn_value;
@@ -80,6 +81,7 @@ pub use crate::{
     default_arg::FXDefault,
     fallible::FXFallible,
     nesting_attr::{FXNestingAttr, FromNestAttr},
+    property::*,
     serde_helper::FXSerdeHelper,
     setter_helper::FXSetterHelper,
     syn_value::{FXPunctuated, FXSynTupleArg, FXSynValueArg},
@@ -89,7 +91,7 @@ pub use crate::{
     with_origin::FXOrig,
 };
 use darling::FromMeta;
-use quote::{quote, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::{ext::IdentExt, Lit};
 
 /// Visibility of an element
@@ -122,7 +124,7 @@ impl FromNestAttr for FXPubMode {
 impl ToTokens for FXPubMode {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         tokens.extend(match self {
-            FXPubMode::Private => quote![],
+            FXPubMode::Private => quote! {},
             FXPubMode::All => quote!(pub),
             FXPubMode::Super => quote!(pub(super)),
             FXPubMode::Crate => quote!(pub(crate)),
@@ -131,9 +133,22 @@ impl ToTokens for FXPubMode {
     }
 }
 
+impl ToTokens for FXProp<FXPubMode> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let span = self.final_span();
+        tokens.extend(match self.value() {
+            FXPubMode::Private => quote! {},
+            FXPubMode::All => quote_spanned! {span=> pub},
+            FXPubMode::Super => quote_spanned! {span=> pub(super)},
+            FXPubMode::Crate => quote_spanned! {span=> pub(crate)},
+            FXPubMode::InMod(ref path) => quote_spanned! {span=> pub(in #path)},
+        })
+    }
+}
+
 impl FXTriggerHelper for FXPubMode {
-    fn is_true(&self) -> bool {
-        true
+    fn is_true(&self) -> FXProp<bool> {
+        FXProp::new(true, None)
     }
 }
 
@@ -184,8 +199,8 @@ impl FXSyncMode {
     }
 
     // Only to make it usable with validate_exclusives macro
-    pub fn is_true(&self) -> bool {
-        true
+    pub fn is_true(&self) -> FXProp<bool> {
+        FXProp::new(true, None)
     }
 }
 

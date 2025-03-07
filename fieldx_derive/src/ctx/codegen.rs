@@ -3,30 +3,33 @@ use crate::{
     fields::FXField,
     helper::{FXHelperContainer, FXHelperKind, FXOrig},
     input_receiver::FXInputReceiver,
-    util::args::{self, FXSArgs},
+    util::args::{self, FXArgProps, FXSArgs},
 };
-use fieldx_aux::FXHelperTrait;
+use delegate::delegate;
+use fieldx_aux::{FXHelperTrait, FXProp};
 use getset::{CopyGetters, Getters};
+use once_cell::unsync::OnceCell;
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::{
-    cell::{OnceCell, Ref, RefCell},
+    cell::{Ref, RefCell},
     collections::HashMap,
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 use syn::{spanned::Spanned, Ident};
 
-#[derive(Default, Debug, Getters, CopyGetters)]
+#[derive(Debug, Getters, CopyGetters)]
 pub struct FXCodeGenCtx {
-    errors:               RefCell<OnceCell<darling::error::Accumulator>>,
-    needs_builder_struct: RefCell<OnceCell<bool>>,
-    is_builder_opt_in:    RefCell<OnceCell<bool>>,
-    tokens:               RefCell<OnceCell<TokenStream>>,
-    field_toks:           RefCell<Vec<TokenStream>>,
-    default_toks:         RefCell<Vec<TokenStream>>,
-    method_toks:          RefCell<Vec<TokenStream>>,
-    builder_field_toks:   RefCell<Vec<TokenStream>>,
-    builder_toks:         RefCell<Vec<TokenStream>>,
+    myself: Weak<Self>,
+
+    errors:             RefCell<OnceCell<darling::error::Accumulator>>,
+    is_builder_opt_in:  RefCell<OnceCell<bool>>,
+    tokens:             RefCell<OnceCell<TokenStream>>,
+    field_toks:         RefCell<Vec<TokenStream>>,
+    default_toks:       RefCell<Vec<TokenStream>>,
+    method_toks:        RefCell<Vec<TokenStream>>,
+    builder_field_toks: RefCell<Vec<TokenStream>>,
+    builder_toks:       RefCell<Vec<TokenStream>>,
 
     #[cfg(feature = "serde")]
     shadow_field_toks:   RefCell<Vec<TokenStream>>,
@@ -38,15 +41,17 @@ pub struct FXCodeGenCtx {
     me_var_ident:        OnceCell<syn::Ident>,
 
     #[getset(get = "pub")]
-    args:          FXSArgs,
-    // We use Option because FXInputReceiver can't implement Default
-    input:         Option<FXInputReceiver>,
-    extra_attrs:   RefCell<Vec<syn::Attribute>>,
-    extra_fields:  RefCell<Vec<FXField>>,
-    unique_id:     RefCell<u32>,
-    needs_default: RefCell<OnceCell<bool>>,
+    args: FXSArgs,
 
-    field_ctx_table:     RefCell<HashMap<syn::Ident, FXFieldCtx>>,
+    #[getset(skip)]
+    arg_props:    Rc<FXArgProps>,
+    // We use Option because FXInputReceiver can't implement Default
+    input:        Option<Rc<FXInputReceiver>>,
+    extra_attrs:  RefCell<Vec<syn::Attribute>>,
+    extra_fields: RefCell<Vec<FXField>>,
+    unique_id:    RefCell<u32>,
+
+    field_ctx_table:     OnceCell<RefCell<HashMap<syn::Ident, Rc<FXFieldCtx>>>>,
     builder_field_ident: RefCell<Vec<syn::Ident>>,
     copyable_types:      RefCell<Vec<syn::Type>>,
 
@@ -54,12 +59,54 @@ pub struct FXCodeGenCtx {
 }
 
 impl FXCodeGenCtx {
-    pub fn new(input: FXInputReceiver, args: args::FXSArgs) -> Self {
-        Self {
+    delegate! {
+        /// Delegate to the FXArgProps implementation.
+        to self.arg_props {
+            pub fn needs_default(&self) -> FXProp<bool>;
+            pub fn syncish(&self) -> FXProp<bool>;
+            pub fn needs_new(&self) -> FXProp<bool>;
+        }
+    }
+
+    pub fn new(input: FXInputReceiver, args: args::FXSArgs) -> Rc<Self> {
+        let input = Rc::new(input);
+        Rc::new_cyclic(|myself| Self {
+            myself: myself.clone(),
+            arg_props: Rc::new(FXArgProps::new(args.clone(), myself.upgrade().unwrap())),
             input: Some(input),
             args,
-            ..Default::default()
-        }
+
+            builder_field_ident: RefCell::new(Vec::new()),
+            builder_field_toks: RefCell::new(Vec::new()),
+            builder_toks: RefCell::new(Vec::new()),
+            copyable_types: RefCell::new(Vec::new()),
+            default_toks: RefCell::new(Vec::new()),
+            errors: RefCell::new(OnceCell::new()),
+            extra_attrs: RefCell::new(Vec::new()),
+            extra_fields: RefCell::new(Vec::new()),
+            field_ctx_table: OnceCell::new(),
+            field_toks: RefCell::new(Vec::new()),
+            is_builder_opt_in: RefCell::new(OnceCell::new()),
+            is_syncish: RefCell::new(OnceCell::new()),
+            method_toks: RefCell::new(Vec::new()),
+            tokens: RefCell::new(OnceCell::new()),
+            unique_id: RefCell::new(0),
+
+            #[cfg(feature = "serde")]
+            shadow_field_toks: RefCell::new(Vec::new()),
+            #[cfg(feature = "serde")]
+            shadow_default_toks: RefCell::new(Vec::new()),
+            #[cfg(feature = "serde")]
+            shadow_var_ident: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            me_var_ident: OnceCell::new(),
+        })
+    }
+
+    fn myself(&self) -> Rc<Self> {
+        self.myself
+            .upgrade()
+            .expect("Context object is gone while trying to upgrade a weak reference")
     }
 
     #[inline(always)]
@@ -68,24 +115,8 @@ impl FXCodeGenCtx {
         self.input.as_ref().unwrap()
     }
 
-    // #[inline(always)]
-    // pub fn field_ctx_table(&self) -> Ref<HashMap<syn::Ident, FXFieldCtx>> {
-    //     self.field_ctx_table.borrow()
-    // }
-
-    // #[inline(always)]
-    // pub fn field_ctx_table_mut(&self) -> RefMut<HashMap<syn::Ident, FXFieldCtx>> {
-    //     self.field_ctx_table.borrow_mut()
-    // }
-
-    #[inline(always)]
-    pub fn builder_ident(&self) -> Ident {
-        format_ident!(
-            "{}{}",
-            self.input_ident(),
-            "Builder",
-            span = self.helper_span(FXHelperKind::Builder)
-        )
+    pub fn arg_props(&self) -> &Rc<FXArgProps> {
+        &self.arg_props
     }
 
     #[inline(always)]
@@ -226,9 +257,14 @@ impl FXCodeGenCtx {
         quote! [ #( #build_field_toks ),* ]
     }
 
-    pub fn defaults_combined(&self) -> TokenStream {
+    pub fn defaults_combined(&self) -> Option<TokenStream> {
         let default_toks = &*self.default_toks.borrow();
-        quote! [ #( #default_toks ),* ]
+        if default_toks.is_empty() {
+            None
+        }
+        else {
+            Some(quote_spanned! [self.needs_default().final_span()=> #( #default_toks ),* ])
+        }
     }
 
     #[inline]
@@ -247,39 +283,16 @@ impl FXCodeGenCtx {
         self.tokens.borrow_mut().take().unwrap_or_else(|| TokenStream::new())
     }
 
-    #[inline]
-    pub fn is_builder_opt_in(&self) -> bool {
-        *self
-            .is_builder_opt_in
-            .borrow_mut()
-            .get_or_init(|| self.args().builder().as_ref().map_or(false, |b| b.is_builder_opt_in()))
-    }
-
-    #[inline]
-    pub fn needs_builder_struct(&self) -> bool {
-        *self.needs_builder_struct.borrow_mut().get_or_init(|| {
-            self.args.needs_builder().unwrap_or_else(|| {
-                let mut builder_required = false;
-                for field in self.input().fields() {
-                    if let Some(needs) = field.needs_builder() {
-                        if needs {
-                            let _ = self.is_builder_opt_in.borrow_mut().set(true);
-                            builder_required = true;
-                            break;
-                        }
-                    }
-                }
-                builder_required
-            })
-        })
-    }
-
     #[cfg(feature = "serde")]
     #[inline]
     pub fn shadow_ident(&self) -> syn::Ident {
         let span = self.args().serde_helper_span();
         if let Some(custom_name) = self.args.serde().as_ref().and_then(|s| s.shadow_name()) {
-            quote::format_ident!("{}", custom_name, span = span)
+            quote::format_ident!(
+                "{}",
+                custom_name.value(),
+                span = custom_name.orig_span().unwrap_or(span)
+            )
         }
         else {
             quote::format_ident!("__{}Shadow", self.input_ident(), span = span)
@@ -290,17 +303,16 @@ impl FXCodeGenCtx {
     #[inline]
     // How to reference shadow instance in an associated function
     pub fn shadow_var_ident(&self) -> &syn::Ident {
-        let span = self.args().serde_helper_span();
         self.shadow_var_ident
-            .get_or_init(|| format_ident!("__shadow", span = span))
+            .get_or_init(|| format_ident!("__shadow", span = self.arg_props().serde().final_span()))
     }
 
     // How to reference struct instance in an associated function
     #[cfg(feature = "serde")]
     #[inline]
     pub fn me_var_ident(&self) -> &syn::Ident {
-        let span = self.args().serde_helper_span();
-        self.me_var_ident.get_or_init(|| format_ident!("__me", span = span))
+        self.me_var_ident
+            .get_or_init(|| format_ident!("__me", span = self.arg_props().serde().final_span()))
     }
 
     #[allow(dead_code)]
@@ -320,7 +332,7 @@ impl FXCodeGenCtx {
     }
 
     #[inline]
-    pub fn add_field(&self, field: FXField) {
+    pub fn add_extra_field(&self, field: FXField) {
         self.extra_fields.borrow_mut().push(field);
     }
 
@@ -347,30 +359,63 @@ impl FXCodeGenCtx {
         attrs
     }
 
-    pub fn ident_field_ctx(&self, field_ident: &syn::Ident) -> darling::Result<Ref<FXFieldCtx>> {
-        let fctx_table = self.field_ctx_table.borrow();
-        Ref::filter_map(fctx_table, |ft| ft.get(field_ident))
-            .map_err(|_| darling::Error::custom(format!("No context found for field `{}`", field_ident)))
+    pub fn field_ctx_table(&self) -> &RefCell<HashMap<syn::Ident, Rc<FXFieldCtx>>> {
+        self.field_ctx_table.get_or_init(|| {
+            RefCell::new(
+                self.extra_fields
+                    .borrow()
+                    .iter()
+                    .chain(self.input().fields().iter().cloned())
+                    .map(|f| {
+                        let field_ident = f.ident().unwrap();
+                        (field_ident.clone(), Rc::new(FXFieldCtx::new(f.clone(), self.myself())))
+                    })
+                    .collect(),
+            )
+        })
     }
 
-    pub fn field_ctx<'s>(self: &'s Rc<Self>, field: FXField) -> darling::Result<Ref<'s, FXFieldCtx>> {
-        let field_ident = field.ident()?.clone();
-        {
-            let mut fctx_table = self.field_ctx_table.borrow_mut();
-            if !fctx_table.contains_key(&field_ident) {
-                let _ = fctx_table.insert(field_ident.clone(), <FXFieldCtx>::new(field, self));
-            }
-        }
-        self.ident_field_ctx(&field_ident)
+    pub fn ident_field_ctx(self: &Rc<Self>, field_ident: &syn::Ident) -> darling::Result<Rc<FXFieldCtx>> {
+        Ok(self
+            .field_ctx_table()
+            .borrow()
+            .get(field_ident)
+            .ok_or(darling::Error::custom(format!(
+                "Field '{}' not found in context table",
+                field_ident
+            )))?
+            .clone())
     }
 
-    pub fn all_fields(&self) -> Vec<FXField> {
+    pub fn field_ctx(&self, field: &FXField) -> Rc<FXFieldCtx> {
+        let mut field_ctx_table = self.field_ctx_table().borrow_mut();
+        field_ctx_table
+            .entry(field.ident().unwrap().clone())
+            .or_insert_with(|| Rc::new(FXFieldCtx::new(field.clone(), self.myself())))
+            .clone()
+    }
+
+    pub fn all_field_ctx(&self) -> Vec<Rc<FXFieldCtx>> {
+        // Don't iterate over field_ctx_table keys because we want to preserve the order of fields as they appear in the
+        // struct.
         self.extra_fields
             .borrow()
             .iter()
             .chain(self.input().fields().iter().cloned())
-            .cloned()
+            .map(|f| self.field_ctx(f))
             .collect()
+    }
+
+    // #[inline]
+    // pub fn helper_span(&self, helper_kind: FXHelperKind) -> Span {
+    //     self.args()
+    //         .get_helper_span(helper_kind)
+    //         .unwrap_or_else(|| Span::call_site())
+    // }
+
+    #[inline(always)]
+    pub fn struct_generic_params(&self) -> TokenStream {
+        self.input().generics().split_for_impl().1.to_token_stream()
     }
 
     #[allow(dead_code)]
@@ -385,131 +430,5 @@ impl FXCodeGenCtx {
     #[inline]
     pub fn unique_ident(&self) -> syn::Ident {
         self.unique_ident_pfx(&format!("__{}_fxsym", self.input_ident()))
-    }
-
-    #[inline]
-    pub fn helper_span(&self, helper_kind: FXHelperKind) -> Span {
-        self.args()
-            .get_helper_span(helper_kind)
-            .unwrap_or_else(|| Span::call_site())
-    }
-
-    pub fn needs_default(&self) -> bool {
-        let args = self.args();
-
-        *self.needs_default.borrow_mut().get_or_init(|| {
-            if let Some(needs_default) = args.needs_default() {
-                return needs_default;
-            }
-
-            if args.needs_new() {
-                return true;
-            }
-
-            let is_sync = self.is_syncish();
-
-            if self
-                .input()
-                .fields()
-                .iter()
-                .any(|f| f.has_default_value() || (is_sync && f.is_lazy().unwrap_or(false)))
-            {
-                return true;
-            }
-
-            false
-        })
-    }
-
-    pub fn myself_field(&self) -> Option<Ident> {
-        self.myself_names()
-            .map(|(myself_name, _)| format_ident!("__weak_{}", myself_name))
-    }
-
-    pub fn myself_names(&self) -> Option<(Ident, Ident)> {
-        self.args().rc().as_ref().map(|rc_helper| {
-            let myself_name = rc_helper.name().unwrap_or("myself");
-            (
-                format_ident!("{}", myself_name),
-                format_ident!("{}_downgrade", myself_name),
-            )
-        })
-    }
-
-    // Try to infer what mode applies to the struct. If it's explicitly declared as sync or async then there is no
-    // doubt. Otherwise see if any field is asking for sync mode.
-    pub fn is_syncish(&self) -> bool {
-        *self.is_syncish.borrow_mut().get_or_init(|| {
-            self.args.is_sync().map_or_else(
-                || {
-                    for field in self.all_fields() {
-                        if let Some(is_sync) = field
-                            .is_sync()
-                            .or_else(|| field.is_async())
-                            .or_else(|| field.is_syncish())
-                        {
-                            return is_sync;
-                        }
-                    }
-                    false
-                },
-                |is_sync| is_sync,
-            )
-        })
-    }
-
-    pub fn builder_struct_visibility(&self) -> TokenStream {
-        self.args()
-            .get_helper(FXHelperKind::Builder)
-            .and_then(|builder| builder.public_mode().map(|pm| pm.to_token_stream()))
-            .or_else(|| Some(self.input().vis().to_token_stream()))
-            .unwrap()
-    }
-
-    #[inline(always)]
-    pub fn builder_has_post_build(&self) -> bool {
-        self.args.builder().as_ref().map_or(false, |b| b.has_post_build())
-    }
-
-    #[inline(always)]
-    pub fn builder_post_build_ident(&self) -> Option<syn::Ident> {
-        if self.builder_has_post_build() {
-            Some(
-                self.args()
-                    .builder()
-                    .as_ref()
-                    .and_then(|b| b.post_build().as_ref())
-                    .and_then(|pb| pb.value().cloned())
-                    .unwrap_or_else(|| {
-                        let span = self
-                            .args()
-                            .builder()
-                            .as_ref()
-                            .and_then(|b| b.post_build().as_ref().unwrap().orig())
-                            .map_or_else(|| self.helper_span(FXHelperKind::Builder), |o| o.span());
-                        format_ident!("post_build", span = span)
-                    }),
-            )
-        }
-        else {
-            None
-        }
-    }
-
-    pub fn build_has_error_type(&self) -> bool {
-        self.args.builder().as_ref().map_or(false, |b| b.error_type().is_some())
-    }
-
-    pub fn builder_error_type(&self) -> Option<&syn::Path> {
-        self.args.builder().as_ref().and_then(|b| b.error_type())
-    }
-
-    pub fn builder_error_variant(&self) -> Option<&syn::Path> {
-        self.args.builder().as_ref().and_then(|b| b.error_variant())
-    }
-
-    #[inline(always)]
-    pub fn struct_generic_params(&self) -> TokenStream {
-        self.input().generics().split_for_impl().1.to_token_stream()
     }
 }
