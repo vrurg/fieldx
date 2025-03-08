@@ -8,6 +8,7 @@ use crate::{
 };
 use delegate::delegate;
 use derived_props::FieldCTXProps;
+use fieldx_aux::FXDefault;
 #[cfg(feature = "serde")]
 use fieldx_aux::{FXAccessorMode, FXAttributes, FXBool, FXBuilder, FXHelperTrait, FXOrig, FXProp, FXPubMode};
 use proc_macro2::{Span, TokenStream};
@@ -71,6 +72,7 @@ impl FXFieldCtx {
             pub fn inner_mut(&self) -> FXProp<bool>;
             pub fn lazy(&self) -> FXProp<bool>;
             pub fn lazy_ident(&self) -> &syn::Ident;
+            pub fn lock(&self) -> FXProp<bool>;
             pub fn mode_async(&self) -> FXProp<bool>;
             pub fn mode_plain(&self) -> FXProp<bool>;
             pub fn mode_sync(&self) -> FXProp<bool>;
@@ -78,19 +80,29 @@ impl FXFieldCtx {
             pub fn predicate(&self) -> FXProp<bool>;
             pub fn predicate_ident(&self) -> &syn::Ident;
             pub fn predicate_visibility(&self) -> &syn::Visibility;
+            pub fn reader(&self) -> FXProp<bool>;
+            pub fn reader_ident(&self) -> &syn::Ident;
+            pub fn reader_visibility(&self) -> &syn::Visibility;
             pub fn setter(&self) -> FXProp<bool>;
             pub fn setter_ident(&self) -> &syn::Ident;
             pub fn setter_into(&self) -> FXProp<bool>;
             pub fn setter_visibility(&self) -> &syn::Visibility;
+            pub fn writer(&self) -> FXProp<bool>;
+            pub fn writer_ident(&self) -> &syn::Ident;
+            pub fn writer_visibility(&self) -> &syn::Visibility;
 
             #[cfg(feature = "serde")]
             pub fn serde(&self) -> FXProp<bool>;
             #[cfg(feature = "serde")]
             pub fn serialize(&self) -> FXProp<bool>;
             #[cfg(feature = "serde")]
-            pub fn deserialize(&self) -> FXProp<bool>; // Change to FXProp<bool> for consistency
+            pub fn deserialize(&self) -> FXProp<bool>;
             #[cfg(feature = "serde")]
             pub fn serde_optional(&self) -> FXProp<bool>;
+            #[cfg(feature = "serde")]
+            pub fn serde_default_value(&self) -> Option<&FXDefault>;
+            #[cfg(feature = "serde")]
+            pub fn serde_attributes(&self) -> Option<&FXAttributes>;
         }
     }
 

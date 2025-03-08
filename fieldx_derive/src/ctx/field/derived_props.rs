@@ -1,4 +1,6 @@
-use fieldx_aux::{FXAccessorMode, FXAttributes, FXHelperTrait, FXOrig, FXProp, FXPropBool, FXPubMode, FXTriggerHelper};
+use fieldx_aux::{
+    FXAccessorMode, FXAttributes, FXDefault, FXHelperTrait, FXOrig, FXProp, FXPropBool, FXPubMode, FXTriggerHelper,
+};
 use fieldx_derive_support::fallback_prop;
 use once_cell::sync::OnceCell;
 use proc_macro2::Span;
@@ -98,14 +100,16 @@ pub(crate) struct FieldCTXProps {
     optional:                  OnceCell<FXProp<bool>>,
 
     #[cfg(feature = "serde")]
-    serde:          OnceCell<FXProp<bool>>,
+    serde:            OnceCell<FXProp<bool>>,
     #[cfg(feature = "serde")]
-    serialize:      OnceCell<FXProp<bool>>,
+    serialize:        OnceCell<FXProp<bool>>,
     #[cfg(feature = "serde")]
-    deserialize:    OnceCell<FXProp<bool>>,
+    deserialize:      OnceCell<FXProp<bool>>,
     #[cfg(feature = "serde")]
     /// Field is an Option in the shadow struct if it is optional or lazy and has no default value
-    serde_optional: OnceCell<FXProp<bool>>,
+    serde_optional:   OnceCell<FXProp<bool>>,
+    #[cfg(feature = "serde")]
+    serde_attributes: OnceCell<Option<FXAttributes>>,
 }
 
 impl FieldCTXProps {
@@ -133,12 +137,6 @@ impl FieldCTXProps {
         setter, false;
         setter_into, false;
         writer, false;
-    }
-
-    #[cfg(feature = "serde")]
-    fallback_prop! {
-        serialize, false;
-        deserialize, false;
     }
 
     helper_standard_methods! { accessor, accessor_mut, clearer, lazy, predicate, reader, setter, writer }
@@ -199,6 +197,8 @@ impl FieldCTXProps {
             deserialize: OnceCell::new(),
             #[cfg(feature = "serde")]
             serde_optional: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_attributes: OnceCell::new(),
         }
     }
 
@@ -391,7 +391,7 @@ impl FieldCTXProps {
     }
 
     pub fn default_value(&self) -> Option<&syn::Expr> {
-        self.field_props().default_value()
+        self.field_props.default_value()
     }
 
     #[cfg(feature = "serde")]
@@ -404,5 +404,42 @@ impl FieldCTXProps {
     #[cfg(feature = "serde")]
     pub fn serde_optional(&self) -> FXProp<bool> {
         *self.serde_optional.get_or_init(|| self.optional().or(self.lazy()))
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn serde_default_value(&self) -> Option<&FXDefault> {
+        self.field_props.serde_default_value()
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn serde_attributes(&self) -> Option<&FXAttributes> {
+        self.serde_attributes
+            .get_or_init(|| {
+                self.field_props()
+                    .serde_attributes()
+                    .or_else(|| self.arg_props().serde_attributes())
+                    .cloned()
+            })
+            .as_ref()
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn serialize(&self) -> FXProp<bool> {
+        *self.serialize.get_or_init(|| {
+            self.field_props()
+                .serialize()
+                .or_else(|| self.arg_props().serialize())
+                .unwrap_or_else(|| FXProp::new(true, *self.field_props.field().fieldx_attr_span()))
+        })
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn deserialize(&self) -> FXProp<bool> {
+        *self.deserialize.get_or_init(|| {
+            self.field_props()
+                .deserialize()
+                .or_else(|| self.arg_props().deserialize())
+                .unwrap_or_else(|| FXProp::new(true, *self.field_props.field().fieldx_attr_span()))
+        })
     }
 }

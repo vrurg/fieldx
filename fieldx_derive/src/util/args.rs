@@ -9,9 +9,9 @@ use crate::{
 };
 use darling::FromMeta;
 use fieldx_aux::{
-    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBool, FXBoolHelper, FXBuilder, FXFallible,
-    FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXPropBool, FXSerde, FXSetter, FXSynValue, FXSyncMode,
-    FXTriggerHelper,
+    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBool, FXBoolHelper, FXBuilder, FXDefault,
+    FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXPropBool, FXSerde, FXSetter, FXSynValue,
+    FXSyncMode, FXTriggerHelper,
 };
 use getset::Getters;
 use once_cell::unsync::OnceCell;
@@ -189,15 +189,6 @@ impl FXSArgs {
             .and_then(|r| r.orig_span())
             .unwrap_or_else(|| Span::call_site())
     }
-
-    #[cfg(feature = "serde")]
-    #[inline]
-    pub fn serde_helper_span(&self) -> Span {
-        self.serde
-            .as_ref()
-            .and_then(|sw| sw.orig_span())
-            .unwrap_or_else(|| Span::call_site())
-    }
 }
 
 // impl FXHelperContainer for FXSArgs {
@@ -308,11 +299,17 @@ pub struct FXArgProps {
     builder_error_variant:     OnceCell<Option<syn::Path>>,
 
     #[cfg(feature = "serde")]
-    serde:       OnceCell<FXProp<bool>>,
+    serde:               OnceCell<FXProp<bool>>,
     #[cfg(feature = "serde")]
-    serialize:   OnceCell<Option<FXProp<bool>>>,
+    serialize:           OnceCell<Option<FXProp<bool>>>,
     #[cfg(feature = "serde")]
-    deserialize: OnceCell<Option<FXProp<bool>>>,
+    deserialize:         OnceCell<Option<FXProp<bool>>>,
+    #[cfg(feature = "serde")]
+    serde_visibility:    OnceCell<Option<syn::Visibility>>,
+    #[cfg(feature = "serde")]
+    serde_default_value: OnceCell<Option<FXDefault>>,
+    #[cfg(feature = "serde")]
+    serde_shadow_ident:  OnceCell<Option<syn::Ident>>,
 }
 
 impl FXArgProps {
@@ -392,6 +389,12 @@ impl FXArgProps {
             serialize: OnceCell::new(),
             #[cfg(feature = "serde")]
             deserialize: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_visibility: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_default_value: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_shadow_ident: OnceCell::new(),
         }
     }
 
@@ -639,15 +642,83 @@ impl FXArgProps {
 
     #[cfg(feature = "serde")]
     pub fn serialize(&self) -> Option<FXProp<bool>> {
-        *self
-            .serialize
-            .get_or_init(|| self.source.serde().as_ref().and_then(|s| s.needs_serialize()))
+        *self.serialize.get_or_init(|| {
+            self.source
+                .serde()
+                .as_ref()
+                .and_then(|s| s.needs_serialize())
+                .or_else(|| {
+                    for fctx in self.codegen_ctx.all_field_ctx() {
+                        if let Some(serialize) = fctx.props().field_props().serialize() {
+                            if *serialize {
+                                return Some(serialize);
+                            }
+                        }
+                    }
+                    None
+                })
+        })
     }
 
     #[cfg(feature = "serde")]
     pub fn deserialize(&self) -> Option<FXProp<bool>> {
-        *self
-            .deserialize
-            .get_or_init(|| self.source.serde().as_ref().and_then(|s| s.needs_deserialize()))
+        *self.deserialize.get_or_init(|| {
+            self.source
+                .serde()
+                .as_ref()
+                .and_then(|s| s.needs_deserialize())
+                .or_else(|| {
+                    for fctx in self.codegen_ctx.all_field_ctx() {
+                        if let Some(deserialize) = fctx.props().field_props().deserialize() {
+                            if *deserialize {
+                                return Some(deserialize);
+                            }
+                        }
+                    }
+                    None
+                })
+        })
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn needs_serialize(&self) -> FXProp<bool> {
+        self.serialize().unwrap_or_else(|| self.serde())
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn needs_deserialize(&self) -> FXProp<bool> {
+        self.deserialize().unwrap_or_else(|| self.serde())
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn serde_shadow_ident(&self) -> Option<&syn::Ident> {
+        self.serde_shadow_ident
+            .get_or_init(|| {
+                if *self.serde() {
+                    self.source
+                        .serde()
+                        .as_ref()
+                        .and_then(|s| {
+                            s.shadow_name()
+                                .as_ref()
+                                .and_then(|sn| sn.value().map(|name| format_ident!("{}", name, span = sn.final_span())))
+                        })
+                        .or_else(|| {
+                            let input_ident = self.codegen_ctx.input().ident();
+                            Some(format_ident!("__{}Shadow", input_ident, span = input_ident.span()))
+                        })
+                }
+                else {
+                    None
+                }
+            })
+            .as_ref()
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn serde_visibility(&self) -> Option<&syn::Visibility> {
+        self.serde_visibility
+            .get_or_init(|| self.source.serde().as_ref().and_then(|s| s.visibility()).cloned())
+            .as_ref()
     }
 }

@@ -339,6 +339,24 @@ macro_rules! common_prop_impl {
                 .as_ref()
                 .and_then(|h| h.name().map(|name| syn::Ident::new(&name, h.final_span())))
         }
+
+        #[cfg(feature = "serde")]
+        pub fn serde_attributes(&self) -> Option<&FXAttributes> {
+            self.source.serde().as_ref().and_then(|s| s.attributes().as_ref())
+        }
+
+        #[cfg(feature = "serde")]
+        pub fn serde_default_value(&self) -> Option<&FXDefault> {
+            self.serde_default_value
+                .get_or_init(|| {
+                    self.source
+                        .serde()
+                        .as_ref()
+                        .and_then(|s| s.default_value())
+                        .cloned()
+                })
+                .as_ref()
+        }
     };
 }
 //

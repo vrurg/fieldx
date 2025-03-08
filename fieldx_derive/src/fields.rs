@@ -341,11 +341,13 @@ pub struct FXFieldProps {
     has_default:             OnceCell<FXProp<bool>>,
 
     #[cfg(feature = "serde")]
-    serde:       OnceCell<Option<FXProp<bool>>>,
+    serde:               OnceCell<Option<FXProp<bool>>>,
     #[cfg(feature = "serde")]
-    serialize:   OnceCell<Option<FXProp<bool>>>,
+    serialize:           OnceCell<Option<FXProp<bool>>>,
     #[cfg(feature = "serde")]
-    deserialize: OnceCell<Option<FXProp<bool>>>,
+    deserialize:         OnceCell<Option<FXProp<bool>>>,
+    #[cfg(feature = "serde")]
+    serde_default_value: OnceCell<Option<FXDefault>>,
 }
 
 impl FXFieldProps {
@@ -407,11 +409,13 @@ impl FXFieldProps {
             has_default:             OnceCell::new(),
 
             #[cfg(feature = "serde")]
-            serde:                                 OnceCell::new(),
+            serde:                                         OnceCell::new(),
             #[cfg(feature = "serde")]
-            serialize:                             OnceCell::new(),
+            serialize:                                     OnceCell::new(),
             #[cfg(feature = "serde")]
-            deserialize:                           OnceCell::new(),
+            deserialize:                                   OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_default_value:                           OnceCell::new(),
         }
     }
 

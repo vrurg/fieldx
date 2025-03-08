@@ -43,6 +43,10 @@ impl FXDefault {
         false
     }
 
+    pub fn is_empy(&self) -> bool {
+        self.value.is_none()
+    }
+
     fn from_call_like(call: ExprCall) -> darling::Result<Self> {
         let arg_count = call.args.len();
         if arg_count == 0 {
@@ -158,5 +162,15 @@ impl From<FXDefault> for Option<FXProp<syn::Expr>> {
 impl From<&FXDefault> for Option<FXProp<syn::Expr>> {
     fn from(dv: &FXDefault) -> Self {
         dv.value.as_ref().map(|v| FXProp::new(v.clone(), Some(v.span())))
+    }
+}
+
+impl ToTokens for FXDefault {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        if !self.off.is_present() {
+            if let Some(value) = &self.value {
+                tokens.extend(value.to_token_stream());
+            }
+        }
     }
 }

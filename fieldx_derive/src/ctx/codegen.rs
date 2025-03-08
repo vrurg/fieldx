@@ -285,22 +285,6 @@ impl FXCodeGenCtx {
 
     #[cfg(feature = "serde")]
     #[inline]
-    pub fn shadow_ident(&self) -> syn::Ident {
-        let span = self.args().serde_helper_span();
-        if let Some(custom_name) = self.args.serde().as_ref().and_then(|s| s.shadow_name()) {
-            quote::format_ident!(
-                "{}",
-                custom_name.value(),
-                span = custom_name.orig_span().unwrap_or(span)
-            )
-        }
-        else {
-            quote::format_ident!("__{}Shadow", self.input_ident(), span = span)
-        }
-    }
-
-    #[cfg(feature = "serde")]
-    #[inline]
     // How to reference shadow instance in an associated function
     pub fn shadow_var_ident(&self) -> &syn::Ident {
         self.shadow_var_ident
@@ -405,13 +389,6 @@ impl FXCodeGenCtx {
             .map(|f| self.field_ctx(f))
             .collect()
     }
-
-    // #[inline]
-    // pub fn helper_span(&self, helper_kind: FXHelperKind) -> Span {
-    //     self.args()
-    //         .get_helper_span(helper_kind)
-    //         .unwrap_or_else(|| Span::call_site())
-    // }
 
     #[inline(always)]
     pub fn struct_generic_params(&self) -> TokenStream {

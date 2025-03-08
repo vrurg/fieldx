@@ -1,6 +1,6 @@
 use crate::{
     set_literals, validate_exclusives, FXAttributes, FXBool, FXDefault, FXInto, FXNestingAttr, FXOrig, FXProp,
-    FXPropBool, FXPubMode, FXString, FXTriggerHelper, FromNestAttr,
+    FXPropBool, FXPubMode, FXString, FXSynValue, FXTriggerHelper, FromNestAttr,
 };
 use darling::{
     util::{Flag, PathList},
@@ -15,18 +15,17 @@ use syn::Lit;
 #[darling(and_then = Self::validate)]
 pub struct FXSerdeHelper {
     off:           Flag,
-    public:        Option<FXNestingAttr<FXPubMode>>,
-    private:       Option<FXBool>,
     attributes:    Option<FXAttributes>,
     serialize:     Option<FXBool>,
     deserialize:   Option<FXBool>,
+    #[getset(skip)]
+    visibility:    Option<FXSynValue<syn::Visibility>>,
     // Attributes of the original struct to be used with the shadow struct.
     forward_attrs: Option<PathList>,
     #[darling(rename = "default")]
     #[getset(skip)]
     default_value: Option<FXDefault>,
     // Name of the new type to be used for deserialization. By default it's __<ident>Shadow
-    #[getset(skip)]
     shadow_name:   Option<FXString>,
 }
 
@@ -45,22 +44,29 @@ impl FXTriggerHelper for FXSerdeHelper {
 }
 
 impl FXSerdeHelper {
-    validate_exclusives! {"visibility": public; private;}
-
     fn validate(self) -> darling::Result<Self> {
-        self.validate_exclusives()
-            .map_err(|err| err.with_span(&Span::call_site()))?;
+        // self.validate_exclusives()
+        //     .map_err(|err| err.with_span(&Span::call_site()))?;
         Ok(self)
     }
 
+    // Some(true) only if `serialize` is explicitly set to `true`
+    // Some(false) only if explicitly disabled or `deserialize` is explicitly set to `true`
     pub fn needs_serialize(&self) -> Option<FXProp<bool>> {
         self.serialize.as_ref().map(|s| s.into()).or_else(|| {
-            self.deserialize
-                .as_ref()
-                .map(|d| FXProp::new(!*d.is_true(), d.orig_span()))
+            self.deserialize.as_ref().and_then(|d| {
+                if *d.is_true() {
+                    Some(FXProp::new(false, d.orig_span()))
+                }
+                else {
+                    None
+                }
+            })
         })
     }
 
+    // Some(true) only if `deserialize` is explicitly set to `true`
+    // Some(false) only if explicitly disabled or `serialize` is explicitly set to `true`
     pub fn needs_deserialize(&self) -> Option<FXProp<bool>> {
         self.deserialize.as_ref().map(|d| d.into()).or_else(|| {
             self.serialize
@@ -98,36 +104,23 @@ impl FXSerdeHelper {
         }
     }
 
-    #[inline(always)]
-    pub fn public_mode(&self) -> Option<FXProp<FXPubMode>> {
-        crate::util::public_mode(&self.public, &self.private)
-    }
-
-    #[inline(always)]
+    #[inline]
     pub fn accepts_attr(&self, attr: &syn::Attribute) -> bool {
         self.forward_attrs.as_ref().map_or(true, |fa| fa.contains(attr.path()))
     }
 
+    #[inline]
     pub fn has_default(&self) -> bool {
         self.default_value.as_ref().map_or(false, |d| *d.is_true())
     }
 
-    pub fn default_value(&self) -> Option<&syn::Expr> {
-        if self.has_default() {
-            self.default_value.as_ref().and_then(|d| d.value())
-        }
-        else {
-            None
-        }
-    }
-
-    pub fn default_value_raw(&self) -> Option<&FXDefault> {
+    #[inline]
+    pub fn default_value(&self) -> Option<&FXDefault> {
         self.default_value.as_ref()
     }
 
-    pub fn shadow_name(&self) -> Option<FXProp<String>> {
-        self.shadow_name
-            .as_ref()
-            .and_then(|sn| sn.value().map(|name| FXProp::new(name.clone(), sn.orig_span())))
+    #[inline]
+    pub fn visibility(&self) -> Option<&syn::Visibility> {
+        self.visibility.as_ref().map(|v| v.as_ref())
     }
 }

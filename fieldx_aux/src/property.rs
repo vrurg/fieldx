@@ -3,7 +3,7 @@ use std::ops::Deref;
 use darling::util::Flag;
 use proc_macro2::Span;
 
-use crate::FXTriggerHelper;
+use crate::{FXNestingAttr, FXTriggerHelper, FXValueArg};
 
 #[derive(Debug)]
 pub struct FXProp<T> {
@@ -62,6 +62,18 @@ where
     }
 }
 
+impl<T> Default for FXProp<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+            span:  None,
+        }
+    }
+}
+
 impl<T> Deref for FXProp<T> {
     type Target = T;
 
@@ -83,15 +95,6 @@ where
 }
 
 impl<T> Copy for FXProp<T> where T: Copy {}
-
-// impl<T, const WITH_LITERALS: bool> From<&FXNestingAttr<T, WITH_LITERALS>> for FXProp<bool>
-// where
-//     T: FXTriggerHelper + FromNestAttr<WITH_LITERALS>,
-// {
-//     fn from(value: &FXNestingAttr<T, WITH_LITERALS>) -> Self {
-//         value.is_true()
-//     }
-// }
 
 impl<T> From<FXProp<T>> for bool
 where
@@ -176,15 +179,6 @@ where
         value.is_true()
     }
 }
-
-// impl<T, const WITH_LITERALS: bool> From<FXNestingAttr<T, WITH_LITERALS>> for FXProp<bool>
-// where
-//     T: FXTriggerHelper + FromNestAttr<WITH_LITERALS>,
-// {
-//     fn from(value: FXNestingAttr<T, WITH_LITERALS>) -> Self {
-//         value.is_true().respan(value.orig_span())
-//     }
-// }
 
 pub trait FXPropBool {
     type Or;

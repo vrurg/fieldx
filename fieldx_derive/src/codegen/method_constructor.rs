@@ -1,3 +1,4 @@
+use fieldx_aux::FXProp;
 use getset::{Getters, Setters};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
@@ -26,7 +27,7 @@ pub(crate) struct MethodConstructor {
     name:          TokenStream,
     vis:           Option<TokenStream>,
     #[getset(skip)]
-    is_async:      bool,
+    is_async:      FXProp<bool>,
     // Here and below, self refers to the first parameter of the method, even if it's not actually a variant of Self.
     // As it comes in parameter list.
     #[getset(skip)]
@@ -138,7 +139,7 @@ impl MethodConstructor {
         }
     }
 
-    pub(crate) fn set_async(&mut self, is_async: bool) {
+    pub(crate) fn set_async(&mut self, is_async: FXProp<bool>) {
         self.is_async = is_async;
     }
 
@@ -153,7 +154,7 @@ impl MethodConstructor {
 
     #[allow(dead_code)]
     pub(crate) fn is_async(&self) -> bool {
-        self.is_async
+        *self.is_async
     }
 
     pub(crate) fn into_method(self) -> TokenStream {
@@ -229,8 +230,8 @@ impl MethodConstructor {
             quote_spanned![span=> where #(#where_bounds),*]
         };
 
-        let async_decl = if self.is_async {
-            quote_spanned! {span=> async }
+        let async_decl = if *self.is_async {
+            quote_spanned! {self.is_async.final_span()=> async }
         }
         else {
             quote![]
