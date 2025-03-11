@@ -1,18 +1,20 @@
 #![doc(html_root_url = "https://docs.rs/")]
-//! Helper module for the [`fieldx`] crate and for any 3rd party crates, extending `fieldx` functionality.
+//! # fieldx_aux
+//!
+//! Helper module for the [`fieldx`] crate and for any 3rd party crates, extending its functionality.
 //!
 //! `fieldx` itself is heavily based on [`darling`] crate which simplifies development of proc-macros quite a lot. But
-//! it also imposes some constrains on attribute arguments syntax. This crate aims at overcoming these limitations and
+//! it also imposes some constraints on attribute arguments syntax. This crate aims at overcoming these limitations and
 //! providing support for some kinds of attributes required to implement `fieldx`.
 //!
 //! Here is a little break down of what is provided:
 //!
-//! - support for nested arguments, i.e. those that look like `param1("value", trigger, subarg(...))`
+//! - support for nested arguments, i.e. those that look like `arg1("value", trigger, subarg(...))`
 //! - support for some syntax elements that are not on the `darling` crate menu: `some_type(crate::types::Foo)`,
 //!   `error(crate::error::Error, crate::error::Error::SomeProblem("with details"))`[^tuple]
 //! - a set of types implementing standard `fieldx` arguments like helpers, or literal values, etc.
 //!
-//! [^tuple]: Here `Error` is an enum, `SomeProblem` is a variant.
+//! [^tuple]: Here, the first argument of `error()` — `Error` — is an enum; `SomeProblem` is a variant.
 //!
 //! # Usage
 //!

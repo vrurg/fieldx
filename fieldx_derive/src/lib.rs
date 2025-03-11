@@ -63,7 +63,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// | **`off`** | disable helper | disable helper |
 /// | a non-empty string literal (**`"foo"`**) | method name prefix | explicit method name (struct level prefix is not used) |
 /// | **`attributes_fn`** | default attributes for corresponding kind of helper methods | attributes for field's helper method |
-/// | <a id="visibility"></a> **`vis`, `private`** | default visibility | visibility for field helper; `private` is an alias for `vis()` |
+/// | <a id="visibility"></a> **`vis`, `private`**; `private` is an alias for `vis()`| default visibility | visibility for field helper  |
 ///
 /// For example:
 ///
@@ -405,8 +405,9 @@ use syn::{parse_macro_input, DeriveInput};
 /// - **`default`** - whether `serde` must use defaults for missing fields and, perhaps, where to take the defaults from
 /// - **`forward_attrs`** - a list of field attributes that are to be forwarded to the corresponding field of the shadow
 ///   struct
-/// - **`rename(serialize(...), deserialize(...))`** - defines values for `serde` `rename`. Can also be used with a
-///   single string literal which would then set both `serialize` and `deserialize` at once.
+/// - **`rename(serialize(...), deserialize(...))`** - defines values for `serde`
+///   [`rename`](https://serde.rs/container-attrs.html#rename). Can also be used with a single string literal which
+///   would then set both `serialize` and `deserialize` at once.
 /// - **`shadow_name(...)`** - its string literal argument specifies a different name for the shadow struct
 ///
 /// ##### _Notes about `default`_
