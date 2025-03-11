@@ -36,15 +36,13 @@ impl<'a> FXCodeGenPlain<'a> {
         let self_ident = mc.self_ident();
         if *fctx.inner_mut() {
             let accessor_name = format_ident!("{}_ref", ident, span = ident.span());
-            let (mut_modifier, borrow_method) = if *mc.ret_mut() {
-                (quote_spanned! {span=> mut }, quote_spanned! {span=> borrow_mut})
+            let borrow_method = if *mc.ret_mut() {
+                quote_spanned! {span=> borrow_mut}
             }
             else {
-                (quote! {}, quote_spanned! {span=> borrow})
+                quote_spanned! {span=> borrow}
             };
-            mc.add_statement(
-                quote_spanned! {span=> let #mut_modifier #accessor_name = #self_ident.#ident.#borrow_method();},
-            );
+            mc.add_statement(quote_spanned! {span=> let #accessor_name = #self_ident.#ident.#borrow_method();});
             accessor_name.to_token_stream()
         }
         else {
@@ -604,8 +602,6 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
 
     #[cfg(feature = "serde")]
     fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        use fieldx_aux::FXPropBool;
-
         let field_ident = fctx.ident();
         let me_var = self.ctx().me_var_ident();
         let lazy_or_inner_mut = fctx.lazy().or(fctx.inner_mut());
