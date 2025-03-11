@@ -1,13 +1,12 @@
-
 mod inner {
     use fieldx::fxstruct;
 
-    #[fxstruct(get, public)]
+    #[fxstruct(get, vis(pub))]
     pub struct Foo {
         #[fieldx]
         foo_rw: f32,
         #[fieldx(get(private), predicate(off))]
-        foo: u32,
+        foo:    u32,
     }
 }
 

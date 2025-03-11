@@ -3,8 +3,8 @@ error[E0624]: method `foo` is private
   |
   |           #[fieldx(get(private), predicate(off))]
   |  __________________-
-  | |         foo: u32,
-  | |________________- private method defined here
+  | |         foo:    u32,
+  | |___________________- private method defined here
 ...
   |       let _r = foo.foo();
   |                    ^^^ private method

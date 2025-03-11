@@ -20,7 +20,8 @@ note: required by a bound in `field_implements_copy`
 error[E0507]: cannot move out of `self.foo` which is behind a shared reference
  --> tests/uncompilable/non_copy.rs
   |
-  | /     #[fieldx(copy, clearer)]
+  |       #[fieldx(copy, clearer)]
+  |  ____________________^
   | |     foo: String,
   | |_______^ move occurs because `self.foo` has type `Option<String>`, which does not implement the `Copy` trait
   |
