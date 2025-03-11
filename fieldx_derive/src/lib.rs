@@ -55,20 +55,20 @@ use syn::{parse_macro_input, DeriveInput};
 /// <a id="sub_args"></a>
 /// ## Common Sub-Arguments of Helper Arguments
 ///
-/// Helper arguments share a bunch of common sub-arguments. They're listed in the following table, but if their meaning
-/// is unclear then it would be better to skip this section and get back to it later.
+/// Helper arguments share many common sub-arguments. They are listed in the following table.  However, if their
+/// meaning is unclear, it is recommended to skip this section and revisit it later.
 ///
 /// | Sub-argument | Struct Level | Field Level |
 /// |-|-|-|
 /// | **`off`** | disable helper | disable helper |
 /// | a non-empty string literal (**`"foo"`**) | method name prefix | explicit method name (struct level prefix is not used) |
 /// | **`attributes_fn`** | default attributes for corresponding kind of helper methods | attributes for field's helper method |
-/// | <a id="visibility"></a> **`public`, `public(crate)`, `public(super)`, `public(some::module)`, `private`** | default visibility | visibility for field helper |
+/// | <a id="visibility"></a> **`vis`, `private`** | default visibility | visibility for field helper; `private` is an alias for `vis()` |
 ///
 /// For example:
 ///
 /// ```ignore
-/// #[fxstruct( get( "get_", public(crate) ) )]
+/// #[fxstruct( get( "get_", vis(pub(crate)) ) )]
 /// ```
 ///
 /// will generate accessor methods with names prefixed with `get_` and visibility `pub(crate)`:
@@ -374,7 +374,7 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// Explicitly make all fields optional. Useful when neither predicate nor clearer helpers are needed.
 ///
-/// ### **`public(...)`**, **`private`**
+/// ### **`vis(...)`**, **`private`**
 ///
 /// Specify defaults for helpers. See [the sub-arguments section](#sub_args) above for more details.
 ///
@@ -396,15 +396,18 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// The following sub-arguments are supported:
 ///
-/// - a string literal is used to give the shadow struct a user-specified name
+/// - a string literal is used to as alternative name for serialization (see `rename` below)
 /// - **`off`** disables de/serialization support altogether
 /// - **`attributes(...)`** - custom [attributes](#attrs_family) to be applied to the shadow struct
-/// - **`public(...)`**, **`private`** – specify [visibility](#visibility) of the shadow struct
+/// - **`vis(...)`**, **`private`** – specify [visibility](#visibility) of the shadow struct
 /// - **`serialize`** - enable or disable (`serialize(off)`) serialization support for the struct
 /// - **`deserialize`** - enable or disable (`deserialize(off)`) deserialization support for the struct
-/// - **`default`** - wether `serde` must use defaults for missing fields and, perhaps, where to take the defaults from\
+/// - **`default`** - whether `serde` must use defaults for missing fields and, perhaps, where to take the defaults from
 /// - **`forward_attrs`** - a list of field attributes that are to be forwarded to the corresponding field of the shadow
 ///   struct
+/// - **`rename(serialize(...), deserialize(...))`** - defines values for `serde` `rename`. Can also be used with a
+///   single string literal which would then set both `serialize` and `deserialize` at once.
+/// - **`shadow_name(...)`** - its string literal argument specifies a different name for the shadow struct
 ///
 /// ##### _Notes about `default`_
 ///
@@ -551,9 +554,9 @@ use syn::{parse_macro_input, DeriveInput};
 ///
 /// Explicitly mark field as optional even if neither `predicate` nor `clearer` are requested.
 ///
-/// ### **`public(...)`**, **`private`**
+/// ### **`vis(...)`**, **`private`**
 ///
-/// Field-default visibility for helper methods. See [the sub-arguments section](#sub_args) above for more details.
+/// Field-default visibility for helper methods. See [the sub-arguments section](#sub_args) above.
 ///
 /// ### **`serde`**
 ///

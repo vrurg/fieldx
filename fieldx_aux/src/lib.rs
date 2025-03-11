@@ -22,7 +22,7 @@
 //! - `trigger` which would let turn some functionality on or off
 //! - `action` to specify a method with special meaning
 //! - `comment` with some text
-//! - `public` to specify if field-related code must be public and if yes then what kind of `pub` we need
+//! - `vis` to specify if field-related code must be public and if yes then what kind of `pub` we need
 //!
 //! A field declaration may take the following form with the attribute:
 //!
@@ -31,7 +31,7 @@
 //!         trigger,
 //!         action("method_name", private),
 //!         comment("Whatever we consider useful."),
-//!         public(crate)
+//!         vis(pub(crate))
 //!     )]
 //!     bar: usize,
 //! ```
@@ -47,7 +47,7 @@
 //!     trigger: Option<FXBool>,
 //!     action: Option<FXHelper>,
 //!     comment: Option<FXString>,
-//!     public: Option<FXNestingAttr<FXPubMode>>,
+//!     vis: Option<FXSynValue<syn::Visibility>>,
 //! }
 //! ```
 //!

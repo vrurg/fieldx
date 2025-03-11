@@ -1,6 +1,24 @@
 #![doc(html_root_url = "https://docs.rs/")]
-//! Procedural macro for constructing structs with lazily initialized fields, builder pattern, and [`serde`] support
-//! with a focus on declarative syntax.
+//! # FieldX
+//!
+//! `fieldx` is a declarative object orchestrator that streamlines object and dependency management. It supports:
+//!
+//! - Lazy initialization of fields with builder methods that simplifies implicit dependency management
+//! - Accessor and setter methods for fields
+//! - Optional field infrastructure
+//! - Sync-safe field management with locks
+//! - Struct builder pattern
+//! - Post-build hook for validation and adjustment of struct
+//! - `serde` support
+//! - Type conversions using `Into` trait
+//! - Default values for fields
+//! - Inner mutability for fields
+//! - Pass-through attributes for fields, methods, and generated helper structs
+//! - Renaming for generated methods names and serialization inputs/outputs
+//! - Generic structs
+//! - Visibility control for generated methods and helper structs
+//!
+//! # Quick Start
 //!
 //! Let's start with an example:
 //!
@@ -12,6 +30,10 @@
 //! struct Foo {
 //!     count: usize,
 //!     foo:   String,
+//!     // This declaration can be replaced with:
+//!     //     #[fieldx(lazy(off), inner_mut, get, get_mut)]
+//!     //     order: Vec<&'static str>,
+//!     // But we want things here be a bit more explicit for now.
 //!     #[fieldx(lazy(off), get)]
 //!     order: RefCell<Vec<&'static str>>,
 //! }
