@@ -1,12 +1,12 @@
 //! Parameters of builder pattern and builder object.
 use crate::{
-    set_literals, FXAttributes, FXBool, FXHelperTrait, FXInto, FXNestingAttr, FXOrig, FXPubMode, FXPunctuated,
-    FXString, FXSynValue, FXTriggerHelper, FromNestAttr,
+    set_literals, FXAttributes, FXBool, FXOrig, FXProp, FXPunctuated, FXSetState, FXString, FXSynValue,
+    FXTriggerHelper, FXTryInto, FromNestAttr,
 };
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
-use syn::{Lit, Token};
+use syn::Token;
 
 // TODO try to issue warnings with `diagnostics` for sub-arguments which are not supported at struct or field level.
 /// Implementation of builder argument.
@@ -59,25 +59,34 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
     /// Shortcut to the `into` parameter.
     ///
     /// Since it makes sense at both struct and field level `Option` is returned to know exactly if it is set or not.
-    pub fn is_into(&self) -> Option<bool> {
-        self.into.as_ref().map(|i| i.is_true())
+    pub fn is_into(&self) -> Option<FXProp<bool>> {
+        self.into.as_ref().map(|i| i.into())
     }
 
     /// Shortcut to the `required` parameter.
     ///
     /// Since it makes sense at both struct and field level `Option` is returned to know exactly if it is set or not.
-    pub fn is_required(&self) -> Option<bool> {
-        self.required.as_ref().map(|r| r.is_true())
+    pub fn is_required(&self) -> Option<FXProp<bool>> {
+        self.required.as_ref().map(|r| r.into())
     }
 
     /// Shortcut to `opt_in` parameter.
-    pub fn is_builder_opt_in(&self) -> bool {
-        self.opt_in.as_ref().map_or(false, |o| o.is_true())
+    pub fn is_builder_opt_in(&self) -> FXProp<bool> {
+        self.opt_in
+            .as_ref()
+            .map_or_else(|| FXProp::new(false, None), |o| o.into())
     }
 
     /// Shortcut to `post_build` parameter.
-    pub fn has_post_build(&self) -> bool {
-        self.post_build.is_some()
+    pub fn has_post_build(&self) -> FXProp<bool> {
+        self.post_build
+            .as_ref()
+            .map_or_else(|| FXProp::new(false, None), |pb| FXProp::new(true, pb.orig_span()))
+    }
+
+    /// Accessor for `attributes_impl`.
+    pub fn attributes(&self) -> Option<&FXAttributes> {
+        self.attributes.as_ref()
     }
 
     /// Accessor for `attributes_impl`.
@@ -101,19 +110,19 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
             if self.error.is_some() {
                 return Err(
                     darling::Error::custom(format!("parameter 'error' is only supported at struct level"))
-                        .with_span(&self.error.fx_span()),
+                        .with_span(&self.error.final_span()),
                 );
             }
             if self.post_build.is_some() {
                 return Err(darling::Error::custom(format!(
                     "parameter 'post_build' is only supported at struct level"
                 ))
-                .with_span(&self.post_build.fx_span()));
+                .with_span(&self.post_build.final_span()));
             }
             if self.opt_in.is_some() {
                 return Err(
                     darling::Error::custom(format!("parameter 'opt_in' is only supported at struct level"))
-                        .with_span(&self.opt_in.fx_span()),
+                        .with_span(&self.opt_in.final_span()),
                 );
             }
         }

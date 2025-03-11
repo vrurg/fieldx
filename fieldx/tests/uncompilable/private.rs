@@ -1,15 +1,16 @@
-
 mod inner {
     use fieldx::fxstruct;
 
     #[fxstruct(sync)]
     pub struct Inner {
-        #[fieldx(private, lazy, reader)]
+        #[fieldx(vis(), lazy, reader)]
         foo: u8,
     }
 
     impl Inner {
-        fn build_foo(&self) -> u8 { 42 }
+        fn build_foo(&self) -> u8 {
+            42
+        }
     }
 }
 

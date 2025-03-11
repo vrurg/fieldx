@@ -1,18 +1,20 @@
 #![doc(html_root_url = "https://docs.rs/")]
-//! Helper module for the [`fieldx`] crate and for any 3rd party crates, extending `fieldx` functionality.
+//! # fieldx_aux
+//!
+//! Helper module for the [`fieldx`] crate and for any 3rd party crates, extending its functionality.
 //!
 //! `fieldx` itself is heavily based on [`darling`] crate which simplifies development of proc-macros quite a lot. But
-//! it also imposes some constrains on attribute arguments syntax. This crate aims at overcoming these limitations and
+//! it also imposes some constraints on attribute arguments syntax. This crate aims at overcoming these limitations and
 //! providing support for some kinds of attributes required to implement `fieldx`.
 //!
 //! Here is a little break down of what is provided:
 //!
-//! - support for nested arguments, i.e. those that look like `param1("value", trigger, subarg(...))`
+//! - support for nested arguments, i.e. those that look like `arg1("value", trigger, subarg(...))`
 //! - support for some syntax elements that are not on the `darling` crate menu: `some_type(crate::types::Foo)`,
 //!   `error(crate::error::Error, crate::error::Error::SomeProblem("with details"))`[^tuple]
 //! - a set of types implementing standard `fieldx` arguments like helpers, or literal values, etc.
 //!
-//! [^tuple]: Here `Error` is an enum, `SomeProblem` is a variant.
+//! [^tuple]: Here, the first argument of `error()` — `Error` — is an enum; `SomeProblem` is a variant.
 //!
 //! # Usage
 //!
@@ -22,7 +24,7 @@
 //! - `trigger` which would let turn some functionality on or off
 //! - `action` to specify a method with special meaning
 //! - `comment` with some text
-//! - `public` to specify if field-related code must be public and if yes then what kind of `pub` we need
+//! - `vis` to specify if field-related code must be public and if yes then what kind of `pub` we need
 //!
 //! A field declaration may take the following form with the attribute:
 //!
@@ -31,7 +33,7 @@
 //!         trigger,
 //!         action("method_name", private),
 //!         comment("Whatever we consider useful."),
-//!         public(crate)
+//!         vis(pub(crate))
 //!     )]
 //!     bar: usize,
 //! ```
@@ -47,7 +49,7 @@
 //!     trigger: Option<FXBool>,
 //!     action: Option<FXHelper>,
 //!     comment: Option<FXString>,
-//!     public: Option<FXNestingAttr<FXPubMode>>,
+//!     vis: Option<FXSynValue<syn::Visibility>>,
 //! }
 //! ```
 //!
@@ -63,6 +65,7 @@ pub mod builder_helper;
 pub mod default_arg;
 pub mod fallible;
 pub mod nesting_attr;
+pub mod property;
 pub mod serde_helper;
 pub mod setter_helper;
 pub mod syn_value;
@@ -80,62 +83,15 @@ pub use crate::{
     default_arg::FXDefault,
     fallible::FXFallible,
     nesting_attr::{FXNestingAttr, FromNestAttr},
+    property::*,
     serde_helper::FXSerdeHelper,
     setter_helper::FXSetterHelper,
     syn_value::{FXPunctuated, FXSynTupleArg, FXSynValueArg},
-    traits::{FXBoolHelper, FXFrom, FXHelperTrait, FXInto, FXTriggerHelper},
-    util::public_mode,
+    traits::*,
     value::FXValueArg,
     with_origin::FXOrig,
 };
-use darling::FromMeta;
-use quote::{quote, ToTokens};
-use syn::{ext::IdentExt, Lit};
-
-/// Visibility of an element
-#[derive(FromMeta, Debug, Clone, Default)]
-pub enum FXPubMode {
-    /// private
-    #[darling(skip)]
-    Private,
-    /// `pub(crate)`
-    Crate,
-    /// `pub(super)`
-    Super,
-    /// `pub(in crate::Module)`
-    InMod(syn::Path),
-    #[default]
-    #[darling(skip)]
-    All,
-}
-
-impl FromNestAttr for FXPubMode {
-    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
-        Ok(Self::All)
-    }
-
-    fn set_literals(self, _literals: &Vec<Lit>) -> darling::Result<Self> {
-        Err(darling::Error::custom("No literals allowed here"))
-    }
-}
-
-impl ToTokens for FXPubMode {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        tokens.extend(match self {
-            FXPubMode::Private => quote![],
-            FXPubMode::All => quote!(pub),
-            FXPubMode::Super => quote!(pub(super)),
-            FXPubMode::Crate => quote!(pub(crate)),
-            FXPubMode::InMod(ref path) => quote!(pub(in #path)),
-        });
-    }
-}
-
-impl FXTriggerHelper for FXPubMode {
-    fn is_true(&self) -> bool {
-        true
-    }
-}
+use syn::ext::IdentExt;
 
 /// Concurrency mode
 ///
@@ -184,8 +140,8 @@ impl FXSyncMode {
     }
 
     // Only to make it usable with validate_exclusives macro
-    pub fn is_true(&self) -> bool {
-        true
+    pub fn is_true(&self) -> FXProp<bool> {
+        FXProp::new(true, None)
     }
 }
 

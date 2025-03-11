@@ -13,7 +13,7 @@
 //!
 //! Also, argument is allowed to be used in a form of plain keyword with no subarguments, like `get`.
 
-use crate::{with_origin::FXOrig, FXFrom, FXTriggerHelper};
+use crate::{with_origin::FXOrig, FXFrom, FXProp, FXSetState, FXTriggerHelper, FXTryFrom};
 use darling::{ast::NestedMeta, FromMeta};
 use getset::Getters;
 use proc_macro2::TokenStream;
@@ -214,12 +214,84 @@ where
     }
 }
 
+impl<T, U, const WITH_LITERALS: bool> FXTryFrom<U> for FXNestingAttr<T, WITH_LITERALS>
+where
+    T: FXTryFrom<U, Error = darling::Error> + FromNestAttr<WITH_LITERALS>,
+{
+    type Error = darling::Error;
+
+    #[inline]
+    fn fx_try_from(value: U) -> Result<Self, Self::Error> {
+        Ok(Self {
+            inner: T::fx_try_from(value)?,
+            orig:  None,
+        })
+    }
+}
+
+impl<T, U, const WITH_LITERALS: bool> FXTryFrom<U> for Option<FXNestingAttr<T, WITH_LITERALS>>
+where
+    T: FXTryFrom<U, Error = darling::Error> + FromNestAttr<WITH_LITERALS>,
+{
+    type Error = darling::Error;
+
+    #[inline]
+    fn fx_try_from(value: U) -> Result<Self, Self::Error> {
+        Ok(Some(FXNestingAttr {
+            inner: T::fx_try_from(value)?,
+            orig:  None,
+        }))
+    }
+}
+
 impl<T, const WITH_LITERALS: bool> FXTriggerHelper for FXNestingAttr<T, WITH_LITERALS>
 where
     T: FXTriggerHelper + FromNestAttr<WITH_LITERALS>,
 {
     #[inline(always)]
-    fn is_true(&self) -> bool {
-        self.inner.is_true()
+    fn is_true(&self) -> FXProp<bool> {
+        self.inner.is_true().respan(self.orig_span())
     }
 }
+
+impl<T, const WITH_LITERALS: bool> FXSetState for FXNestingAttr<T, WITH_LITERALS>
+where
+    T: FXSetState + FromNestAttr<WITH_LITERALS>,
+{
+    #[inline(always)]
+    fn is_set(&self) -> FXProp<bool> {
+        self.inner.is_set().respan(self.orig_span())
+    }
+}
+
+impl<T, U, const WITH_LITERALS: bool> From<FXNestingAttr<T, WITH_LITERALS>> for Option<FXProp<U>>
+where
+    Option<FXProp<U>>: From<T>,
+    T: FromNestAttr<WITH_LITERALS>,
+{
+    #[inline(always)]
+    fn from(value: FXNestingAttr<T, WITH_LITERALS>) -> Self {
+        value.inner.into()
+    }
+}
+
+impl<T, U, const WITH_LITERALS: bool> From<&FXNestingAttr<T, WITH_LITERALS>> for Option<FXProp<U>>
+where
+    Option<FXProp<U>>: for<'a> From<&'a T>,
+    T: FromNestAttr<WITH_LITERALS>,
+{
+    #[inline(always)]
+    fn from(value: &FXNestingAttr<T, WITH_LITERALS>) -> Self {
+        (&value.inner).into()
+    }
+}
+
+// impl<T, const WITH_LITERALS: bool> FXSetState for &FXNestingAttr<T, WITH_LITERALS>
+// where
+//     T: FXSetState + FromNestAttr<WITH_LITERALS>,
+// {
+//     #[inline(always)]
+//     fn is_set(&self) -> FXProp<bool> {
+//         self.inner.is_set().respan(self.orig_span())
+//     }
+// }

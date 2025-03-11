@@ -1,8 +1,6 @@
 //! Implementation of accessor helper (`get` argument of `fxstruct`/`fieldx` attributes).
 
-use crate::{
-    FXAttributes, FXBool, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXString, FXTriggerHelper, FromNestAttr,
-};
+use crate::{FXAttributes, FXBool, FXInto, FXOrig, FXProp, FXSetState, FXString, FXTriggerHelper, FromNestAttr};
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
@@ -22,6 +20,34 @@ pub enum FXAccessorMode {
     #[default]
     #[darling(skip)]
     None,
+}
+
+impl FXAccessorMode {
+    #[inline]
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    #[inline]
+    pub fn is_copy(&self) -> bool {
+        matches!(self, Self::Copy)
+    }
+
+    #[inline]
+    pub fn is_clone(&self) -> bool {
+        matches!(self, Self::Clone)
+    }
+
+    #[inline]
+    pub fn is_as_ref(&self) -> bool {
+        matches!(self, Self::AsRef)
+    }
+}
+
+impl FXSetState for FXAccessorMode {
+    fn is_set(&self) -> FXProp<bool> {
+        FXProp::new(!self.is_none(), None)
+    }
 }
 
 /// Implement support for accessor attribute argument.

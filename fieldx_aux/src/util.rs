@@ -1,5 +1,3 @@
-use crate::{FXBool, FXNestingAttr, FXPubMode, FXTriggerHelper};
-
 /// Generate implementation of `set_literals` method for [`FromNestAttr`](crate::nesting_attr::FromNestAttr) trait.
 #[macro_export]
 macro_rules! set_literals {
@@ -18,20 +16,7 @@ macro_rules! set_literals {
             let mut iter = literals.iter();
             $(
                 if let Some(lit) = iter.next() {
-                    if let $ty(lit_value) = lit {
-                        // XXX Well, this only works for a single literal...
-                        self.$field = lit_value.value().fx_into();
-                    }
-                    else {
-                        return Err(
-                            darling::Error::custom(
-                                format!("Expected a {} literal argument for `{}`",
-                                    stringify!($ty),
-                                    stringify!($field))
-                            )
-                            .with_span(lit)
-                        );
-                    }
+                    self.$field = lit.clone().fx_try_into().map_err(|e| darling::Error::from(e).with_span(lit))?;
                 }
             )+
             Ok(self)
@@ -73,7 +58,7 @@ macro_rules! validate_exclusives {
                         let fref = self.$field.as_ref();
                         subgroup.push( ( validate_exclusives!(or_alias:
                                             stringify!($field), $( $alias )? ),
-                                            fref.map(|f| f.is_true()).unwrap_or(false),
+                                            fref.map(|f| *f.is_set()).unwrap_or(false),
                                             fref.map(|f| f.to_token_stream()) ) );
                     )+
                 )+
@@ -138,15 +123,4 @@ macro_rules! validate_exclusives {
             }
         }
     };
-}
-
-#[doc(hidden)]
-#[inline]
-pub fn public_mode(public: &Option<FXNestingAttr<FXPubMode>>, private: &Option<FXBool>) -> Option<FXPubMode> {
-    if private.as_ref().map_or(false, |p| p.is_true()) {
-        Some(FXPubMode::Private)
-    }
-    else {
-        public.as_ref().map(|pm| (**pm).clone())
-    }
 }

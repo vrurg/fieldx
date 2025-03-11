@@ -1,4 +1,5 @@
 use fieldx::fxstruct;
+
 #[fxstruct(get_mut)]
 struct Foo {
     #[fieldx(lazy, predicate)]

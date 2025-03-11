@@ -1,63 +1,59 @@
 use super::{FXCodeGenSync, FXSyncImplDetails};
-use crate::{codegen::FXCodeGenContextual, ctx::FXFieldCtx};
-use proc_macro2::TokenStream;
+use crate::ctx::FXFieldCtx;
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 
 pub struct FXSyncImplementor;
 
 impl FXSyncImplDetails for FXSyncImplementor {
-    fn field_proxy_type(&self) -> TokenStream {
-        quote![::fieldx::sync::FXProxySync]
+    fn field_proxy_type(&self, span: Span) -> TokenStream {
+        quote_spanned![span=> ::fieldx::sync::FXProxySync]
     }
 
-    fn fx_mapped_write_guard(&self) -> TokenStream {
-        quote![::fieldx::sync::FXWrLockGuardSync]
+    fn fx_mapped_write_guard(&self, span: Span) -> TokenStream {
+        quote_spanned![span=> ::fieldx::sync::FXWrLockGuardSync]
     }
 
-    fn fx_fallible_builder_wrapper(&self) -> TokenStream {
-        quote![::fieldx::sync::FXBuilderFallible]
+    fn fx_fallible_builder_wrapper(&self, span: Span) -> TokenStream {
+        quote_spanned![span=> ::fieldx::sync::FXBuilderFallible]
     }
 
-    fn fx_infallible_builder_wrapper(&self) -> TokenStream {
-        quote![::fieldx::sync::FXBuilderInfallible]
+    fn fx_infallible_builder_wrapper(&self, span: Span) -> TokenStream {
+        quote_spanned![span=> ::fieldx::sync::FXBuilderInfallible]
     }
 
     fn lazy_wrapper_fn(&self, _: &FXCodeGenSync, _: &FXFieldCtx) -> Result<TokenStream, darling::Error> {
         Ok(quote![])
     }
 
-    fn lazy_builder(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> Result<TokenStream, darling::Error> {
+    fn lazy_builder(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> TokenStream {
         let input_type = codegen.input_type_toks();
-        let lazy_builder_name = codegen.lazy_name(fctx)?;
-        let span = fctx.helper_span(super::FXHelperKind::Lazy);
-        Ok(quote_spanned![span=> <#input_type>::#lazy_builder_name])
+        let lazy_builder_name = fctx.lazy_ident();
+        let span = fctx.lazy().final_span();
+        quote_spanned![span=> <#input_type>::#lazy_builder_name]
     }
 
-    fn is_async(&self) -> bool {
-        false
-    }
-
-    fn await_call(&self) -> TokenStream {
+    fn await_call(&self, _span: Span) -> TokenStream {
         quote![]
     }
 
-    fn rwlock(&self) -> TokenStream {
-        quote![::fieldx::sync::FXRwLockSync]
+    fn rwlock(&self, span: Span) -> TokenStream {
+        quote_spanned![span=> ::fieldx::sync::FXRwLockSync]
     }
 
-    fn rwlock_read_guard(&self) -> TokenStream {
-        quote![::fieldx::sync::RwLockReadGuard]
+    fn rwlock_read_guard(&self, span: Span) -> TokenStream {
+        quote_spanned![span=> ::fieldx::sync::RwLockReadGuard]
     }
 
-    fn rwlock_write_guard(&self) -> TokenStream {
-        quote![::fieldx::sync::RwLockWriteGuard]
+    fn rwlock_write_guard(&self, span: Span) -> TokenStream {
+        quote_spanned![span=> ::fieldx::sync::RwLockWriteGuard]
     }
 
-    fn rwlock_mapped_read_guard(&self) -> TokenStream {
-        quote![::fieldx::sync::MappedRwLockReadGuard]
+    fn rwlock_mapped_read_guard(&self, span: Span) -> TokenStream {
+        quote_spanned![span=> ::fieldx::sync::MappedRwLockReadGuard]
     }
 
-    fn rwlock_mapped_write_guard(&self) -> TokenStream {
-        quote![::fieldx::sync::MappedRwLockWriteGuard]
+    fn rwlock_mapped_write_guard(&self, span: Span) -> TokenStream {
+        quote_spanned![span=> ::fieldx::sync::MappedRwLockWriteGuard]
     }
 }

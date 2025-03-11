@@ -1,7 +1,7 @@
 //! Default value.
 
-use crate::{FXOrig, FXTriggerHelper, FromNestAttr};
-use darling::FromMeta;
+use crate::{FXOrig, FXProp, FXPropBool, FXSetState, FXTriggerHelper, FromNestAttr};
+use darling::{util::Flag, FromMeta};
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
@@ -12,7 +12,7 @@ use syn::{parse2, spanned::Spanned, ExprCall, Meta};
 /// Normally, looks like `default(42)` or `default(Type::func())`, or just `default`.
 #[derive(Debug, Clone, Getters)]
 pub struct FXDefault {
-    off:   bool,
+    off:   Flag,
     /// The default value literal or path.
     value: Option<syn::Expr>,
     /// The original tokens used to produce this object.
@@ -27,7 +27,7 @@ impl FXDefault {
     }
 
     pub fn off(&self) -> bool {
-        self.off
+        self.off.is_present()
     }
 
     pub fn value(&self) -> Option<&syn::Expr> {
@@ -43,6 +43,10 @@ impl FXDefault {
         false
     }
 
+    pub fn is_empy(&self) -> bool {
+        self.value.is_none()
+    }
+
     fn from_call_like(call: ExprCall) -> darling::Result<Self> {
         let arg_count = call.args.len();
         if arg_count == 0 {
@@ -56,7 +60,7 @@ impl FXDefault {
             1 => {
                 let value = Some(call.args[0].clone());
                 Ok(Self {
-                    off: false,
+                    off: false.into(),
                     value,
                     orig: Some(call.to_token_stream()),
                 })
@@ -73,7 +77,7 @@ impl FXDefault {
                 if off {
                     let value = Some(call.args[1].clone());
                     Ok(Self {
-                        off,
+                        off: off.into(),
                         value,
                         orig: Some(call.to_token_stream()),
                     })
@@ -92,7 +96,7 @@ impl FromMeta for FXDefault {
     fn from_meta(item: &Meta) -> darling::Result<Self> {
         match item {
             Meta::Path(path) => Ok(Self {
-                off:   false,
+                off:   false.into(),
                 value: None,
                 orig:  Some(path.to_token_stream()),
             }),
@@ -105,7 +109,7 @@ impl FromMeta for FXDefault {
                 Self::from_call_like(expr)
             }
             Meta::NameValue(name_value) => Ok(Self {
-                off:   false,
+                off:   false.into(),
                 value: Some(name_value.value.clone()),
                 orig:  Some(name_value.to_token_stream()),
             }),
@@ -113,9 +117,20 @@ impl FromMeta for FXDefault {
     }
 }
 
+impl FXSetState for FXDefault {
+    fn is_set(&self) -> FXProp<bool> {
+        if self.off.is_present() {
+            FXProp::new(false, self.orig_span())
+        }
+        else {
+            FXProp::new(self.value.is_some(), self.orig_span())
+        }
+    }
+}
+
 impl FXTriggerHelper for FXDefault {
-    fn is_true(&self) -> bool {
-        !self.off
+    fn is_true(&self) -> FXProp<bool> {
+        FXProp::from(self.off).not()
     }
 }
 
@@ -128,7 +143,7 @@ impl FXOrig<TokenStream> for FXDefault {
 impl FromNestAttr for FXDefault {
     fn for_keyword(path: &syn::Path) -> darling::Result<Self> {
         Ok(Self {
-            off:   false,
+            off:   false.into(),
             value: None,
             orig:  Some(path.to_token_stream()),
         })
@@ -146,5 +161,27 @@ impl TryFrom<&FXDefault> for String {
         }
         Err(darling::Error::custom("The default value must be a string")
             .with_span(&dv.orig.as_ref().map_or_else(|| Span::call_site(), |o| o.span())))
+    }
+}
+
+impl From<FXDefault> for Option<FXProp<syn::Expr>> {
+    fn from(dv: FXDefault) -> Self {
+        dv.value.as_ref().map(|v| FXProp::new(v.clone(), Some(v.span())))
+    }
+}
+
+impl From<&FXDefault> for Option<FXProp<syn::Expr>> {
+    fn from(dv: &FXDefault) -> Self {
+        dv.value.as_ref().map(|v| FXProp::new(v.clone(), Some(v.span())))
+    }
+}
+
+impl ToTokens for FXDefault {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        if !self.off.is_present() {
+            if let Some(value) = &self.value {
+                tokens.extend(value.to_token_stream());
+            }
+        }
     }
 }

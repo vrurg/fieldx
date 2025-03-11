@@ -23,17 +23,17 @@ struct Foo {
     #[fieldx(get(clone))]
     bar_clone: BarClone,
 
-    #[fieldx(lazy, get, copy)]
+    #[fieldx(lazy, get, copy, builder(off))]
     lazy_bar_copy: BarCopy,
 
-    #[fieldx(lazy, get(clone))]
+    #[fieldx(lazy, get(clone), builder(off))]
     lazy_bar_clone: BarClone,
 
     // Make sure it is possible to lock-protect a field
-    #[fieldx(reader, writer("write_lb"), default(String::from("protected")))]
+    #[fieldx(reader, writer("write_lb"), default(String::from("protected")), builder(off))]
     locked_bar: String,
 
-    #[fieldx(lazy, get_mut)]
+    #[fieldx(lazy, get_mut, builder(off))]
     queue: Vec<String>,
 }
 

@@ -3,10 +3,10 @@ use fieldx::fxstruct;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-#[fxstruct(sync, builder(attributes_impl(allow(dead_code))), serde("FooDup", default))]
+#[fxstruct(sync, builder(attributes_impl(allow(dead_code))), serde(default))]
 #[derive(Clone, Debug)]
 struct Foo {
-    #[fieldx(optional, into, get(clone))]
+    #[fieldx(lock, optional, into, get(clone))]
     maybe_name: String,
 
     #[fieldx(into, get(clone))]

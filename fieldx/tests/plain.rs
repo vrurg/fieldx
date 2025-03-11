@@ -14,6 +14,7 @@ struct Plain {
     #[fieldx(clearer, predicate, set, default(String::from("bazzification")))]
     baz: String,
 
+    // Note the intentional use of a different type for the default value. Without `off`, it would trigger an error!
     #[fieldx(lazy, clearer, rename("piquant"), default(off, "this won't be used"))]
     fubar: String,
 

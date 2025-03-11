@@ -1,5 +1,4 @@
-pub(crate) use fieldx_aux::{FXAccessorMode, FXHelperTrait, FXOrig, FXTriggerHelper};
-use proc_macro2::Span;
+pub(crate) use fieldx_aux::FXAccessorMode;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum FXHelperKind {
@@ -12,11 +11,6 @@ pub(crate) enum FXHelperKind {
     Reader,
     Setter,
     Writer,
-}
-
-pub(crate) trait FXHelperContainer {
-    fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait>;
-    fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span>;
 }
 
 impl ToString for FXHelperKind {
@@ -38,33 +32,32 @@ impl ToString for FXHelperKind {
 
 impl FXHelperKind {
     #[inline]
-    pub(crate) fn default_prefix(&self) -> Option<&str> {
+    pub(crate) fn default_prefix(&self) -> &str {
         match self {
-            FXHelperKind::AccessorMut => None,
-            FXHelperKind::Accessor => None,
-            FXHelperKind::Builder => None,
-            FXHelperKind::Clearer => Some("clear_"),
-            FXHelperKind::Lazy => Some("build_"),
-            FXHelperKind::Predicate => Some("has_"),
-            FXHelperKind::Reader => Some("read_"),
-            FXHelperKind::Setter => Some("set_"),
-            FXHelperKind::Writer => Some("write_"),
+            FXHelperKind::AccessorMut => "",
+            FXHelperKind::Accessor => "",
+            FXHelperKind::Builder => "",
+            FXHelperKind::Clearer => "clear_",
+            FXHelperKind::Lazy => "build_",
+            FXHelperKind::Predicate => "has_",
+            FXHelperKind::Reader => "read_",
+            FXHelperKind::Setter => "set_",
+            FXHelperKind::Writer => "write_",
         }
-        .into()
     }
 
     #[inline]
-    pub(crate) fn default_suffix(&self) -> Option<&str> {
+    pub(crate) fn default_suffix(&self) -> &str {
         match self {
-            FXHelperKind::AccessorMut => Some("_mut"),
-            FXHelperKind::Accessor => None,
-            FXHelperKind::Builder => None,
-            FXHelperKind::Clearer => None,
-            FXHelperKind::Lazy => None,
-            FXHelperKind::Predicate => None,
-            FXHelperKind::Reader => None,
-            FXHelperKind::Setter => None,
-            FXHelperKind::Writer => None,
+            FXHelperKind::AccessorMut => "_mut",
+            FXHelperKind::Accessor => "",
+            FXHelperKind::Builder => "",
+            FXHelperKind::Clearer => "",
+            FXHelperKind::Lazy => "",
+            FXHelperKind::Predicate => "",
+            FXHelperKind::Reader => "",
+            FXHelperKind::Setter => "",
+            FXHelperKind::Writer => "",
         }
     }
 }

@@ -33,10 +33,10 @@ impl Plain {
     }
 }
 
-#[fxstruct(builder(error(my::Error, my::Error::UnsetField)))]
+#[fxstruct(builder(error(my::Error, my::Error::UnsetField), attributes_fn(allow(unused))))]
 #[derive(Debug)]
 struct Foo {
-    #[allow(dead_code)]
+    #[allow(unused)]
     pub foo: i32,
 }
 

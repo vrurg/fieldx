@@ -2,12 +2,15 @@
 #![deny(dead_code)]
 use fieldx::fxstruct;
 
-#[fxstruct(builder(public(crate), attributes(derive(Debug))), attributes_impl(allow(dead_code)))]
+#[fxstruct(
+    builder(vis(pub(crate)), attributes(derive(Debug))),
+    attributes_impl(allow(dead_code))
+)]
 #[derive(Debug)]
 struct Plain {
     #[fieldx(lazy, clearer, predicate, rename("dummy"))]
     foo:    String,
-    #[fieldx(lazy, private, predicate, clearer, set, builder(attributes_fn(allow(dead_code))))]
+    #[fieldx(lazy, vis(), predicate, clearer, set, builder(attributes_fn(allow(dead_code))))]
     bar:    i32,
     #[fieldx(default(3.1415926))]
     pub pi: f32,

@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
 use darling::{ast, FromDeriveInput, FromField, FromMeta};
-use proc_macro;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
-use syn::{parse_macro_input, punctuated::Punctuated, spanned::Spanned, token::Comma, DeriveInput};
+use syn::{
+    parse::Parse, parse_macro_input, parse_quote, parse_quote_spanned, punctuated::Punctuated, spanned::Spanned,
+    token::Comma, DeriveInput,
+};
 
 #[derive(Debug, FromMeta, Clone)]
 struct FXHArgs {
@@ -20,6 +22,7 @@ struct FXHelperField {
     attrs: Vec<syn::Attribute>,
 
     exclusive: Option<String>,
+    rename:    Option<String>,
 }
 
 #[derive(Debug, FromDeriveInput)]
@@ -67,21 +70,29 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
     };
 
     let mut fields_tt: Vec<TokenStream> = Vec::new();
-    let mut exclusives: HashMap<String, Vec<(syn::Ident, TokenStream)>> = HashMap::new();
+    let mut exclusives: HashMap<String, Vec<(String, syn::Ident, TokenStream)>> = HashMap::new();
     let mut exclusives_tt: Vec<TokenStream> = vec![];
 
     exclusives.insert(
         "visibility".to_string(),
         vec![
-            (format_ident!("public"), quote![is_some]),
-            (format_ident!("private"), quote![is_some]),
+            ("vis".to_string(), format_ident!("visibility"), quote![is_some]),
+            ("private".to_string(), format_ident!("private"), quote![is_some]),
         ],
     );
 
     for field in fields.iter() {
+        let mut custom_attrs = vec![];
+        let field_alias = field.rename.as_ref().cloned();
+
+        if let Some(ref alias) = field_alias {
+            custom_attrs.push(quote![ #[darling(rename = #alias)] ]);
+        }
+
         if let Some(exclusive) = &field.exclusive {
             if let Some(ref ident) = field.ident {
                 let ident = ident.clone();
+
                 let check_method = if let syn::Type::Path(ref tpath) = field.ty {
                     if tpath.path.is_ident("Flag") {
                         quote![is_present]
@@ -96,12 +107,16 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
                         .into();
                 };
 
-                if exclusives.contains_key(exclusive) {
-                    exclusives.get_mut(exclusive).unwrap().push((ident, check_method));
-                }
-                else {
-                    exclusives.insert(exclusive.clone(), vec![(ident, check_method)]);
-                }
+                exclusives.entry(exclusive.clone()).or_insert(vec![]).push((
+                    if let Some(alias) = field_alias {
+                        alias
+                    }
+                    else {
+                        ident.to_string()
+                    },
+                    ident,
+                    check_method,
+                ));
             }
         }
 
@@ -109,7 +124,7 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
             ident, vis, ty, attrs, ..
         } = &field;
 
-        fields_tt.push(quote![ #( #attrs )* #vis #ident: #ty ])
+        fields_tt.push(quote![ #( #attrs )* #( #custom_attrs )* #vis #ident: #ty ])
     }
 
     let attributes_method = if fields
@@ -149,11 +164,10 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
     for (group, fields) in exclusives.iter() {
         let mut checks: Vec<TokenStream> = vec![];
 
-        for (ident, check_method) in fields.iter() {
-            let ident_str = ident.to_string();
+        for (field_name, ident, check_method) in fields.iter() {
             checks.push(quote![
                 if self.#ident.#check_method() {
-                    set_params.push(#ident_str);
+                    set_params.push(#field_name);
                 }
             ]);
         }
@@ -200,24 +214,39 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
             #[getset(skip)]
             attributes_fn: Option<FXAttributes>,
             #[getset(skip)]
-            public: Option<FXNestingAttr<FXPubMode>>,
-            #[getset(skip)]
+            #[darling(rename = "vis")]
+            visibility: Option<crate::FXSynValue<syn::Visibility>>,
             private: Option<FXBool>,
 
             #( #fields_tt ),*
         }
 
         impl #impl_generics FXTriggerHelper for #ident #ty_generics #where_clause {
-            fn is_true(&self) -> bool {
-                !self.off.is_present()
+            fn is_true(&self) -> FXProp<bool> {
+                let is_present = self.off.is_present();
+                FXProp::new(
+                    !is_present,
+                    if is_present { Some(self.off.span()) } else { None }
+                )
             }
         }
 
-        impl #impl_generics FXHelperTrait for #ident #ty_generics #where_clause {
+        impl #impl_generics FXSetState for #ident #ty_generics #where_clause {
+            fn is_set(&self) -> FXProp<bool> {
+                if self.off.is_present() {
+                    FXProp::new(false, Some(self.off.span()))
+                }
+                else {
+                    FXProp::new(true, None)
+                }
+            }
+        }
+
+        impl #impl_generics crate::FXHelperTrait for #ident #ty_generics #where_clause {
             #[inline]
-            fn name(&self) -> Option<&str> {
+            fn name(&self) -> Option<FXProp<&str>> {
                 if let Some(ref name) = self.name {
-                    name.value().map(|v| v.as_str())
+                    name.value().map(|v| FXProp::new(v.as_str(), name.orig_span()))
                 }
                 else {
                     None
@@ -229,9 +258,12 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
                 self.attributes_fn.as_ref()
             }
 
-            #[inline(always)]
-            fn public_mode(&self) -> Option<FXPubMode> {
-                crate::util::public_mode(&self.public, &self.private)
+            #[inline]
+            fn visibility(&self) -> Option<&syn::Visibility> {
+                if self.private.as_ref().map_or(false, |v| *v.is_true()) {
+                    return Some(&syn::Visibility::Inherited);
+                }
+                self.visibility.as_ref().map(|v| v.value())
             }
 
             #attributes_method
@@ -251,4 +283,215 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
         }
     ]
     .into()
+}
+
+#[derive(Debug)]
+enum FallbackParam {
+    Or(syn::Expr),
+    Else(syn::Block),
+    Clone(Span),
+}
+
+impl FallbackParam {
+    fn idx(&self) -> usize {
+        match self {
+            FallbackParam::Or(_) | FallbackParam::Else(_) => 0,
+            FallbackParam::Clone(_) => 1,
+        }
+    }
+
+    fn kwd_for_idx(idx: usize) -> &'static str {
+        match idx {
+            0 => "default",
+            1 => "cloned",
+            _ => panic!("Invalid index"),
+        }
+    }
+
+    fn span(&self) -> Span {
+        match self {
+            FallbackParam::Or(expr) => expr.span(),
+            FallbackParam::Else(block) => block.span(),
+            FallbackParam::Clone(span) => *span,
+        }
+    }
+}
+
+impl Parse for FallbackParam {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let lookahead = input.lookahead1();
+        if lookahead.peek(syn::Ident) {
+            let ident = input.parse::<syn::Ident>()?;
+            match ident.to_string().as_str() {
+                "default" => {
+                    if input.peek(syn::token::Brace) {
+                        let block = input.parse::<syn::Block>()?;
+                        Ok(Self::Else(block))
+                    }
+                    else {
+                        let expr = input.parse::<syn::Expr>()?;
+                        Ok(Self::Or(expr))
+                    }
+                }
+                "cloned" => Ok(Self::Clone(ident.span())),
+                _ => Err(input.error("Expected `default` or `cloned`")),
+            }
+        }
+        else {
+            Err(lookahead.error())
+        }
+    }
+}
+
+#[derive(Debug)]
+struct FallbackArg {
+    method_name: syn::Ident,
+    return_type: syn::Type,
+    as_ref:      bool,
+    as_ref_span: Option<proc_macro2::Span>,
+    params:      Vec<FallbackParam>,
+    span:        proc_macro2::Span,
+}
+
+impl Parse for FallbackArg {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let span = input.span();
+        let method_name = input.parse::<syn::Ident>()?;
+        let _: syn::Token![,] = input.parse()?;
+
+        // Short for for boolean: specify `true` or `false` as the default value instead of the return type.
+        if input.peek(syn::LitBool) {
+            let ident: syn::LitBool = input.parse()?;
+            let block: syn::Block = parse_quote_spanned! {ident.span()=>
+                {
+                    FXProp::new(#ident, *field_props.field().fieldx_attr_span())
+                }
+            };
+            return Ok(Self {
+                method_name,
+                return_type: parse_quote! { bool },
+                as_ref: false,
+                as_ref_span: None,
+                params: vec![FallbackParam::Else(block)],
+                span,
+            });
+        }
+
+        let mut as_ref_span = None;
+        let as_ref = if input.peek(syn::Token![&]) {
+            let t: syn::Token![&] = input.parse()?;
+            as_ref_span = Some(t.span);
+            true
+        }
+        else {
+            false
+        };
+
+        let return_type = input.parse::<syn::Type>()?;
+
+        let mut params = vec![];
+        let mut param_count = HashMap::<usize, usize>::new();
+
+        while input.peek(syn::Token![,]) {
+            let _ = input.parse::<syn::Token![,]>();
+            let param = input.parse::<FallbackParam>()?;
+            if *param_count.entry(param.idx()).or_insert(0) > 1 {
+                let kwd = FallbackParam::kwd_for_idx(param.idx());
+                return Err(syn::Error::new(param.span(), format!("Multiple `{}` parameters", kwd)));
+            }
+            params.push(param);
+        }
+
+        Ok(Self {
+            method_name,
+            return_type,
+            as_ref,
+            as_ref_span,
+            params,
+            span,
+        })
+    }
+}
+
+impl ToTokens for FallbackArg {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let span = self.span;
+        let prop_name = &self.method_name;
+        let return_type = &self.return_type;
+        let (as_ref, deref) = if self.as_ref {
+            (quote_spanned![self.as_ref_span.unwrap_or(span)=> &], quote![])
+        }
+        else {
+            (quote![], quote_spanned![span=> *])
+        };
+        let mut or_else = None;
+        let mut clone = None;
+
+        for param in self.params.iter() {
+            let param_span = param.span();
+            match param {
+                FallbackParam::Or(expr) => {
+                    or_else = Some(quote_spanned! {param_span=> .unwrap_or(#expr)});
+                }
+                FallbackParam::Else(expr) => {
+                    or_else = Some(quote_spanned! {param_span=> .unwrap_or_else(|| #expr)});
+                }
+                FallbackParam::Clone(_) => {
+                    clone = Some(quote_spanned! {param_span=> .cloned()});
+                }
+            }
+        }
+
+        let ret_type = quote_spanned! {return_type.span()=> #as_ref FXProp<#return_type> };
+
+        let tt = quote_spanned! {span=>
+            #[inline]
+            pub fn #prop_name(&self) -> #ret_type {
+                let field_props = self.field_props();
+                let arg_props = self.arg_props();
+                #deref self.#prop_name
+                    .get_or_init(|| {
+                        field_props
+                            .#prop_name()
+                            #clone
+                            .or_else(|| arg_props.#prop_name() #clone)
+                            #or_else
+                    })
+            }
+        };
+        tokens.extend(tt);
+    }
+}
+
+struct FallbackArgList {
+    args: Vec<FallbackArg>,
+}
+
+impl Parse for FallbackArgList {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let args = Punctuated::<FallbackArg, syn::Token![;]>::parse_terminated(input)?;
+
+        Ok(Self {
+            args: args.into_iter().collect(),
+        })
+    }
+}
+
+impl ToTokens for FallbackArgList {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let args = &self.args;
+        tokens.extend(quote! {
+            #( #args )*
+        });
+    }
+}
+
+// This macro is specifically designed for FieldCTXProps struct
+#[proc_macro]
+pub fn fallback_prop(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let args: FallbackArgList = parse_macro_input!(input as FallbackArgList);
+
+    let toks = args.to_token_stream();
+
+    toks.into()
 }

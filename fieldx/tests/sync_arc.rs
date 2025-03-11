@@ -2,7 +2,7 @@
 use fieldx::{error::FieldXError, fxstruct};
 use std::sync::{Arc, Weak};
 
-#[fxstruct(sync, rc(public), builder)]
+#[fxstruct(sync, rc(vis(pub)), builder)]
 struct Bar {
     #[fieldx(get(copy), attributes_fn(allow(dead_code)))]
     id: usize,

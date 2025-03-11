@@ -1,8 +1,7 @@
 //! The most basic helper declaration
 
 use crate::{
-    set_literals, FXAttributes, FXBool, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXString, FXTriggerHelper,
-    FromNestAttr,
+    set_literals, FXAttributes, FXBool, FXOrig, FXProp, FXSetState, FXString, FXTriggerHelper, FXTryInto, FromNestAttr,
 };
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
@@ -40,13 +39,13 @@ impl<const BOOL_ONLY: bool> FromNestAttr for FXBaseHelper<BOOL_ONLY> {
 
 impl<const BOOL_ONLY: bool> From<FXBaseHelper<BOOL_ONLY>> for bool {
     fn from(value: FXBaseHelper<BOOL_ONLY>) -> Self {
-        value.is_true()
+        *value.is_true()
     }
 }
 
 impl<const BOOL_ONLY: bool> From<&FXBaseHelper<BOOL_ONLY>> for bool {
     fn from(value: &FXBaseHelper<BOOL_ONLY>) -> Self {
-        value.is_true()
+        *value.is_true()
     }
 }
 

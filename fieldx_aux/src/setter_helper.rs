@@ -1,6 +1,5 @@
 use crate::{
-    set_literals, FXAttributes, FXBool, FXHelperTrait, FXInto, FXNestingAttr, FXPubMode, FXString, FXTriggerHelper,
-    FromNestAttr,
+    set_literals, FXAttributes, FXBool, FXOrig, FXProp, FXSetState, FXString, FXTriggerHelper, FXTryInto, FromNestAttr,
 };
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
@@ -11,7 +10,7 @@ use syn::Lit;
 #[derive(Default, Debug, Getters)]
 pub struct FXSetterHelper<const BOOL_ONLY: bool = false> {
     #[getset(get = "pub")]
-    into: Option<bool>,
+    into: Option<FXBool>,
 }
 
 impl<const BOOL_ONLY: bool> FXSetterHelper<BOOL_ONLY> {
@@ -23,8 +22,8 @@ impl<const BOOL_ONLY: bool> FXSetterHelper<BOOL_ONLY> {
     }
 
     #[inline]
-    pub fn is_into(&self) -> Option<bool> {
-        self.into
+    pub fn is_into(&self) -> Option<FXProp<bool>> {
+        self.into.as_ref().map(|into| into.into())
     }
 }
 

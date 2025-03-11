@@ -35,7 +35,7 @@ impl Bar {
     }
 }
 
-#[fxstruct(sync, get, serde("BazDup", default(Self::serde_default())))]
+#[fxstruct(sync, get, serde(shadow_name("BazDup"), default(Self::serde_default())))]
 #[derive(Clone)]
 struct Baz {
     f1: String,

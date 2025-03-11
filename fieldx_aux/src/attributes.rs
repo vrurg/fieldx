@@ -22,6 +22,15 @@ pub struct FXAttributes {
     list: Vec<syn::Attribute>,
 }
 
+impl IntoIterator for FXAttributes {
+    type IntoIter = std::vec::IntoIter<syn::Attribute>;
+    type Item = syn::Attribute;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.list.into_iter()
+    }
+}
+
 impl FromMeta for FXAttributes {
     fn from_meta(input: &Meta) -> Result<Self, darling::Error> {
         // eprintln!(">>> {:#?}", input);

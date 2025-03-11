@@ -1,13 +1,14 @@
 use super::{
-    method_constructor::MethodConstructor, FXCodeGenCtx, FXCodeGenPlain, FXCodeGenSync, FXFieldCtx, FXInlining,
+    constructor::method::MethodConstructor, FXCodeGenCtx, FXCodeGenPlain, FXCodeGenSync, FXFieldCtx, FXInlining,
     FXValueRepr,
 };
 use crate::{helper::*, FXInputReceiver};
 use enum_dispatch::enum_dispatch;
+use fieldx_aux::{FXProp, FXPropBool};
 use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::rc::Rc;
-use syn::{spanned::Spanned, Ident};
+use syn::spanned::Spanned;
 
 #[enum_dispatch]
 pub enum FXCodeGenerator<'a> {
@@ -56,7 +57,7 @@ pub trait FXCodeGenContextual {
     // fn add_shadow_default_decl(&self, field: TokenStream);
 
     fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> darling::Result<&'s TokenStream>;
-    fn ref_count_types(&self) -> (TokenStream, TokenStream);
+    fn ref_count_types(&self, span: Span) -> (TokenStream, TokenStream);
     // fn copyable_types(&self) -> Ref<Vec<syn::Type>>;
     // #[cfg(feature = "serde")]
     // fn shadow_fields(&self) -> Ref<Vec<TokenStream>>;
@@ -94,127 +95,13 @@ pub trait FXCodeGenContextual {
         }
     }
 
-    fn helper_span(&self, fctx: &FXFieldCtx, helper_kind: FXHelperKind) -> Span {
-        fctx.get_helper_span(helper_kind)
-            .or_else(|| fctx.fieldx_attr_span().as_ref().copied())
-            .or_else(|| self.ctx().args().get_helper_span(helper_kind))
-            .unwrap_or_else(|| Span::call_site())
-    }
-
-    fn helper_name(&self, fctx: &FXFieldCtx, helper_kind: FXHelperKind) -> darling::Result<Ident> {
-        let args = self.ctx().args();
-        let helper_span = fctx
-            .get_helper_span(helper_kind)
-            .or_else(|| args.get_helper_span(helper_kind))
-            .unwrap_or_else(|| Span::call_site());
-
-        if let Some(ref h) = fctx.get_helper(helper_kind) {
-            if let Some(ref name) = h.name() {
-                if !name.is_empty() {
-                    return Ok(format_ident!("{}", name, span = helper_span));
-                }
-            }
-        }
-
-        #[cfg(not(feature = "diagnostics"))]
-        let mut helper_base_name = fctx.helper_base_name()?;
-
-        #[cfg(feature = "diagnostics")]
-        let mut helper_base_name = fctx.helper_base_name().map_err(|err| {
-            err.note(format!(
-                "Field name is required for generating '{}' helper.",
-                helper_kind.to_string()
-            ))
-        })?;
-
-        // Make items, generated for for a helper, point back at the helper declaration.
-        helper_base_name.set_span(helper_span);
-
-        let args_helper = self.ctx().args().get_helper(helper_kind);
-        let prefix = args_helper
-            .and_then(|h| h.name())
-            .or_else(|| helper_kind.default_prefix())
-            .unwrap_or("");
-        let suffix = helper_kind.default_suffix().unwrap_or("");
-
-        Ok(format_ident!(
-            "{}{}{}",
-            prefix,
-            helper_base_name,
-            suffix,
-            span = helper_span
-        ))
-    }
-
-    fn helper_name_tok(&self, fctx: &FXFieldCtx, helper_kind: FXHelperKind) -> darling::Result<TokenStream> {
-        Ok(self.helper_name(fctx, helper_kind)?.to_token_stream())
-    }
-
-    #[inline]
-    fn accessor_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.helper_name_tok(fctx, FXHelperKind::Accessor)
-    }
-
-    #[inline]
-    fn accessor_mut_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.helper_name_tok(fctx, FXHelperKind::AccessorMut)
-    }
-
-    #[inline]
-    fn lazy_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.helper_name_tok(fctx, FXHelperKind::Lazy)
-    }
-
-    #[inline]
-    fn setter_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.helper_name_tok(fctx, FXHelperKind::Setter)
-    }
-
-    #[inline]
-    fn clearer_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.helper_name_tok(fctx, FXHelperKind::Clearer)
-    }
-
-    #[inline]
-    fn predicate_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.helper_name_tok(fctx, FXHelperKind::Predicate)
-    }
-
-    #[inline]
-    fn writer_name(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        self.helper_name_tok(fctx, FXHelperKind::Writer)
-    }
-
-    fn attributes_fn<'s>(
-        &'s self,
-        fctx: &'s FXFieldCtx,
-        helper_kind: FXHelperKind,
-        inlining: FXInlining,
-    ) -> Option<TokenStream> {
-        let span = fctx.helper_span(helper_kind);
-        let attrs = fctx
-            .get_helper(helper_kind)
-            .and_then(|h| h.attributes_fn())
-            .or_else(|| fctx.attributes_fn().as_ref())
-            .or_else(|| {
-                self.ctx()
-                    .args()
-                    .get_helper(helper_kind)
-                    .and_then(|h| h.attributes_fn())
-            });
-
-        match inlining {
-            FXInlining::Default => attrs.map(|a| quote![#a]),
-            FXInlining::Inline => Some(quote_spanned![span=> #[inline] #attrs]),
-            FXInlining::Always => Some(quote_spanned![span=> #[inline(always)] #attrs]),
-        }
-    }
-
     fn generic_params(&self) -> TokenStream {
-        let generic_idents = self.ctx().input().generic_param_idents();
+        let input = self.ctx().input();
+        let generic_idents = input.generic_param_idents();
+        let span = input.generics().span();
 
         if generic_idents.len() > 0 {
-            quote![< #( #generic_idents ),* >]
+            quote_spanned![span=> < #( #generic_idents ),* >]
         }
         else {
             quote![]
@@ -222,11 +109,11 @@ pub trait FXCodeGenContextual {
     }
 
     fn maybe_ref_counted<TT: ToTokens>(&self, ty: &TT) -> TokenStream {
-        let ctx = self.ctx();
-        if ctx.args().is_ref_counted() {
-            let span = ctx.args().rc().span();
-            let (rc_type, _) = self.ref_count_types();
-            return quote_spanned![span=> #rc_type<#ty>];
+        let ref_counted = self.ctx().arg_props().rc();
+        if *ref_counted {
+            let rc_span = ref_counted.final_span();
+            let (rc_type, _) = self.ref_count_types(rc_span);
+            return quote_spanned![rc_span=> #rc_type<#ty>];
         }
 
         ty.to_token_stream()
@@ -239,48 +126,53 @@ pub trait FXCodeGenContextual {
         init: Option<syn::Ident>,
     ) -> TokenStream {
         let ctx = self.ctx();
-        let args = ctx.args();
-        let post_constuct = if let Some(init) = init {
-            let shortcut = if ctx.build_has_error_type() {
-                quote![?]
+        let arg_props = ctx.arg_props();
+        let post_construct = if let Some(init) = init {
+            let builder_has_error_type = arg_props.builder_has_error_type();
+            let shortcut = if *builder_has_error_type {
+                quote_spanned![builder_has_error_type.final_span()=> ?]
             }
             else {
                 quote![]
             };
-            quote![.#init() #shortcut]
+            quote_spanned![init.span()=> .#init() #shortcut]
         }
         else {
             quote![]
         };
 
-        if args.is_ref_counted() {
-            let (rc_type, _) = self.ref_count_types();
-            let myself_field = ctx.myself_field();
-            quote![
+        let rc = arg_props.rc();
+
+        if *rc {
+            let rc_span = rc.final_span();
+            let (rc_type, _) = self.ref_count_types(rc_span);
+            let myself_field = arg_props.myself_field_ident();
+            quote_spanned![rc_span=>
                 #rc_type::new_cyclic(
                     |me| {
                         #self_name {
                             #myself_field: me.clone(),
                             #struct_init
                         }
-                        #post_constuct
+                        #post_construct
                     }
                 )
             ]
         }
         else {
-            quote![
+            quote_spanned![self_name.span()=>
                 #self_name {
                     #struct_init
                 }
-                #post_constuct
+                #post_construct
             ]
         }
     }
 
-    fn maybe_optional<TT: ToTokens>(&self, fctx: &FXFieldCtx, ty: TT) -> TokenStream {
-        if fctx.is_optional() {
-            quote![::std::option::Option<#ty>]
+    fn maybe_optional<T: ToTokens>(&self, fctx: &FXFieldCtx, ty: T) -> TokenStream {
+        let opt = fctx.optional();
+        if *opt {
+            quote_spanned! {opt.final_span()=> ::std::option::Option<#ty>}
         }
         else {
             ty.to_token_stream()
@@ -288,28 +180,22 @@ pub trait FXCodeGenContextual {
     }
 
     fn field_decl(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
-        let attributes = fctx.all_attrs();
-        let vis = fctx.vis();
+        let mut constructor = fctx.constructor();
 
-        let ty_tok = if fctx.is_skipped() {
-            fctx.ty_tok()
-        }
-        else {
-            self.type_tokens(&fctx)?
+        constructor.set_vis(fctx.vis());
+
+        if !*fctx.skipped() {
+            constructor.set_type(self.type_tokens(&fctx)?.clone());
         };
         // No check for None is needed because we're only applying to named structs.
-        let ident = fctx.ident_tok();
 
-        self.ctx().add_field_decl(quote_spanned! [*fctx.span()=>
-            #( #attributes )*
-            #vis #ident: #ty_tok
-        ]);
+        self.ctx().add_field_decl(constructor.to_field());
 
         Ok(())
     }
 
     fn field_methods(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
-        if !fctx.is_skipped() {
+        if !*fctx.skipped() {
             let ctx = self.ctx();
             ctx.add_method_decl(self.field_accessor(&fctx)?);
             ctx.add_method_decl(self.field_accessor_mut(&fctx)?);
@@ -319,7 +205,7 @@ pub trait FXCodeGenContextual {
             ctx.add_method_decl(self.field_clearer(&fctx)?);
             ctx.add_method_decl(self.field_predicate(&fctx)?);
             ctx.add_method_decl(self.field_lazy_builder_wrapper(&fctx)?);
-            if ctx.needs_builder_struct() {
+            if *ctx.arg_props().builder_struct() {
                 ctx.add_builder_decl(self.field_builder(&fctx)?);
                 ctx.add_builder_field_decl(self.field_builder_field(&fctx)?);
                 ctx.add_builder_field_ident(fctx.ident().clone());
@@ -330,45 +216,48 @@ pub trait FXCodeGenContextual {
     }
 
     fn field_default(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
-        let def_tok = if fctx.is_skipped() {
-            let span = fctx.field().skip().span();
-            fctx.default_value()
-                .unwrap_or(quote_spanned! {span=> ::std::default::Default::default() })
+        let skipped = fctx.skipped();
+        let def_tok = if *skipped {
+            let span = skipped.final_span();
+            fctx.default_value().map_or_else(
+                || quote_spanned! {span=> ::std::default::Default::default() },
+                |dv| dv.to_token_stream(),
+            )
         }
         else {
             self.field_default_wrap(fctx)?
         };
-        let ident = fctx.ident_tok();
-        self.ctx().add_defaults_decl(quote! [ #ident: #def_tok ]);
+        let ident = fctx.ident();
+        self.ctx()
+            .add_defaults_decl(quote_spanned! [ident.span()=> #ident: #def_tok ]);
         Ok(())
     }
 
     fn field_default_value(&self, fctx: &FXFieldCtx) -> FXValueRepr<TokenStream> {
-        let field = fctx.field();
-
-        if let Some(def_meta) = fctx.default_value() {
-            let span = def_meta.span();
-
-            FXValueRepr::Versatile(quote_spanned! [span=> #def_meta ])
+        if let Some(default_value) = fctx.default_value() {
+            FXValueRepr::Versatile(default_value.to_token_stream())
         }
-        else if fctx.is_lazy() || fctx.is_optional() {
+        else if *fctx.lazy() || *fctx.optional() {
             FXValueRepr::None
         }
         else {
-            FXValueRepr::Exact(quote_spanned! [field.span()=> ::std::default::Default::default() ])
+            FXValueRepr::Exact(quote_spanned! [*fctx.span()=> ::std::default::Default::default() ])
         }
     }
 
     fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        Ok(if fctx.forced_builder() || fctx.needs_builder() {
-            let mut mc = MethodConstructor::new(self.helper_name(fctx, FXHelperKind::Builder)?);
-            let span = fctx.helper_span(FXHelperKind::Builder);
-            let ident = fctx.ident_tok();
-            let (val_type, gen_params, into_tok) = self.into_toks(fctx, fctx.is_builder_into());
+        let builder = fctx.forced_builder().or(fctx.builder());
+        Ok(if *builder {
+            let span = builder.final_span();
+            let mut builder_ident = fctx.builder_ident().clone();
+            builder_ident.set_span(span);
+            let mut mc = MethodConstructor::new(builder_ident);
+            let ident = fctx.ident();
+            let (val_type, gen_params, into_tok) = self.into_toks(fctx, fctx.builder_into());
 
             mc.set_span(span);
             mc.set_vis(fctx.builder_method_visibility());
-            mc.maybe_add_attribute(self.attributes_fn(fctx, FXHelperKind::Builder, FXInlining::Always));
+            mc.add_attribute(fctx.helper_attributes_fn(FXHelperKind::Builder, FXInlining::Always, span));
             mc.maybe_add_generic(gen_params);
             mc.set_self_mut(true);
             mc.add_param(quote_spanned! {span=> value: #val_type});
@@ -377,7 +266,7 @@ pub trait FXCodeGenContextual {
             mc.add_statement(quote_spanned! {span=> self.#ident = ::std::option::Option::Some(value #into_tok);});
             mc.set_ret_stmt(quote_spanned! {span=> self});
 
-            mc.into_method()
+            mc.to_method()
         }
         else {
             quote![]
@@ -385,14 +274,16 @@ pub trait FXCodeGenContextual {
     }
 
     fn field_builder_field(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        let ident = fctx.ident_tok();
+        let ident = fctx.ident();
         let span = *fctx.span();
         let ty = fctx.ty().to_token_stream();
-        let attributes = fctx.builder().as_ref().and_then(|b| b.attributes());
-        // Precautionary measure as this kind of fields are unlikely to be read. Yet, some of them may affect validity
-        // of the builder like, for example, when they may refer to generic lifetimes.
-        let allow_attr = if !fctx.forced_builder() && !fctx.needs_builder() {
-            quote![#[allow(dead_code)]]
+        let attributes = fctx.props().field_props().builder_attributes();
+        // A precautionary measure as this kind of fields are unlikely to be read. However, some attributes may affect
+        // the validity of the builder, like when they refer to generic lifetimes.
+        // A reminder to self: this used to be `!forced_builder && !builder`.
+        let not_builder = fctx.forced_builder().or(fctx.builder()).not();
+        let allow_attr = if *not_builder {
+            quote_spanned![not_builder.final_span()=> #[allow(dead_code)]]
         }
         else {
             quote![]
@@ -400,32 +291,37 @@ pub trait FXCodeGenContextual {
         Ok(quote_spanned![span=> #attributes #allow_attr #ident: ::std::option::Option<#ty>])
     }
 
+    // Ensure that we return an error or panic if the builder field is required but not set.
     fn field_builder_value_required(&self, fctx: &FXFieldCtx) {
-        if fctx.is_builder_required()
-            || (fctx.needs_builder() && !(fctx.is_lazy() || fctx.is_optional() || fctx.has_default_value()))
-        {
+        let builder_required = fctx.builder_required();
+        let builder = fctx.builder();
+        if *builder_required || (*builder && !(*fctx.lazy() || *fctx.optional() || fctx.has_default_value())) {
             let field_ident = fctx.ident();
             let field_name = field_ident.to_string();
-            let span = self.helper_span(fctx, FXHelperKind::Builder);
+            let span = builder_required.or(builder).final_span();
             let ctx = self.ctx();
-            let field_set_error = if let Some(variant) = ctx.builder_error_variant() {
+            let arg_props = ctx.arg_props();
+
+            let field_set_error = if let Some(variant) = arg_props.builder_error_variant() {
                 // If variant is explicitly specified then use it.
                 quote_spanned! {span=> #variant(#field_name.into())}
             }
-            else if ctx.builder_error_type().is_some() {
-                // If there is  no variant but custom error type is requested then we expect that custom type to
-                // implement From<FieldXError> trait.
-                quote_spanned! {span=>
-                    ::std::convert::Into::into(
-                        ::fieldx::error::FieldXError::uninitialized_field(#field_name.into())
-                    )
-                }
-            }
             else {
-                quote_spanned! {span =>
+                let mut error_create = quote_spanned! {span=>
                     ::fieldx::error::FieldXError::uninitialized_field(#field_name.into())
+                };
+
+                if arg_props.builder_error_type().is_some() {
+                    // If there is  no variant but custom error type is requested then we expect that custom type to
+                    // implement From<FieldXError> trait.
+                    error_create = quote_spanned! {span=>
+                        ::std::convert::Into::into(#error_create)
+                    };
                 }
+
+                error_create
             };
+
             fctx.set_builder_checker(quote_spanned![span=>
                 if self.#field_ident.is_none() {
                     return ::std::result::Result::Err(#field_set_error)
@@ -434,8 +330,11 @@ pub trait FXCodeGenContextual {
         }
     }
 
-    fn field_builder_value_for_set(&self, fctx: &FXFieldCtx, field_ident: &TokenStream, span: &Span) -> TokenStream {
+    fn field_builder_value_for_set(&self, fctx: &FXFieldCtx, field_ident: &syn::Ident, span: &Span) -> TokenStream {
         let ctx = self.ctx();
+        let span = *span;
+        let optional = fctx.optional();
+        let builder_required = fctx.builder_required();
         let alternative = if fctx.has_default_value() {
             self.field_default_wrap(fctx).map_or_else(
                 |e| {
@@ -445,10 +344,10 @@ pub trait FXCodeGenContextual {
                 |tt| Some(tt),
             )
         }
-        else if fctx.is_optional() && !fctx.is_builder_required() {
+        else if *optional && !*builder_required {
             self.field_value_wrap(
                 fctx,
-                FXValueRepr::Exact(quote_spanned![*span=> ::std::option::Option::None]),
+                FXValueRepr::Exact(quote_spanned![optional.final_span()=> ::std::option::Option::None]),
             )
             .map_or_else(
                 |e| {
@@ -463,9 +362,10 @@ pub trait FXCodeGenContextual {
         };
 
         if let Some(alternative) = alternative {
-            let manual_wrapped =
-                self.ok_or_empty(self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![field_manual_value])));
-            quote_spanned![*span=>
+            let manual_wrapped = self.ok_or_empty(
+                self.field_value_wrap(fctx, FXValueRepr::Versatile(quote_spanned![span=>field_manual_value])),
+            );
+            quote_spanned![span=>
                 if let ::std::option::Option::Some(field_manual_value) = self.#field_ident.take() {
                     #manual_wrapped
                 }
@@ -477,10 +377,11 @@ pub trait FXCodeGenContextual {
         else {
             // If no alternative init path provided then we just unwrap. It'd be either totally safe if builder checker
             // is set for this field, or won't be ever run because of an earlier error in this method.
-            let value_wrapped = self.ok_or_empty(
-                self.field_value_wrap(fctx, FXValueRepr::Versatile(quote![self.#field_ident.take().unwrap()])),
-            );
-            quote_spanned![*span=> #value_wrapped ]
+            let value_wrapped = self.ok_or_empty(self.field_value_wrap(
+                fctx,
+                FXValueRepr::Versatile(quote_spanned![span=> self.#field_ident.take().unwrap()]),
+            ));
+            quote_spanned![span=> #value_wrapped ]
         }
     }
 
@@ -514,21 +415,26 @@ pub trait FXCodeGenContextual {
     }
 
     // TokenStreams used to produce methods with Into support.
-    fn into_toks(&self, fctx: &FXFieldCtx, use_into: bool) -> (TokenStream, Option<TokenStream>, Option<TokenStream>) {
+    fn into_toks(
+        &self,
+        fctx: &FXFieldCtx,
+        use_into: FXProp<bool>,
+    ) -> (TokenStream, Option<TokenStream>, Option<TokenStream>) {
         let ty = fctx.ty();
-        if use_into {
+        if *use_into {
+            let span = use_into.final_span();
             (
-                quote![FXVALINTO],
-                Some(quote![FXVALINTO: ::std::convert::Into<#ty>]),
-                Some(quote![.into()]),
+                quote_spanned![span=> FXVALINTO],
+                Some(quote_spanned![span=> FXVALINTO: ::std::convert::Into<#ty>]),
+                Some(quote_spanned![span=> .into()]),
             )
         }
         else {
-            (quote![#ty], None, None)
+            (ty.to_token_stream(), None, None)
         }
     }
 
-    fn simple_field_build_setter(&self, fctx: &FXFieldCtx, field_ident: &TokenStream, span: &Span) -> TokenStream {
+    fn simple_field_build_setter(&self, fctx: &FXFieldCtx, field_ident: &syn::Ident, span: &Span) -> TokenStream {
         let set_toks = self.field_builder_value_for_set(fctx, field_ident, span);
 
         quote_spanned![*span=> #field_ident: #set_toks ]
@@ -540,14 +446,17 @@ pub trait FXCodeGenContextual {
             return;
         }
         let ctx = self.ctx();
-        let args = ctx.args();
-        if args.is_ref_counted() {
-            let (myself_method, _) = ctx.myself_names().unwrap();
-            let span = args.rc_span();
+        let arg_props = ctx.arg_props();
+        let rc = arg_props.rc();
+        if *rc {
+            let myself_method = arg_props.myself_name();
+            let span = rc.final_span();
             let self_rc = format_ident!("__fx_self_rc", span = span);
             let self_ident = mc.self_ident();
             let expect_msg = format!("Can't obtain weak reference to myself for field {}", fctx.ident());
-            mc.add_statement(quote_spanned! {span=> let #self_rc = #self_ident.#myself_method().expect(#expect_msg);});
+            mc.add_statement(quote_spanned! {span=>
+                let #self_rc = #self_ident.#myself_method().expect(#expect_msg);
+            });
             mc.set_self_rc_ident(Some(self_rc.to_token_stream()));
         }
     }
@@ -565,13 +474,13 @@ pub trait FXCodeGenContextual {
         TT: ToTokens,
     {
         let ty = ty.to_token_stream();
-        Ok(if fctx.is_fallible() {
-            let error_type = fctx.fallible_error()?;
-            let span = fctx.fallible_span();
-            quote_spanned! {span=> ::std::result::Result<#ty, #error_type>}
+        let fallible = fctx.fallible();
+        Ok(if *fallible {
+            let error_type = fctx.fallible_error();
+            quote_spanned! {fallible.final_span()=> ::std::result::Result<#ty, #error_type>}
         }
         else {
-            quote![#ty]
+            ty.to_token_stream()
         })
     }
 }

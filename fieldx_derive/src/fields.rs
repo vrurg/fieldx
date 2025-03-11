@@ -1,17 +1,18 @@
 use crate::{
-    helper::{FXHelperContainer, FXHelperKind},
-    util::needs_helper,
+    helper::FXHelperKind,
+    util::{common_prop_impl, mode_async_prop, mode_plain_prop, mode_sync_prop, simple_bool_prop, simple_type_prop},
 };
 use darling::{util::Flag, FromField};
 use fieldx_aux::{
     validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBool, FXBoolHelper, FXBuilder,
-    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXPubMode, FXSerde, FXSetter, FXString,
-    FXSynValue, FXSyncMode, FXTriggerHelper, FromNestAttr,
+    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXSerde, FXSetState, FXSetter,
+    FXString, FXSynValue, FXSyncMode, FXTriggerHelper,
 };
 use getset::Getters;
+use once_cell::unsync::OnceCell;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote_spanned, ToTokens};
-use std::{cell::OnceCell, ops::Deref};
+use std::ops::Deref;
 use syn::{spanned::Spanned, Meta};
 
 #[derive(Debug, FromField, Getters, Clone)]
@@ -54,7 +55,8 @@ pub(crate) struct FXFieldReceiver {
     predicate:     Option<FXHelper>,
     optional:      Option<FXBool>,
 
-    public:        Option<FXNestingAttr<FXPubMode>>,
+    #[darling(rename = "vis")]
+    visibility:    Option<FXSynValue<syn::Visibility>>,
     private:       Option<FXBool>,
     #[darling(rename = "default")]
     default_value: Option<FXDefault>,
@@ -126,16 +128,16 @@ impl ToTokens for FXField {
 
 impl FXFieldReceiver {
     validate_exclusives! {
-        "visibility": public; private;
         "accessor mode": copy; clone;
         "field mode":  lazy; optional;
         "in-/fallible mode": fallible; lock, optional, inner_mut;
         "concurrency mode": mode_sync as "sync"; mode_async as "async"; mode;
+        "visibility": private; visibility as "vis";
     }
 
     // Generate field-level needs_<helper> methods. The final decision of what's needed and what's not is done by
     // FXFieldCtx.
-    needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
+    // needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
 
     pub fn validate(&self) -> darling::Result<()> {
         let mut acc = darling::Error::accumulator();
@@ -172,190 +174,20 @@ impl FXFieldReceiver {
         Ok(())
     }
 
-    #[inline]
-    fn unless_skip(&self, helper: &Option<FXNestingAttr<impl FXHelperTrait + FromNestAttr>>) -> Option<bool> {
-        if self.is_skipped() {
-            Some(false)
-        }
-        else {
-            helper.is_true_opt()
-        }
-    }
-
-    #[inline(always)]
-    pub fn public_mode(&self) -> Option<FXPubMode> {
-        fieldx_aux::public_mode(&self.public, &self.private)
-    }
-
     pub fn ident(&self) -> darling::Result<syn::Ident> {
         self.ident.clone().ok_or_else(|| {
             darling::Error::custom("This is weird, but the field doesn't have an ident!").with_span(self.span())
         })
     }
 
-    pub fn base_name(&self) -> Option<syn::Ident> {
-        if let Some(ref bn) = self.base_name {
-            bn.value().map(|name| syn::Ident::new(name, bn.span()))
-        }
-        else {
-            None
-        }
-    }
-
-    #[inline]
-    pub fn is_sync(&self) -> Option<bool> {
-        self.mode_sync
-            .as_ref()
-            .map(|th| th.is_true())
-            .or_else(|| self.mode.as_ref().map(|m| m.is_sync()))
-    }
-
-    #[inline]
-    pub fn is_async(&self) -> Option<bool> {
-        self.mode_async
-            .as_ref()
-            .map(|th| th.is_true())
-            .or_else(|| self.mode.as_ref().map(|m| m.is_async()))
-    }
-
-    #[inline]
-    pub fn is_plain(&self) -> Option<bool> {
-        self.mode.as_ref().and_then(|m| Some(m.is_plain()))
-    }
-
-    /// Only ever return `Some(true)` if either `lock`, `writer`, or `reader` are set.
-    #[inline]
-    pub fn is_syncish(&self) -> Option<bool> {
-        self.lock()
-            .as_ref()
-            .and_then(|l| l.true_or_none())
-            .or_else(|| self.reader().as_ref().and_then(|r| r.true_or_none()))
-            .or_else(|| self.writer().as_ref().and_then(|w| w.true_or_none()))
-    }
-
-    #[inline]
-    pub fn is_fallible(&self) -> Option<bool> {
-        self.fallible.is_true_opt()
-    }
-
-    #[inline]
-    pub fn is_lazy(&self) -> Option<bool> {
-        self.unless_skip(&self.lazy)
-    }
-
-    #[inline]
-    pub fn is_into(&self) -> Option<bool> {
-        self.into.is_true_opt()
-    }
-
-    #[inline]
-    pub fn is_setter_into(&self) -> Option<bool> {
-        self.setter.as_ref().and_then(|s| s.is_into())
-    }
-
-    #[inline]
-    pub fn is_builder_into(&self) -> Option<bool> {
-        self.builder.as_ref().and_then(|b| b.is_into())
-    }
-
-    #[inline]
-    pub fn is_copy(&self) -> Option<bool> {
-        if self.clone.is_true() {
-            Some(false)
-        }
-        else {
-            self.copy.is_true_opt()
-        }
-    }
-
-    #[inline]
-    pub fn is_clone(&self) -> Option<bool> {
-        if self.copy.is_true() {
-            Some(false)
-        }
-        else {
-            self.clone.is_true_opt()
-        }
-    }
-
-    #[inline]
-    pub fn is_accessor_copy(&self) -> Option<bool> {
-        self.accessor_mode().map(|m| m == FXAccessorMode::Copy)
-    }
-
-    #[inline]
-    pub fn is_accessor_clone(&self) -> Option<bool> {
-        self.accessor_mode().map(|m| m == FXAccessorMode::Clone)
-    }
-
-    #[inline]
-    pub fn is_skipped(&self) -> bool {
-        self.skip.is_present()
-    }
-
-    #[inline]
-    pub fn is_inner_mut(&self) -> Option<bool> {
-        self.inner_mut.is_true_opt()
-    }
-
-    #[inline]
-    pub fn needs_lock(&self) -> Option<bool> {
-        self.lock.as_ref().map(|l| l.is_true()).or_else(|| {
-            self.is_sync().and_then(|s| {
-                if s {
-                    self.is_inner_mut()
-                }
-                else {
-                    None
-                }
-            })
-        })
-    }
-
-    #[cfg(feature = "serde")]
-    #[inline]
-    pub fn is_serde(&self) -> Option<bool> {
-        self.serde.as_ref().and_then(|sw| sw.is_serde())
-    }
-
-    #[inline]
-    pub fn is_optional(&self) -> Option<bool> {
-        self.optional.is_true_opt().or_else(|| {
-            self.is_lazy().and_then(|l| {
-                if l {
-                    Some(false)
-                }
-                else {
-                    None
-                }
-            })
-        })
-    }
-
-    #[cfg(feature = "serde")]
-    #[inline]
-    pub fn needs_serialize(&self) -> Option<bool> {
-        self.serde.as_ref().and_then(|sw| sw.needs_serialize())
-    }
-
-    #[cfg(feature = "serde")]
-    #[inline]
-    pub fn needs_deserialize(&self) -> Option<bool> {
-        self.serde.as_ref().and_then(|sw| sw.needs_deserialize())
-    }
-
     #[inline]
     pub fn has_default_value(&self) -> bool {
         if let Some(ref dv) = self.default_value {
-            dv.is_true()
+            *dv.is_true()
         }
         else {
             false
         }
-    }
-
-    pub fn accessor_mode(&self) -> Option<FXAccessorMode> {
-        self.accessor.as_ref().and_then(|a| a.mode())
     }
 
     fn mark_implicitly(&mut self, orig: Meta) -> Result<(), &str> {
@@ -407,39 +239,319 @@ impl FXFieldReceiver {
     pub fn serde_helper_span(&self) -> Option<Span> {
         self.serde.as_ref().and_then(|s| s.orig_span())
     }
-
-    #[inline]
-    pub fn fallible_error(&self) -> Option<&syn::Path> {
-        self.fallible.as_ref().and_then(|f| f.error_type().map(|et| et.value()))
-    }
 }
 
-impl FXHelperContainer for FXFieldReceiver {
-    fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait> {
-        match kind {
-            FXHelperKind::Accessor => self.accessor().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::Builder => self.builder().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::Clearer => self.clearer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::Predicate => self.predicate().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::Reader => self.reader().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::Setter => self.setter().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-            FXHelperKind::Writer => self.writer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+// impl FXHelperContainer for FXFieldReceiver {
+//     fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait> {
+//         match kind {
+//             FXHelperKind::Accessor => self.accessor().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+//             FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+//             FXHelperKind::Builder => self.builder().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+//             FXHelperKind::Clearer => self.clearer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+//             FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+//             FXHelperKind::Predicate => self.predicate().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+//             FXHelperKind::Reader => self.reader().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+//             FXHelperKind::Setter => self.setter().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+//             FXHelperKind::Writer => self.writer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
+//         }
+//     }
+
+//     fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span> {
+//         match kind {
+//             FXHelperKind::Accessor => self.accessor().as_ref().map(|h| (h.span())),
+//             FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| h.span()),
+//             FXHelperKind::Builder => self.builder().as_ref().map(|h| h.span()),
+//             FXHelperKind::Clearer => self.clearer().as_ref().map(|h| h.span()),
+//             FXHelperKind::Lazy => self.lazy().as_ref().map(|h| h.span()),
+//             FXHelperKind::Predicate => self.predicate().as_ref().map(|h| h.span()),
+//             FXHelperKind::Reader => self.reader().as_ref().map(|h| h.span()),
+//             FXHelperKind::Setter => self.setter().as_ref().map(|h| h.span()),
+//             FXHelperKind::Writer => self.writer().as_ref().map(|h| h.span()),
+//         }
+//     }
+// }
+
+#[derive(Debug)]
+pub struct FXFieldProps {
+    source: FXField,
+
+    // --- Helper properties
+    // Accessor helper standard properties
+    accessor:                OnceCell<Option<FXProp<bool>>>,
+    accessor_visibility:     OnceCell<Option<syn::Visibility>>,
+    accessor_ident:          OnceCell<Option<syn::Ident>>,
+    // Accessor helper extended properties
+    accessor_mode:           OnceCell<Option<FXProp<FXAccessorMode>>>,
+    // Mutable accessor helper standard properties
+    accessor_mut:            OnceCell<Option<FXProp<bool>>>,
+    accessor_mut_visibility: OnceCell<Option<syn::Visibility>>,
+    accessor_mut_ident:      OnceCell<Option<syn::Ident>>,
+    // Builder helper standard properties
+    builder:                 OnceCell<Option<FXProp<bool>>>,
+    builder_visibility:      OnceCell<Option<syn::Visibility>>,
+    builder_ident:           OnceCell<Option<syn::Ident>>,
+    // Builder helper extended properties
+    builder_into:            OnceCell<Option<FXProp<bool>>>,
+    builder_required:        OnceCell<Option<FXProp<bool>>>,
+    // Corresponding builder field attributes
+    builder_attributes:      OnceCell<Option<FXAttributes>>,
+    // Clearer helper standard properties
+    clearer:                 OnceCell<Option<FXProp<bool>>>,
+    clearer_visibility:      OnceCell<Option<syn::Visibility>>,
+    clearer_ident:           OnceCell<Option<syn::Ident>>,
+    // Predicate helper standard properties
+    predicate:               OnceCell<Option<FXProp<bool>>>,
+    predicate_visibility:    OnceCell<Option<syn::Visibility>>,
+    predicate_ident:         OnceCell<Option<syn::Ident>>,
+    // Reader helper standard properties
+    reader:                  OnceCell<Option<FXProp<bool>>>,
+    reader_visibility:       OnceCell<Option<syn::Visibility>>,
+    reader_ident:            OnceCell<Option<syn::Ident>>,
+    // Setter helper standard properties
+    setter:                  OnceCell<Option<FXProp<bool>>>,
+    setter_visibility:       OnceCell<Option<syn::Visibility>>,
+    setter_ident:            OnceCell<Option<syn::Ident>>,
+    // Setter helper extended properties
+    setter_into:             OnceCell<Option<FXProp<bool>>>,
+    // Writer helper standard properties
+    writer:                  OnceCell<Option<FXProp<bool>>>,
+    writer_visibility:       OnceCell<Option<syn::Visibility>>,
+    writer_ident:            OnceCell<Option<syn::Ident>>,
+    // Lazy helper standard properties
+    lazy:                    OnceCell<Option<FXProp<bool>>>,
+    lazy_visibility:         OnceCell<Option<syn::Visibility>>,
+    lazy_ident:              OnceCell<Option<syn::Ident>>,
+    // --- Other properties
+    // Base name of the field. Normally would be the same as the field name.
+    base_name:               OnceCell<Option<syn::Ident>>,
+    fallible:                OnceCell<Option<FXProp<FXFallible>>>,
+    inner_mut:               OnceCell<Option<FXProp<bool>>>,
+    into:                    OnceCell<Option<FXProp<bool>>>,
+    lock:                    OnceCell<Option<FXProp<bool>>>,
+    mode_async:              OnceCell<Option<FXProp<bool>>>,
+    mode_plain:              OnceCell<Option<FXProp<bool>>>,
+    mode_sync:               OnceCell<Option<FXProp<bool>>>,
+    optional:                OnceCell<Option<FXProp<bool>>>,
+    skipped:                 OnceCell<FXProp<bool>>,
+    syncish:                 OnceCell<FXProp<bool>>,
+    visibility:              OnceCell<Option<syn::Visibility>>,
+    default_value:           OnceCell<Option<syn::Expr>>,
+    has_default:             OnceCell<FXProp<bool>>,
+
+    #[cfg(feature = "serde")]
+    serde:                    OnceCell<Option<FXProp<Option<bool>>>>,
+    #[cfg(feature = "serde")]
+    serialize:                OnceCell<Option<FXProp<bool>>>,
+    #[cfg(feature = "serde")]
+    deserialize:              OnceCell<Option<FXProp<bool>>>,
+    #[cfg(feature = "serde")]
+    serde_default_value:      OnceCell<Option<FXDefault>>,
+    #[cfg(feature = "serde")]
+    serde_rename_serialize:   OnceCell<Option<FXProp<String>>>,
+    #[cfg(feature = "serde")]
+    serde_rename_deserialize: OnceCell<Option<FXProp<String>>>,
+}
+
+impl FXFieldProps {
+    common_prop_impl! {}
+
+    simple_type_prop! {
+        fallible, FXFallible;
+    }
+
+    pub fn new(field: FXField) -> Self {
+        Self {
+            source: field,
+
+            accessor:                OnceCell::new(),
+            accessor_visibility:     OnceCell::new(),
+            accessor_ident:          OnceCell::new(),
+            accessor_mode:           OnceCell::new(),
+            accessor_mut:            OnceCell::new(),
+            accessor_mut_visibility: OnceCell::new(),
+            accessor_mut_ident:      OnceCell::new(),
+            builder:                 OnceCell::new(),
+            builder_attributes:      OnceCell::new(),
+            builder_visibility:      OnceCell::new(),
+            builder_ident:           OnceCell::new(),
+            builder_into:            OnceCell::new(),
+            builder_required:        OnceCell::new(),
+            clearer:                 OnceCell::new(),
+            clearer_visibility:      OnceCell::new(),
+            clearer_ident:           OnceCell::new(),
+            predicate:               OnceCell::new(),
+            predicate_visibility:    OnceCell::new(),
+            predicate_ident:         OnceCell::new(),
+            reader:                  OnceCell::new(),
+            reader_visibility:       OnceCell::new(),
+            reader_ident:            OnceCell::new(),
+            setter:                  OnceCell::new(),
+            setter_visibility:       OnceCell::new(),
+            setter_ident:            OnceCell::new(),
+            setter_into:             OnceCell::new(),
+            writer:                  OnceCell::new(),
+            writer_visibility:       OnceCell::new(),
+            writer_ident:            OnceCell::new(),
+            lazy:                    OnceCell::new(),
+            lazy_visibility:         OnceCell::new(),
+            lazy_ident:              OnceCell::new(),
+            base_name:               OnceCell::new(),
+            fallible:                OnceCell::new(),
+            inner_mut:               OnceCell::new(),
+            into:                    OnceCell::new(),
+            lock:                    OnceCell::new(),
+            mode_async:              OnceCell::new(),
+            mode_plain:              OnceCell::new(),
+            mode_sync:               OnceCell::new(),
+            optional:                OnceCell::new(),
+            skipped:                 OnceCell::new(),
+            syncish:                 OnceCell::new(),
+            visibility:              OnceCell::new(),
+            default_value:           OnceCell::new(),
+            has_default:             OnceCell::new(),
+
+            #[cfg(feature = "serde")]
+            serde:                                              OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serialize:                                          OnceCell::new(),
+            #[cfg(feature = "serde")]
+            deserialize:                                        OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_default_value:                                OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_rename_serialize:                             OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_rename_deserialize:                           OnceCell::new(),
         }
     }
 
-    fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span> {
-        match kind {
-            FXHelperKind::Accessor => self.accessor().as_ref().map(|h| (h.span())),
-            FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| h.span()),
-            FXHelperKind::Builder => self.builder().as_ref().map(|h| h.span()),
-            FXHelperKind::Clearer => self.clearer().as_ref().map(|h| h.span()),
-            FXHelperKind::Lazy => self.lazy().as_ref().map(|h| h.span()),
-            FXHelperKind::Predicate => self.predicate().as_ref().map(|h| h.span()),
-            FXHelperKind::Reader => self.reader().as_ref().map(|h| h.span()),
-            FXHelperKind::Setter => self.setter().as_ref().map(|h| h.span()),
-            FXHelperKind::Writer => self.writer().as_ref().map(|h| h.span()),
-        }
+    #[inline(always)]
+    pub fn field(&self) -> &FXField {
+        &self.source
+    }
+
+    // Returns a true FXProp only if either `lock`, `writer`, or `reader` is set.
+    // Otherwise, returns `None`.
+    pub fn syncish(&self) -> FXProp<bool> {
+        *self.syncish.get_or_init(|| {
+            self.source
+                .lock()
+                .as_ref()
+                .and_then(|l| {
+                    if *l.is_true() {
+                        Some(l.into())
+                    }
+                    else {
+                        None
+                    }
+                })
+                .or_else(|| {
+                    self.source.reader().as_ref().and_then(|r| {
+                        if *r.is_true() {
+                            Some(r.into())
+                        }
+                        else {
+                            None
+                        }
+                    })
+                })
+                .or_else(|| {
+                    self.source.writer().as_ref().and_then(|w| {
+                        if *w.is_true() {
+                            Some(w.into())
+                        }
+                        else {
+                            None
+                        }
+                    })
+                })
+                .unwrap_or_else(|| FXProp::new(false, None))
+        })
+    }
+
+    pub fn skipped(&self) -> FXProp<bool> {
+        *self.skipped.get_or_init(|| self.source.skip().into())
+    }
+
+    pub fn visibility(&self) -> Option<&syn::Visibility> {
+        self.visibility
+            .get_or_init(|| {
+                if *self.source.private.is_true() {
+                    return Some(syn::Visibility::Inherited);
+                }
+                self.source.visibility.as_ref().map(|v| v.value().clone())
+            })
+            .as_ref()
+    }
+
+    pub fn builder_attributes(&self) -> Option<&FXAttributes> {
+        self.builder_attributes
+            .get_or_init(|| self.source.builder().as_ref().and_then(|b| b.attributes()).cloned())
+            .as_ref()
+    }
+
+    pub fn base_name(&self) -> Option<&syn::Ident> {
+        self.base_name
+            .get_or_init(|| {
+                if let Some(ref bn) = self.source.base_name {
+                    bn.value().map(|name| syn::Ident::new(name, bn.span()))
+                }
+                else {
+                    None
+                }
+            })
+            .as_ref()
+    }
+
+    pub fn default_value(&self) -> Option<&syn::Expr> {
+        self.default_value
+            .get_or_init(|| {
+                self.source
+                    .default_value()
+                    .as_ref()
+                    .and_then(|d| {
+                        if *d.is_set() {
+                            d.value()
+                        }
+                        else {
+                            None
+                        }
+                    })
+                    .cloned()
+            })
+            .as_ref()
+    }
+
+    pub fn has_default(&self) -> FXProp<bool> {
+        *self.has_default.get_or_init(|| {
+            self.source
+                .default_value()
+                .as_ref()
+                .map_or_else(|| false.into(), |d| d.is_true())
+        })
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn serde(&self) -> Option<FXProp<Option<bool>>> {
+        *self.serde.get_or_init(|| {
+            self.source
+                .serde
+                .as_ref()
+                .and_then(|s| Some(s.is_serde().respan(s.orig_span())))
+        })
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn serialize(&self) -> Option<FXProp<bool>> {
+        *self
+            .serialize
+            .get_or_init(|| self.source.serde().as_ref().and_then(|s| s.needs_serialize()))
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn deserialize(&self) -> Option<FXProp<bool>> {
+        *self
+            .deserialize
+            .get_or_init(|| self.source.serde.as_ref().and_then(|s| s.needs_deserialize()))
     }
 }
