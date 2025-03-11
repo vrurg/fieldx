@@ -2,6 +2,8 @@ mod impl_async;
 mod impl_sync;
 
 use crate::codegen::{FXCodeGenContextual, FXCodeGenCtx, FXFieldCtx, FXHelperKind, FXInlining, FXValueRepr};
+#[allow(unused)]
+use crate::util::dump_tt_struct;
 use fieldx_aux::FXPropBool;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
@@ -70,6 +72,8 @@ impl<'a> FXCodeGenSync<'a> {
         attributes_fn: TokenStream,
         span: Span,
     ) -> darling::Result<TokenStream> {
+        let mut helper_ident = helper_ident.clone();
+        helper_ident.set_span(span);
         let mut mc = MethodConstructor::new(helper_ident);
         let ident = fctx.ident();
         let ty = fctx.ty();
@@ -88,20 +92,22 @@ impl<'a> FXCodeGenSync<'a> {
         let lazy = fctx.lazy();
         let optional = fctx.optional();
 
+        // Tokens for set_ret_type and set_ret_stmt are generated using the default span because the components of the
+        // return type that are related to specific arguments (lazy, optional) are already bound to their respective
+        // spans.  However, their surrounding syntax belongs to the method itself.
         if *lazy {
             let lazy_span = lazy.final_span();
             let mapped_guard = self.implementor(fctx).rwlock_mapped_read_guard(lazy_span);
             let self_rc = mc.self_maybe_rc();
 
             mc.set_self_lifetime(lifetime.clone());
-            mc.set_ret_type(
-                self.fallible_return_type(fctx, quote_spanned! {lazy_span=> #mapped_guard<#lifetime, #ty> })?,
-            );
-            mc.set_ret_stmt(quote_spanned! {lazy_span=> self.#ident.#read_method(&#self_rc)#await_call});
+            mc.set_ret_type(self.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard<#lifetime, #ty> })?);
+            mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method(&#self_rc)#await_call});
         }
         else if *optional {
-            let span = optional.final_span();
-            mc.set_ret_type(quote_spanned! {span=> #rwlock_guard<#lifetime, ::std::option::Option<#ty>> });
+            let opt_span = optional.final_span();
+            let ty = quote_spanned![opt_span=> ::std::option::Option<#ty>];
+            mc.set_ret_type(quote_spanned! {span=> #rwlock_guard<#lifetime, #ty> });
             mc.set_self_lifetime(lifetime);
             mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method()#await_call});
         }
@@ -243,7 +249,10 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                     fctx.accessor_ident(),
                     fctx.accessor_visibility(),
                     fctx.helper_attributes_fn(FXHelperKind::Accessor, FXInlining::Always, span),
-                    span,
+                    // It's preferable for the reader method's span to be bound to the arguments that request it,
+                    // prioritizing lock-related attributes over lazy ones, since the latter implicitly triggers method
+                    // generation whereas the former has direct relation to it.
+                    lock.or(lazy).final_span(),
                 );
             }
 

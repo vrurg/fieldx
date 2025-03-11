@@ -248,8 +248,10 @@ pub trait FXCodeGenContextual {
     fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let builder = fctx.forced_builder().or(fctx.builder());
         Ok(if *builder {
-            let mut mc = MethodConstructor::new(fctx.builder_ident());
             let span = builder.final_span();
+            let mut builder_ident = fctx.builder_ident().clone();
+            builder_ident.set_span(span);
+            let mut mc = MethodConstructor::new(builder_ident);
             let ident = fctx.ident();
             let (val_type, gen_params, into_tok) = self.into_toks(fctx, fctx.builder_into());
 

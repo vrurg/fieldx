@@ -46,13 +46,24 @@ macro_rules! TODO {
 #[allow(unused)]
 macro_rules! dump_tt {
     ($tt:expr) => {{
-        let tt = $tt;
-        eprintln!("{}", tt);
-        tt
+        dump_tt!("", $tt)
     }};
     ($pfx:expr, $tt:expr) => {{
         let tt = $tt;
         eprintln!("{}{}", $pfx, tt);
+        tt
+    }};
+}
+
+#[cfg(debug_assertions)]
+#[allow(unused)]
+macro_rules! dump_tt_struct {
+    ($tt:expr) => {{
+        dump_tt_struct!("", $tt)
+    }};
+    ($pfx:expr, $tt:expr) => {{
+        let tt = $tt;
+        eprintln!("{}{:#?}", $pfx, tt);
         tt
     }};
 }
@@ -405,6 +416,8 @@ macro_rules! common_prop_impl {
 pub(crate) use common_prop_impl;
 #[allow(unused_imports)]
 pub(crate) use dump_tt;
+#[allow(unused_imports)]
+pub(crate) use dump_tt_struct;
 #[allow(unused_imports)]
 pub(crate) use fxtrace;
 pub(crate) use helper_standard_methods;
