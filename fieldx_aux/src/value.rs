@@ -70,7 +70,9 @@ impl<T, const BOOL_ONLY: bool> FXSetState for FXValueArg<T, BOOL_ONLY> {
             FXProp::new(false, Some(self.off.span()))
         }
         else {
-            FXProp::new(self.value.is_some(), None)
+            // If this value is a flag, i.e. it may only be set or unset with `off`, then we should return true in this
+            // branch.
+            FXProp::new(BOOL_ONLY || self.value.is_some(), None)
         }
     }
 }
