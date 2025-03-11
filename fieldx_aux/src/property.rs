@@ -3,7 +3,7 @@ use std::ops::Deref;
 use darling::util::Flag;
 use proc_macro2::Span;
 
-use crate::{FXNestingAttr, FXTriggerHelper, FXValueArg};
+use crate::FXTriggerHelper;
 
 #[derive(Debug)]
 pub struct FXProp<T> {
@@ -128,7 +128,12 @@ impl From<&FXProp<bool>> for bool {
 
 impl From<Flag> for FXProp<bool> {
     fn from(value: Flag) -> Self {
-        Self::new(value.is_present(), Some(value.span()))
+        if value.is_present() {
+            Self::new(true, Some(value.span()))
+        }
+        else {
+            Self::new(false, None)
+        }
     }
 }
 
@@ -137,6 +142,139 @@ impl From<&Flag> for FXProp<bool> {
         Self::new(value.is_present(), Some(value.span()))
     }
 }
+
+macro_rules! from_lit_val {
+    ( $($from_lit:path, $from_type:ty => $ty:ty);+ $(;)? ) => {
+        $(from_lit_val!(@ $from_lit, $from_type => $ty);)+
+    };
+    (@ $from_lit:path, $from_type:ty => $ty:ty) => {
+        impl From<$from_type> for FXProp<$ty> {
+            fn from(value: $from_type) -> Self {
+                FXProp::new(value.value(), Some(value.span()))
+            }
+        }
+
+        impl From<&$from_type> for FXProp<$ty> {
+            fn from(value: &$from_type) -> Self {
+                FXProp::new(value.value(), Some(value.span()))
+            }
+        }
+
+        impl TryFrom<::syn::Lit> for FXProp<$ty> {
+            type Error = darling::Error;
+
+            fn try_from(value: ::syn::Lit) -> Result<Self, Self::Error> {
+                match value {
+                    $from_lit(lit) => Ok(FXProp::new(lit.value(), Some(lit.span()))),
+                    _ => Err(
+                        darling::Error::custom(format!("The value must be a {}", stringify!($ty))).with_span(&value),
+                    ),
+                }
+            }
+        }
+
+        impl TryFrom<&::syn::Lit> for FXProp<$ty> {
+            type Error = darling::Error;
+
+            fn try_from(value: &::syn::Lit) -> Result<Self, Self::Error> {
+                match value {
+                    $from_lit(lit) => Ok(FXProp::new(lit.value(), Some(lit.span()))),
+                    _ => Err(
+                        darling::Error::custom(format!("The value must be a {}", stringify!($ty))).with_span(&value),
+                    ),
+                }
+            }
+        }
+    };
+}
+
+macro_rules! from_lit_num {
+    ( $($from_lit:path, $from_type:ty => $ty:ty);+ $(;)? ) => {
+        $(from_lit_num!(@ $from_lit, $from_type => $ty);)+
+    };
+    (@ $from_lit:path, $from_type:ty => $ty:ty ) => {
+        impl TryFrom<$from_type> for FXProp<$ty> {
+            type Error = darling::Error;
+
+            fn try_from(value: $from_type) -> Result<Self, darling::Error> {
+                Ok(FXProp::new(value.base10_parse()?, Some(value.span())))
+            }
+        }
+
+        impl TryFrom<&$from_type> for FXProp<$ty> {
+            type Error = darling::Error;
+
+            fn try_from(value: &$from_type) -> Result<Self, darling::Error> {
+                Ok(FXProp::new(value.base10_parse()?, Some(value.span())))
+            }
+        }
+
+        impl TryFrom<::syn::Lit> for FXProp<$ty> {
+            type Error = darling::Error;
+
+            fn try_from(value: ::syn::Lit) -> Result<Self, Self::Error> {
+                match value {
+                    $from_lit(lit) => Ok(FXProp::new(lit.base10_parse()?, Some(lit.span()))),
+                    _ => Err(
+                        darling::Error::custom(format!("The value must be a {}", stringify!($ty))).with_span(&value),
+                    ),
+                }
+            }
+        }
+
+        impl TryFrom<&::syn::Lit> for FXProp<$ty> {
+            type Error = darling::Error;
+
+            fn try_from(value: &::syn::Lit) -> Result<Self, Self::Error> {
+                match value {
+                    $from_lit(lit) => Ok(FXProp::new(lit.base10_parse()?, Some(lit.span()))),
+                    _ => Err(
+                        darling::Error::custom(format!("The value must be a {}", stringify!($ty))).with_span(&value),
+                    ),
+                }
+            }
+        }
+    };
+}
+
+from_lit_val! {
+    syn::Lit::Bool,     syn::LitBool    => bool;
+    syn::Lit::ByteStr,  syn::LitByteStr => Vec<u8>;
+    syn::Lit::Char,     syn::LitChar    => char;
+    syn::Lit::Str,      syn::LitStr     => String;
+}
+
+from_lit_num! {
+    syn::Lit::Float,    syn::LitFloat => f32;
+    syn::Lit::Float,    syn::LitFloat => f64;
+    syn::Lit::Int,      syn::LitInt   => i16;
+    syn::Lit::Int,      syn::LitInt   => i32;
+    syn::Lit::Int,      syn::LitInt   => i64;
+    syn::Lit::Int,      syn::LitInt   => i8;
+    syn::Lit::Int,      syn::LitInt   => u16;
+    syn::Lit::Int,      syn::LitInt   => u32;
+    syn::Lit::Int,      syn::LitInt   => u64;
+    syn::Lit::Int,      syn::LitInt   => u8;
+}
+
+// impl From<syn::LitStr> for FXProp<String> {
+//     fn from(value: syn::LitStr) -> Self {
+//         Self::new(value.value(), Some(value.span()))
+//     }
+// }
+
+// impl TryFrom<syn::Lit> for FXProp<String> {
+//     type Error = darling::Error;
+
+//     fn try_from(lit: syn::Lit) -> darling::Result<Self> {
+//         if let syn::Lit::Str(str) = lit {
+//             Ok(Self::new(str.value(), Some(str.span())))
+//         }
+//         else {
+//             Err(darling::Error::custom("The value must be a string").with_span(&lit))
+//         }
+//     }
+// }
 
 impl From<bool> for FXProp<bool> {
     fn from(value: bool) -> Self {

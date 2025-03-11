@@ -1,5 +1,5 @@
 pub mod codegen_trait;
-mod method_constructor;
+pub mod constructor;
 mod plain;
 #[cfg(feature = "serde")]
 mod serde;
@@ -16,15 +16,12 @@ pub use codegen_trait::FXCodeGenContextual;
 use codegen_trait::FXCodeGenerator;
 use darling::FromField;
 pub use plain::FXCodeGenPlain;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens};
 #[cfg(feature = "serde")]
 use serde::FXRewriteSerde;
-use std::{
-    cell::{OnceCell, Ref},
-    rc::Rc,
-};
-use syn::{parse_quote, parse_quote_spanned, spanned::Spanned};
+use std::{cell::OnceCell, rc::Rc};
+use syn::parse_quote_spanned;
 pub use sync::FXCodeGenSync;
 
 #[allow(dead_code)]
@@ -145,18 +142,19 @@ impl<'a> FXRewriter<'a> {
         let rc = arg_props.rc();
 
         if *rc {
+            let rc_span = rc.final_span();
             #[allow(unused_mut)]
-            let mut fieldx_args: Vec<TokenStream> = vec![quote_spanned![rc.final_span()=> skip]];
+            let mut fieldx_args: Vec<TokenStream> = vec![quote_spanned![rc_span=> skip]];
             #[cfg(feature = "serde")]
-            fieldx_args.push(quote_spanned![rc.final_span()=> serde(off)]);
+            fieldx_args.push(quote_spanned![rc_span=> serde(off)]);
 
             // Safe because of is_ref_counted
             let myself_field = arg_props.myself_field_ident().unwrap();
             let (_, weak_type) = if *ctx.syncish() {
-                self.sync_gen().ref_count_types()
+                self.sync_gen().ref_count_types(rc_span)
             }
             else {
-                self.plain_gen().ref_count_types()
+                self.plain_gen().ref_count_types(rc_span)
             };
 
             let field: syn::Field = parse_quote_spanned![rc.final_span()=>
@@ -215,16 +213,17 @@ impl<'a> FXRewriter<'a> {
         let builder_struct = arg_props.builder_struct();
 
         if *builder_struct {
-            let builder_ident = arg_props.builder_ident();
+            let builder_ident = arg_props.builder_struct_ident();
             let span = builder_struct.final_span();
             let generic_params = ctx.struct_generic_params();
-            let vis = self.ctx().input().vis();
-            ctx.add_method_decl(quote_spanned! {span=>
+            let vis = arg_props.builder_struct_visibility();
+            let builder_tt = quote_spanned! {span=>
                 #[inline]
                 #vis fn builder() -> #builder_ident #generic_params {
                     #builder_ident::new()
                 }
-            })
+            };
+            ctx.add_method_decl(builder_tt);
         }
 
         #[cfg(feature = "serde")]
@@ -272,12 +271,12 @@ impl<'a> FXRewriter<'a> {
         let rc = arg_props.rc();
 
         if *rc {
+            let rc_span = rc.final_span();
             let myself_name = arg_props.myself_name();
             let downgrade_name = arg_props.myself_downgrade_name();
             let myself_field = arg_props.myself_field_ident();
-            let (rc_type, weak_type) = self.struct_codegen().ref_count_types();
+            let (rc_type, weak_type) = self.struct_codegen().ref_count_types(rc_span);
             let visibility = arg_props.rc_visibility();
-            let rc_span = rc.final_span();
 
             ctx.add_method_decl(quote_spanned![rc_span=>
                 #[allow(dead_code)]
@@ -336,7 +335,7 @@ impl<'a> FXRewriter<'a> {
         let arg_props = ctx.arg_props();
         let span = arg_props.builder().unwrap().final_span();
         let vis = arg_props.builder_struct_visibility();
-        let builder_ident = arg_props.builder_ident().unwrap();
+        let builder_struct_ident = arg_props.builder_struct_ident();
         let builders = ctx.builders_combined();
         let input_ident = ctx.input_ident();
         let (impl_generics, _, where_clause) = ctx.input().generics().split_for_impl();
@@ -416,7 +415,7 @@ impl<'a> FXRewriter<'a> {
 
         quote_spanned! {span=>
             #attributes
-            impl #impl_generics #builder_ident #generic_params
+            impl #impl_generics #builder_struct_ident #generic_params
             #where_clause
             {
                 #fn_new
@@ -445,9 +444,10 @@ impl<'a> FXRewriter<'a> {
             let vis = arg_props.builder_struct_visibility();
             let attributes = args.builder_attributes();
             let builder_ident = arg_props.builder_struct_ident();
+            let rc = arg_props.rc();
 
-            let myself_field = if *arg_props.rc() {
-                let (_, weak_type) = cgen.ref_count_types();
+            let myself_field = if *rc {
+                let (_, weak_type) = cgen.ref_count_types(rc.final_span());
                 let mf = arg_props.myself_field_ident();
                 let input_ident = ctx.input_ident();
                 quote_spanned![span=> #mf: #weak_type<#input_ident #generics>,]
@@ -511,7 +511,7 @@ impl<'a> FXRewriter<'a> {
             None
         };
 
-        ctx.tokens_extend(quote_spanned! [span=>
+        let s_impl = quote_spanned! [span=>
             #[allow(unused_imports)]
             use ::fieldx::traits::*;
 
@@ -533,7 +533,8 @@ impl<'a> FXRewriter<'a> {
             #default
 
             #builder_struct
-        ]);
+        ];
+        ctx.tokens_extend(s_impl);
         ctx.finalize()
     }
 }

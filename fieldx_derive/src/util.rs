@@ -42,6 +42,28 @@ macro_rules! TODO {
     }};
 }
 
+#[cfg(debug_assertions)]
+#[allow(unused)]
+macro_rules! dump_tt {
+    ($tt:expr) => {{
+        let tt = $tt;
+        eprintln!("{}", tt);
+        tt
+    }};
+    ($pfx:expr, $tt:expr) => {{
+        let tt = $tt;
+        eprintln!("{}{}", $pfx, tt);
+        tt
+    }};
+}
+
+#[cfg(not(debug_assertions))]
+macro_rules! dump_tt {
+    ($tt:expr) => {
+        $tt
+    };
+}
+
 #[cfg(feature = "tracing")]
 #[allow(unused_macros)]
 macro_rules! fxtrace {
@@ -331,15 +353,6 @@ macro_rules! common_prop_impl {
                 .or_else(|| self.visibility().cloned())
         }
 
-        pub fn ident_of<H>(&self, helper: &Option<fieldx_aux::FXNestingAttr<H>>) -> Option<syn::Ident>
-        where
-            H: fieldx_aux::FXHelperTrait + fieldx_aux::FromNestAttr,
-        {
-            helper
-                .as_ref()
-                .and_then(|h| h.name().map(|name| syn::Ident::new(&name, h.final_span())))
-        }
-
         #[cfg(feature = "serde")]
         pub fn serde_attributes(&self) -> Option<&FXAttributes> {
             self.source.serde().as_ref().and_then(|s| s.attributes().as_ref())
@@ -357,10 +370,41 @@ macro_rules! common_prop_impl {
                 })
                 .as_ref()
         }
+
+        #[cfg(feature = "serde")]
+        pub fn serde_rename_serialize(&self) -> Option<&FXProp<String>> {
+            self.serde_rename_serialize
+                .get_or_init(|| {
+                    self.source
+                        .serde()
+                        .as_ref()
+                        .and_then(|s| {
+                            let r = s.rename().as_ref();
+                            r
+                        })
+                        .and_then(|r| r.serialize())
+                })
+                .as_ref()
+        }
+
+        #[cfg(feature = "serde")]
+        pub fn serde_rename_deserialize(&self) -> Option<&FXProp<String>> {
+            self.serde_rename_deserialize
+                .get_or_init(|| {
+                    self.source
+                        .serde()
+                        .as_ref()
+                        .and_then(|s| s.rename().as_ref())
+                        .and_then(|r| r.deserialize().clone())
+                })
+                .as_ref()
+        }
     };
 }
 //
 pub(crate) use common_prop_impl;
+#[allow(unused_imports)]
+pub(crate) use dump_tt;
 #[allow(unused_imports)]
 pub(crate) use fxtrace;
 pub(crate) use helper_standard_methods;

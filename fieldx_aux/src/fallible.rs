@@ -1,6 +1,6 @@
 //! Argument that signals possibility of errors.
 use super::FromNestAttr;
-use crate::{FXProp, FXPropBool, FXSynValue, FXTriggerHelper};
+use crate::{FXProp, FXPropBool, FXSetState, FXSynValue, FXTriggerHelper};
 use darling::{util::Flag, FromMeta};
 
 /// This argument can be used to mark, say, methods as returning a `Result` and specify what error type is expected.
@@ -29,6 +29,15 @@ where
     T: FromMeta,
 {
     fn is_true(&self) -> FXProp<bool> {
+        FXProp::from(self.off).not()
+    }
+}
+
+impl<T> FXSetState for FXFallible<T>
+where
+    T: FromMeta,
+{
+    fn is_set(&self) -> FXProp<bool> {
         FXProp::from(self.off).not()
     }
 }

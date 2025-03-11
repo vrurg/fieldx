@@ -7,6 +7,7 @@ macro_rules! tokenstream_setter {
     ( $($name:ident),+ $(,)? ) => {
         $(
             ::paste::paste! {
+                #[allow(dead_code)]
                 pub fn [<set_ $name>]<T: ToTokens>(&mut self, value: T) {
                     let tt = value.to_token_stream();
                     self.$name = if tt.is_empty() {
@@ -97,6 +98,7 @@ impl MethodConstructor {
         self.attributes.push(attribute.to_token_stream());
     }
 
+    #[allow(dead_code)]
     pub(crate) fn maybe_add_attribute<T: ToTokens>(&mut self, attribute: Option<T>) {
         if let Some(attribute) = attribute {
             self.add_attribute(attribute);
@@ -157,12 +159,12 @@ impl MethodConstructor {
         *self.is_async
     }
 
-    pub(crate) fn into_method(self) -> TokenStream {
+    pub(crate) fn to_method(&self) -> TokenStream {
         let self_ident = self.self_ident();
-        let name = self.name;
+        let name = &self.name;
         let span = self.span.unwrap_or(Span::call_site());
-        let vis = self.vis;
-        let self_lifetime = self.self_lifetime;
+        let vis = &self.vis;
+        let self_lifetime = &self.self_lifetime;
 
         let self_mut = if self.self_mut {
             quote_spanned! {span=> mut }
@@ -177,18 +179,18 @@ impl MethodConstructor {
         else {
             quote_spanned! {span=> #self_mut }
         };
-        let body = self.body;
-        let ret_stmt = self.ret_stmt;
+        let body = &self.body;
+        let ret_stmt = &self.ret_stmt;
         let attributes = &self.attributes;
 
-        let ret = if let Some(return_type) = self.ret_type {
+        let ret = if let Some(return_type) = &self.ret_type {
             quote_spanned! {span=> -> #return_type }
         }
         else {
             quote![]
         };
 
-        let mut params = vec![if let Some(self_type) = self.self_type {
+        let mut params = vec![if let Some(self_type) = &self.self_type {
             if self.self_borrow {
                 quote_spanned! {span=> #self_ident: #self_spec #self_type}
             }
@@ -201,18 +203,18 @@ impl MethodConstructor {
         }];
 
         if self.params.len() > 0 {
-            params.extend(self.params);
+            params.extend(self.params.iter().cloned());
         }
 
         let mut generic_params = vec![];
 
         if self.lifetimes.len() > 0 {
-            let lifetimes = self.lifetimes;
-            generic_params.push(quote![#(#lifetimes),*]);
+            let lifetimes = &self.lifetimes;
+            generic_params.push(quote_spanned![span=> #(#lifetimes),*]);
         }
         if self.generics.len() > 0 {
-            let generics = self.generics;
-            generic_params.push(quote![#(#generics),*]);
+            let generics = &self.generics;
+            generic_params.push(quote_spanned![span=> #(#generics),*]);
         }
 
         let generic_params = if generic_params.is_empty() {
@@ -246,5 +248,11 @@ impl MethodConstructor {
                 #ret_stmt
             }
         }
+    }
+}
+
+impl ToTokens for MethodConstructor {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.extend(self.to_method());
     }
 }

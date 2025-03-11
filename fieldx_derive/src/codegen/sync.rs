@@ -1,19 +1,16 @@
 mod impl_async;
 mod impl_sync;
 
-#[cfg(feature = "serde")]
-use crate::codegen::serde::FXCGenSerde;
 use crate::codegen::{FXCodeGenContextual, FXCodeGenCtx, FXFieldCtx, FXHelperKind, FXInlining, FXValueRepr};
-use fieldx_aux::{FXAttributes, FXPropBool};
+use fieldx_aux::FXPropBool;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
-use std::{option, rc::Rc};
+use std::rc::Rc;
 use syn::spanned::Spanned;
 
-use super::method_constructor::MethodConstructor;
+use super::constructor::method::MethodConstructor;
 
 pub trait FXSyncImplDetails {
-    fn is_async(&self) -> bool;
     fn await_call(&self, span: Span) -> TokenStream;
     fn field_proxy_type(&self, span: Span) -> TokenStream;
     fn fx_mapped_write_guard(&self, span: Span) -> TokenStream;
@@ -113,7 +110,7 @@ impl<'a> FXCodeGenSync<'a> {
             mc.set_ret_stmt(quote_spanned! {span=> self.#ident.read()#await_call});
         }
 
-        Ok(mc.into_method())
+        Ok(mc.to_method())
     }
 
     #[inline(always)]
@@ -213,8 +210,11 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         }))
     }
 
-    fn ref_count_types(&self) -> (TokenStream, TokenStream) {
-        (quote![::std::sync::Arc], quote![::std::sync::Weak])
+    fn ref_count_types(&self, span: Span) -> (TokenStream, TokenStream) {
+        (
+            quote_spanned![span=> ::std::sync::Arc],
+            quote_spanned![span=> ::std::sync::Weak],
+        )
     }
 
     fn field_lazy_builder_wrapper(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
@@ -319,7 +319,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 mc.set_ret_stmt(quote_spanned! {span=> &self.#ident });
             }
 
-            mc.into_method()
+            mc.to_method()
         }
         else {
             quote![]
@@ -383,7 +383,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 }
             }
 
-            mc.into_method()
+            mc.to_method()
         }
         else {
             quote![]
@@ -528,7 +528,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 mc.set_ret_stmt(quote_spanned! {span=> self.#ident.write()#await_call});
             }
 
-            mc.into_method()
+            mc.to_method()
         }
         else {
             TokenStream::new()
@@ -594,7 +594,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 mc.set_ret_stmt(quote_spanned! {span=> ::std::mem::replace(&mut self.#ident, #value_tok)});
             }
 
-            mc.into_method()
+            mc.to_method()
         }
         else {
             TokenStream::new()
@@ -626,7 +626,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 mc.set_ret_stmt(quote_spanned! {span=> self.#ident.write()#await_call.take()});
             }
 
-            mc.into_method()
+            mc.to_method()
         }
         else {
             TokenStream::new()
@@ -662,7 +662,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 mc.set_ret_stmt(quote_spanned! {span=> self.#ident.is_some()});
             }
 
-            mc.into_method()
+            mc.to_method()
         }
         else {
             TokenStream::new()

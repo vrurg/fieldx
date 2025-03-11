@@ -22,6 +22,7 @@ struct FXHelperField {
     attrs: Vec<syn::Attribute>,
 
     exclusive: Option<String>,
+    rename:    Option<String>,
 }
 
 #[derive(Debug, FromDeriveInput)]
@@ -69,21 +70,29 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
     };
 
     let mut fields_tt: Vec<TokenStream> = Vec::new();
-    // let mut exclusives: HashMap<String, Vec<(syn::Ident, TokenStream)>> = HashMap::new();
-    // let mut exclusives_tt: Vec<TokenStream> = vec![];
+    let mut exclusives: HashMap<String, Vec<(String, syn::Ident, TokenStream)>> = HashMap::new();
+    let mut exclusives_tt: Vec<TokenStream> = vec![];
 
-    // exclusives.insert(
-    //     "visibility".to_string(),
-    //     vec![
-    //         (format_ident!("public"), quote![is_some]),
-    //         (format_ident!("private"), quote![is_some]),
-    //     ],
-    // );
+    exclusives.insert(
+        "visibility".to_string(),
+        vec![
+            ("vis".to_string(), format_ident!("visibility"), quote![is_some]),
+            ("private".to_string(), format_ident!("private"), quote![is_some]),
+        ],
+    );
 
     for field in fields.iter() {
+        let mut custom_attrs = vec![];
+        let field_alias = field.rename.as_ref().cloned();
+
+        if let Some(ref alias) = field_alias {
+            custom_attrs.push(quote![ #[darling(rename = #alias)] ]);
+        }
+
         if let Some(exclusive) = &field.exclusive {
             if let Some(ref ident) = field.ident {
                 let ident = ident.clone();
+
                 let check_method = if let syn::Type::Path(ref tpath) = field.ty {
                     if tpath.path.is_ident("Flag") {
                         quote![is_present]
@@ -98,12 +107,16 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
                         .into();
                 };
 
-                // if exclusives.contains_key(exclusive) {
-                //     exclusives.get_mut(exclusive).unwrap().push((ident, check_method));
-                // }
-                // else {
-                //     exclusives.insert(exclusive.clone(), vec![(ident, check_method)]);
-                // }
+                exclusives.entry(exclusive.clone()).or_insert(vec![]).push((
+                    if let Some(alias) = field_alias {
+                        alias
+                    }
+                    else {
+                        ident.to_string()
+                    },
+                    ident,
+                    check_method,
+                ));
             }
         }
 
@@ -111,7 +124,7 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
             ident, vis, ty, attrs, ..
         } = &field;
 
-        fields_tt.push(quote![ #( #attrs )* #vis #ident: #ty ])
+        fields_tt.push(quote![ #( #attrs )* #( #custom_attrs )* #vis #ident: #ty ])
     }
 
     let attributes_method = if fields
@@ -148,34 +161,33 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let getset_vis = vis.to_token_stream().to_string();
 
-    // for (group, fields) in exclusives.iter() {
-    //     let mut checks: Vec<TokenStream> = vec![];
+    for (group, fields) in exclusives.iter() {
+        let mut checks: Vec<TokenStream> = vec![];
 
-    //     for (ident, check_method) in fields.iter() {
-    //         let ident_str = ident.to_string();
-    //         checks.push(quote![
-    //             if self.#ident.#check_method() {
-    //                 set_params.push(#ident_str);
-    //             }
-    //         ]);
-    //     }
+        for (field_name, ident, check_method) in fields.iter() {
+            checks.push(quote![
+                if self.#ident.#check_method() {
+                    set_params.push(#field_name);
+                }
+            ]);
+        }
 
-    //     exclusives_tt.push(quote![
-    //         {
-    //             let mut set_params: Vec<&str> = vec![];
-    //             #(#checks)*
+        exclusives_tt.push(quote![
+            {
+                let mut set_params: Vec<&str> = vec![];
+                #(#checks)*
 
-    //             if set_params.len() > 1 {
-    //                 let err = darling::Error::custom(
-    //                     format!(
-    //                         "The following options from group '{}' cannot be used together: {}",
-    //                         #group,
-    //                         set_params.iter().map(|f| format!("`{}`", f)).collect::<Vec<String>>().join(", ") ));
-    //                 return Err(err);
-    //             }
-    //         }
-    //     ]);
-    // }
+                if set_params.len() > 1 {
+                    let err = darling::Error::custom(
+                        format!(
+                            "The following options from group '{}' cannot be used together: {}",
+                            #group,
+                            set_params.iter().map(|f| format!("`{}`", f)).collect::<Vec<String>>().join(", ") ));
+                    return Err(err);
+                }
+            }
+        ]);
+    }
 
     let self_validate = if let Some(validate_name) = args.validate {
         let span = validate_name.span();
@@ -202,7 +214,9 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
             #[getset(skip)]
             attributes_fn: Option<FXAttributes>,
             #[getset(skip)]
+            #[darling(rename = "vis")]
             visibility: Option<crate::FXSynValue<syn::Visibility>>,
+            private: Option<FXBool>,
 
             #( #fields_tt ),*
         }
@@ -214,6 +228,17 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
                     !is_present,
                     if is_present { Some(self.off.span()) } else { None }
                 )
+            }
+        }
+
+        impl #impl_generics FXSetState for #ident #ty_generics #where_clause {
+            fn is_set(&self) -> FXProp<bool> {
+                if self.off.is_present() {
+                    FXProp::new(false, Some(self.off.span()))
+                }
+                else {
+                    FXProp::new(true, None)
+                }
             }
         }
 
@@ -235,6 +260,9 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
             #[inline]
             fn visibility(&self) -> Option<&syn::Visibility> {
+                if self.private.as_ref().map_or(false, |v| *v.is_true()) {
+                    return Some(&syn::Visibility::Inherited);
+                }
                 self.visibility.as_ref().map(|v| v.value())
             }
 
@@ -243,7 +271,7 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
         impl #impl_generics #ident #ty_generics #where_clause {
             fn validate_exclusives(&self) -> ::darling::Result<()> {
-                // #(#exclusives_tt)*
+                #(#exclusives_tt)*
                 Ok(())
             }
 
@@ -294,7 +322,6 @@ impl Parse for FallbackParam {
         let lookahead = input.lookahead1();
         if lookahead.peek(syn::Ident) {
             let ident = input.parse::<syn::Ident>()?;
-            eprintln!("IDENT: {:?}", ident);
             match ident.to_string().as_str() {
                 "default" => {
                     if input.peek(syn::token::Brace) {
@@ -340,7 +367,6 @@ impl Parse for FallbackArg {
                     FXProp::new(#ident, *field_props.field().fieldx_attr_span())
                 }
             };
-            eprintln!("simple bool fallback: {:?}", ident);
             return Ok(Self {
                 method_name,
                 return_type: parse_quote! { bool },
@@ -353,9 +379,7 @@ impl Parse for FallbackArg {
 
         let mut as_ref_span = None;
         let as_ref = if input.peek(syn::Token![&]) {
-            eprintln!("AS REF");
             let t: syn::Token![&] = input.parse()?;
-            eprintln!("AS REF TOKEN: {:?}", t);
             as_ref_span = Some(t.span);
             true
         }
@@ -363,19 +387,14 @@ impl Parse for FallbackArg {
             false
         };
 
-        eprintln!("RETURN TYPE?");
         let return_type = input.parse::<syn::Type>()?;
 
         let mut params = vec![];
         let mut param_count = HashMap::<usize, usize>::new();
 
-        eprintln!("PARAMS?");
         while input.peek(syn::Token![,]) {
-            eprintln!("PARAMS!");
             let _ = input.parse::<syn::Token![,]>();
-            eprintln!("PARAM COMMA FOUND");
             let param = input.parse::<FallbackParam>()?;
-            eprintln!("PARAM: {:?}", param);
             if *param_count.entry(param.idx()).or_insert(0) > 1 {
                 let kwd = FallbackParam::kwd_for_idx(param.idx());
                 return Err(syn::Error::new(param.span(), format!("Multiple `{}` parameters", kwd)));
@@ -383,7 +402,6 @@ impl Parse for FallbackArg {
             params.push(param);
         }
 
-        eprintln!("SUCCESS");
         Ok(Self {
             method_name,
             return_type,
@@ -426,11 +444,9 @@ impl ToTokens for FallbackArg {
 
         let ret_type = quote_spanned! {return_type.span()=> #as_ref FXProp<#return_type> };
 
-        let span_meth_name = format_ident!("{}_span", prop_name, span = span);
-
         let tt = quote_spanned! {span=>
             #[inline]
-            pub(crate) fn #prop_name(&self) -> #ret_type {
+            pub fn #prop_name(&self) -> #ret_type {
                 let field_props = self.field_props();
                 let arg_props = self.arg_props();
                 #deref self.#prop_name
@@ -441,10 +457,6 @@ impl ToTokens for FallbackArg {
                             .or_else(|| arg_props.#prop_name() #clone)
                             #or_else
                     })
-            }
-
-            pub(crate) fn #span_meth_name(&self) -> Span {
-                self.#prop_name().final_span()
             }
         };
         tokens.extend(tt);

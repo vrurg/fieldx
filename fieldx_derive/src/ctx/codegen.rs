@@ -1,29 +1,25 @@
 use super::{Attributizer, FXFieldCtx};
 use crate::{
     fields::FXField,
-    helper::{FXHelperContainer, FXHelperKind, FXOrig},
     input_receiver::FXInputReceiver,
     util::args::{self, FXArgProps, FXSArgs},
 };
 use delegate::delegate;
-use fieldx_aux::{FXHelperTrait, FXProp};
+use fieldx_aux::FXProp;
 use getset::{CopyGetters, Getters};
 use once_cell::unsync::OnceCell;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::{
     cell::{Ref, RefCell},
     collections::HashMap,
     rc::{Rc, Weak},
 };
-use syn::{spanned::Spanned, Ident};
-
 #[derive(Debug, Getters, CopyGetters)]
 pub struct FXCodeGenCtx {
     myself: Weak<Self>,
 
     errors:             RefCell<OnceCell<darling::error::Accumulator>>,
-    is_builder_opt_in:  RefCell<OnceCell<bool>>,
     tokens:             RefCell<OnceCell<TokenStream>>,
     field_toks:         RefCell<Vec<TokenStream>>,
     default_toks:       RefCell<Vec<TokenStream>>,
@@ -54,8 +50,6 @@ pub struct FXCodeGenCtx {
     field_ctx_table:     OnceCell<RefCell<HashMap<syn::Ident, Rc<FXFieldCtx>>>>,
     builder_field_ident: RefCell<Vec<syn::Ident>>,
     copyable_types:      RefCell<Vec<syn::Type>>,
-
-    is_syncish: RefCell<OnceCell<bool>>,
 }
 
 impl FXCodeGenCtx {
@@ -72,7 +66,7 @@ impl FXCodeGenCtx {
         let input = Rc::new(input);
         Rc::new_cyclic(|myself| Self {
             myself: myself.clone(),
-            arg_props: Rc::new(FXArgProps::new(args.clone(), myself.upgrade().unwrap())),
+            arg_props: Rc::new(FXArgProps::new(args.clone(), myself.clone())),
             input: Some(input),
             args,
 
@@ -86,8 +80,6 @@ impl FXCodeGenCtx {
             extra_fields: RefCell::new(Vec::new()),
             field_ctx_table: OnceCell::new(),
             field_toks: RefCell::new(Vec::new()),
-            is_builder_opt_in: RefCell::new(OnceCell::new()),
-            is_syncish: RefCell::new(OnceCell::new()),
             method_toks: RefCell::new(Vec::new()),
             tokens: RefCell::new(OnceCell::new()),
             unique_id: RefCell::new(0),

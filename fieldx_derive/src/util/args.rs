@@ -1,16 +1,18 @@
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 // #[cfg(feature = "diagnostics")]
 // use crate::helper::FXOrig;
 use crate::{
     ctx::FXCodeGenCtx,
-    helper::{FXHelperContainer, FXHelperKind},
+    helper::FXHelperKind,
     util::{common_prop_impl, mode_async_prop, mode_plain_prop, mode_sync_prop, simple_bool_prop, simple_type_prop},
 };
 use darling::FromMeta;
+#[cfg(feature = "serde")]
+use fieldx_aux::FXDefault;
 use fieldx_aux::{
-    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBool, FXBoolHelper, FXBuilder, FXDefault,
-    FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXPropBool, FXSerde, FXSetter, FXSynValue,
+    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBool, FXBoolHelper, FXBuilder, FXFallible,
+    FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXPropBool, FXSerde, FXSetState, FXSetter, FXSynValue,
     FXSyncMode, FXTriggerHelper,
 };
 use getset::Getters;
@@ -18,8 +20,6 @@ use once_cell::unsync::OnceCell;
 use proc_macro2::Span;
 use quote::format_ident;
 use syn::spanned::Spanned;
-
-use super::helper_standard_methods;
 
 #[derive(Debug, FromMeta, Clone, Getters, Default)]
 #[darling(and_then = Self::validate)]
@@ -60,7 +60,9 @@ pub(crate) struct FXSArgs {
     clearer:      Option<FXHelper>,
     predicate:    Option<FXHelper>,
     optional:     Option<FXBool>,
+    #[darling(rename = "vis")]
     visibility:   Option<FXSynValue<syn::Visibility>>,
+    private:      Option<FXBool>,
     #[getset(get = "pub with_prefix")]
     clone:        Option<FXBool>,
     #[getset(get = "pub with_prefix")]
@@ -78,6 +80,7 @@ impl FXSArgs {
         "concurrency mode": mode_sync as "sync", mode_async as "r#async"; mode;
         "field mode": lazy; optional;
         "serde/ref.counting": serde; rc;
+        "visibility": private; visibility as "vis";
     );
 
     // Generate needs_<helper> methods
@@ -176,19 +179,6 @@ impl FXSArgs {
                     .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).orig_span())
             })
     }
-
-    #[inline]
-    pub fn fallible_error(&self) -> Option<&syn::Path> {
-        self.fallible.as_ref().and_then(|f| f.error_type().map(|et| et.value()))
-    }
-
-    #[inline]
-    pub fn rc_span(&self) -> Span {
-        self.rc
-            .as_ref()
-            .and_then(|r| r.orig_span())
-            .unwrap_or_else(|| Span::call_site())
-    }
 }
 
 // impl FXHelperContainer for FXSArgs {
@@ -224,7 +214,7 @@ impl FXSArgs {
 #[derive(Debug)]
 pub struct FXArgProps {
     source:      FXSArgs,
-    codegen_ctx: Rc<FXCodeGenCtx>,
+    codegen_ctx: Weak<FXCodeGenCtx>,
 
     // Accessor helper standard properties
     accessor:                  OnceCell<Option<FXProp<bool>>>,
@@ -274,7 +264,6 @@ pub struct FXArgProps {
     // Reference counted object helper standard properties
     rc:                        OnceCell<FXProp<bool>>,
     rc_visibility:             OnceCell<Option<syn::Visibility>>,
-    rc_ident:                  OnceCell<Option<syn::Ident>>,
     // Other properties
     fallible:                  OnceCell<Option<FXProp<FXFallible>>>,
     inner_mut:                 OnceCell<Option<FXProp<bool>>>,
@@ -299,17 +288,21 @@ pub struct FXArgProps {
     builder_error_variant:     OnceCell<Option<syn::Path>>,
 
     #[cfg(feature = "serde")]
-    serde:               OnceCell<FXProp<bool>>,
+    serde:                    OnceCell<FXProp<bool>>,
     #[cfg(feature = "serde")]
-    serialize:           OnceCell<Option<FXProp<bool>>>,
+    serialize:                OnceCell<Option<FXProp<bool>>>,
     #[cfg(feature = "serde")]
-    deserialize:         OnceCell<Option<FXProp<bool>>>,
+    deserialize:              OnceCell<Option<FXProp<bool>>>,
     #[cfg(feature = "serde")]
-    serde_visibility:    OnceCell<Option<syn::Visibility>>,
+    serde_visibility:         OnceCell<Option<syn::Visibility>>,
     #[cfg(feature = "serde")]
-    serde_default_value: OnceCell<Option<FXDefault>>,
+    serde_default_value:      OnceCell<Option<FXDefault>>,
     #[cfg(feature = "serde")]
-    serde_shadow_ident:  OnceCell<Option<syn::Ident>>,
+    serde_shadow_ident:       OnceCell<Option<syn::Ident>>,
+    #[cfg(feature = "serde")]
+    serde_rename_serialize:   OnceCell<Option<FXProp<String>>>,
+    #[cfg(feature = "serde")]
+    serde_rename_deserialize: OnceCell<Option<FXProp<String>>>,
 }
 
 impl FXArgProps {
@@ -319,7 +312,7 @@ impl FXArgProps {
         fallible, FXFallible;
     }
 
-    pub fn new(args: FXSArgs, codegen_ctx: Rc<FXCodeGenCtx>) -> Self {
+    pub fn new(args: FXSArgs, codegen_ctx: Weak<FXCodeGenCtx>) -> Self {
         Self {
             source: args,
             codegen_ctx,
@@ -375,7 +368,6 @@ impl FXArgProps {
             post_build_ident: OnceCell::new(),
             rc: OnceCell::new(),
             rc_visibility: OnceCell::new(),
-            rc_ident: OnceCell::new(),
             myself_name: OnceCell::new(),
             myself_downgrade_name: OnceCell::new(),
             myself_field_ident: OnceCell::new(),
@@ -395,36 +387,51 @@ impl FXArgProps {
             serde_default_value: OnceCell::new(),
             #[cfg(feature = "serde")]
             serde_shadow_ident: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_rename_serialize: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_rename_deserialize: OnceCell::new(),
         }
     }
 
-    pub fn builder_opt_in(&self) -> FXProp<bool> {
-        *self.builder_opt_in.get_or_init(|| {
-            self.source.builder().as_ref().map_or_else(
-                || FXProp::new(false, None),
-                |b| b.is_builder_opt_in().respan(b.orig_span()),
-            )
-        })
+    pub fn codegen_ctx(&self) -> Rc<FXCodeGenCtx> {
+        self.codegen_ctx.upgrade().expect("codegen context was dropped")
     }
 
     pub fn visibility(&self) -> Option<&syn::Visibility> {
         self.visibility
-            .get_or_init(|| self.source.visibility.as_ref().map(|v| v.value().clone()))
+            .get_or_init(|| {
+                if *self.source.private.is_true() {
+                    return Some(syn::Visibility::Inherited);
+                }
+                self.source.visibility.as_ref().map(|v| v.value().clone())
+            })
             .as_ref()
     }
 
     fn set_builder_opt_in(&self, value: FXProp<bool>) {
-        self.builder_opt_in.set(value);
+        // Ignore the error if the value was previously set.
+        let _ = self.builder_opt_in.set(value);
     }
 
     pub fn needs_new(&self) -> FXProp<bool> {
         *self.needs_new.get_or_init(|| self.source.no_new().is_true().not())
     }
 
+    pub fn builder_opt_in(&self) -> FXProp<bool> {
+        *self.builder_opt_in.get_or_init(|| {
+            self.source
+                .builder()
+                .as_ref()
+                .and_then(|b| Some(b.is_builder_opt_in()))
+                .unwrap_or_else(|| FXProp::new(false, None))
+        })
+    }
+
     pub fn builder_struct(&self) -> FXProp<bool> {
         *self.builder_struct.get_or_init(|| {
             self.builder().unwrap_or_else(|| -> FXProp<bool> {
-                for fctx in self.codegen_ctx.all_field_ctx() {
+                for fctx in self.codegen_ctx().all_field_ctx() {
                     let builder = fctx.builder();
                     if *builder {
                         self.set_builder_opt_in(builder);
@@ -443,7 +450,7 @@ impl FXArgProps {
                 .as_ref()
                 .and_then(|b| b.visibility())
                 .cloned()
-                .unwrap_or_else(|| self.codegen_ctx.input().vis().clone())
+                .unwrap_or_else(|| self.codegen_ctx().input().vis().clone())
         })
     }
 
@@ -452,7 +459,7 @@ impl FXArgProps {
     pub fn syncish(&self) -> FXProp<bool> {
         *self.syncish.get_or_init(|| {
             self.mode_sync().unwrap_or_else(|| {
-                for fctx in self.codegen_ctx.all_field_ctx() {
+                for fctx in self.codegen_ctx().all_field_ctx() {
                     let syncish = fctx
                         .mode_sync()
                         .or(fctx.mode_async())
@@ -477,7 +484,7 @@ impl FXArgProps {
 
                     let is_syncish = *self.syncish();
 
-                    if let Some(prop) = self.codegen_ctx.all_field_ctx().iter().find_map(|fctx| {
+                    if let Some(prop) = self.codegen_ctx().all_field_ctx().iter().find_map(|fctx| {
                         let has_default = fctx.props().field_props().has_default();
                         if *has_default {
                             return Some(has_default);
@@ -545,17 +552,6 @@ impl FXArgProps {
             .as_ref()
     }
 
-    pub fn rc_ident(&self) -> Option<&syn::Ident> {
-        self.rc_ident
-            .get_or_init(|| {
-                self.source.rc().as_ref().and_then(|rc| {
-                    rc.name()
-                        .map(|name| format_ident!("{}", name.value(), span = name.final_span()))
-                })
-            })
-            .as_ref()
-    }
-
     pub fn myself_name(&self) -> Option<&syn::Ident> {
         self.myself_name
             .get_or_init(|| {
@@ -619,7 +615,8 @@ impl FXArgProps {
                         .map(|name| format_ident!("{}", name.value(), span = name.final_span()))
                 })
                 .unwrap_or_else(|| {
-                    let input_ident = self.codegen_ctx.input().ident();
+                    let codegen_ctx = self.codegen_ctx();
+                    let input_ident = codegen_ctx.input().ident();
                     format_ident!("{}Builder", input_ident, span = input_ident.span())
                 })
         })
@@ -628,13 +625,11 @@ impl FXArgProps {
     #[cfg(feature = "serde")]
     pub fn serde(&self) -> FXProp<bool> {
         *self.serde.get_or_init(|| {
-            self.source.serde().as_ref().map_or_else(
+            self.source.serde.as_ref().map_or_else(
                 || FXProp::new(false, None),
                 |s| {
-                    s.is_serde(s.orig_span())
-                        // None happens when no explicit serialize or deserialize used. In this case, we consider it as
-                        // true at the struct level.
-                        .unwrap_or_else(|| FXProp::new(true, s.orig_span()))
+                    let is_serde = s.is_serde();
+                    FXProp::new(is_serde.value().unwrap_or(true), is_serde.orig_span())
                 },
             )
         })
@@ -648,7 +643,7 @@ impl FXArgProps {
                 .as_ref()
                 .and_then(|s| s.needs_serialize())
                 .or_else(|| {
-                    for fctx in self.codegen_ctx.all_field_ctx() {
+                    for fctx in self.codegen_ctx().all_field_ctx() {
                         if let Some(serialize) = fctx.props().field_props().serialize() {
                             if *serialize {
                                 return Some(serialize);
@@ -668,7 +663,7 @@ impl FXArgProps {
                 .as_ref()
                 .and_then(|s| s.needs_deserialize())
                 .or_else(|| {
-                    for fctx in self.codegen_ctx.all_field_ctx() {
+                    for fctx in self.codegen_ctx().all_field_ctx() {
                         if let Some(deserialize) = fctx.props().field_props().deserialize() {
                             if *deserialize {
                                 return Some(deserialize);
@@ -704,7 +699,8 @@ impl FXArgProps {
                                 .and_then(|sn| sn.value().map(|name| format_ident!("{}", name, span = sn.final_span())))
                         })
                         .or_else(|| {
-                            let input_ident = self.codegen_ctx.input().ident();
+                            let codegen_ctx = self.codegen_ctx();
+                            let input_ident = codegen_ctx.input().ident();
                             Some(format_ident!("__{}Shadow", input_ident, span = input_ident.span()))
                         })
                 }
@@ -720,5 +716,10 @@ impl FXArgProps {
         self.serde_visibility
             .get_or_init(|| self.source.serde().as_ref().and_then(|s| s.visibility()).cloned())
             .as_ref()
+    }
+
+    #[allow(dead_code)]
+    pub fn base_name(&self) -> Option<syn::Ident> {
+        Some(self.codegen_ctx().input().ident().clone())
     }
 }

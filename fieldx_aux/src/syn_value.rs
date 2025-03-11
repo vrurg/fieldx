@@ -1,4 +1,6 @@
 //! Support for types that are not supported by [`darling`] but implement [`syn::parse::Parse`]
+use crate::{traits::FXSetState, FXProp};
+
 use super::{FXFrom, FromNestAttr};
 use darling::{ast::NestedMeta, FromMeta};
 use quote::ToTokens;
@@ -37,6 +39,12 @@ impl<T> FXSynValueArg<T, true> {
     }
 }
 
+impl<T> FXSetState for FXSynValueArg<T, false> {
+    fn is_set(&self) -> FXProp<bool> {
+        FXProp::new(self.value.is_some(), None)
+    }
+}
+
 impl<T, const AS_KEYWORD: bool> FromMeta for FXSynValueArg<T, AS_KEYWORD>
 where
     T: Parse,
@@ -60,12 +68,44 @@ where
     }
 }
 
+impl<T, U, const AS_KEYWORD: bool> From<FXSynValueArg<T, AS_KEYWORD>> for Option<FXProp<U>>
+where
+    FXProp<U>: From<T>,
+    T: Spanned,
+{
+    fn from(value: FXSynValueArg<T, AS_KEYWORD>) -> Self {
+        value.value.map(|v| v.into())
+    }
+}
+
+impl<T, U, const AS_KEYWORD: bool> From<&FXSynValueArg<T, AS_KEYWORD>> for Option<FXProp<U>>
+where
+    FXProp<U>: for<'a> From<&'a T>,
+    T: Spanned,
+{
+    fn from(value: &FXSynValueArg<T, AS_KEYWORD>) -> Self {
+        value.value.as_ref().map(|v| v.into())
+    }
+}
+
 impl<T, const AS_KEYWORD: bool> FXFrom<T> for FXSynValueArg<T, AS_KEYWORD>
 where
     T: FromMeta,
 {
     fn fx_from(value: T) -> Self {
         Self { value: Some(value) }
+    }
+}
+impl<T, U, const AS_KEYWORD: bool> FXFrom<FXSynValueArg<T, AS_KEYWORD>> for Option<FXProp<U>>
+where
+    U: From<T>,
+    T: Spanned,
+{
+    fn fx_from(value: FXSynValueArg<T, AS_KEYWORD>) -> Self {
+        value.value.map(|v| {
+            let span = v.span();
+            FXProp::new(v.into(), Some(span))
+        })
     }
 }
 
@@ -77,6 +117,12 @@ where
 {
     fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self { value: None })
+    }
+}
+
+impl FXSetState for FXSynValueArg<(), true> {
+    fn is_set(&self) -> crate::FXProp<bool> {
+        FXProp::new(self.value.is_some(), None)
     }
 }
 

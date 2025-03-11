@@ -13,7 +13,7 @@ struct Baz {
     cnt: u32,
 }
 
-#[fxstruct(sync, builder(attributes_impl(allow(dead_code))), serde("FooDup", default))]
+#[fxstruct(sync, builder(attributes_impl(allow(dead_code))), serde(default))]
 #[derive(Clone, Debug)]
 struct Foo {
     #[fieldx(lazy, serde(off))]
@@ -34,7 +34,7 @@ struct Foo {
     #[fieldx(lazy, get(copy), serde)]
     pi: f64,
 
-    #[fieldx(optional, set, get(copy))]
+    #[fieldx(lock, optional, set, get(copy))]
     opt: u64,
 
     #[fieldx(default(-1122.3344))]

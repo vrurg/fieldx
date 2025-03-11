@@ -1,8 +1,33 @@
-use super::{method_constructor::MethodConstructor, FXCodeGenContextual, FXFieldCtx};
-use crate::helper::FXOrig;
+use super::{
+    constructor::{field::FieldConstructor, method::MethodConstructor},
+    FXCodeGenContextual, FXFieldCtx,
+};
+use fieldx_aux::{FXOrig, FXProp};
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
+
+fn serde_rename_attr(
+    serialize_name: Option<&FXProp<String>>,
+    deserialize_name: Option<&FXProp<String>>,
+    span: Span,
+) -> Option<TokenStream> {
+    let mut args = vec![];
+    for (arg, value) in [("serialize", serialize_name), ("deserialize", deserialize_name)] {
+        if let Some(value) = value {
+            let span = value.span();
+            let value = value.to_string();
+            let arg = format_ident!("{}", arg, span = span);
+            args.push(quote_spanned![span=> #arg = #value]);
+        }
+    }
+    if args.len() > 0 {
+        Some(quote_spanned![span=> rename( #( #args ),* )])
+    }
+    else {
+        None
+    }
+}
 
 pub trait FXCGenSerde: FXCodeGenContextual {
     fn filter_shadow_attributes<'a>(&'a self, fctx: &'a FXFieldCtx) -> impl Iterator<Item = &'a syn::Attribute> {
@@ -13,43 +38,42 @@ pub trait FXCGenSerde: FXCodeGenContextual {
             .as_ref()
             .or_else(|| self.ctx().args().serde().as_ref());
 
-        fctx.attrs()
+        fctx.field()
+            .attrs()
             .iter()
             .filter(move |a| a.path().is_ident("serde") || serde_helper.map_or(false, |sh| sh.accepts_attr(a)))
     }
 
-    fn serde_skip_toks(&self, fctx: &FXFieldCtx) -> TokenStream {
+    fn serde_skip_toks(&self, fctx: &FXFieldCtx) -> Option<TokenStream> {
         // Don't skip a field if:
         // - no `serde` argument
         // - it is not `serde(off)`
         // - and no more than one of `deserialize` or `serialize` is `off`
-        if *self.ctx().arg_props().serde() {
-            // let helper_span = fctx.serde().final_span();
-            let serde = fctx.serde();
-            if !*serde {
-                return quote_spanned![serde.final_span()=> skip];
-            }
-
-            let serialize = fctx.serialize();
-            if !*serialize {
-                return quote_spanned![serialize.final_span()=> skip_serializing];
-            }
-
-            let deserialize = fctx.deserialize();
-            if !*deserialize {
-                return quote_spanned![deserialize.final_span()=> skip_deserializing];
-            }
+        let serde = fctx.serde();
+        if !*serde {
+            return Some(quote_spanned![serde.final_span()=> skip]);
         }
-        quote![]
+
+        let serialize = fctx.serialize();
+        if !*serialize {
+            return Some(quote_spanned![serialize.final_span()=> skip_serializing]);
+        }
+
+        let deserialize = fctx.deserialize();
+        if !*deserialize {
+            return Some(quote_spanned![deserialize.final_span()=> skip_deserializing]);
+        }
+
+        None
     }
 
     fn serde_field_attribute(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
         let ctx = self.ctx();
         Ok(if *ctx.arg_props().serde() {
-            let skip_toks = self.serde_skip_toks(fctx);
+            let span = fctx.serde().final_span();
             let mut serde_attr_args = vec![];
 
-            if !skip_toks.is_empty() {
+            if let Some(skip_toks) = self.serde_skip_toks(fctx) {
                 serde_attr_args.push(skip_toks);
             }
 
@@ -60,8 +84,8 @@ pub trait FXCGenSerde: FXCodeGenContextual {
                 let dv_span = default_value.final_span();
 
                 if default_value.has_value() {
-                    let serde_default_str: String = if default_value.is_str() {
-                        default_value.try_into()?
+                    let serde_default: TokenStream = if default_value.is_str() {
+                        default_value.to_token_stream()
                         // (&**default_value).try_into()?
                     }
                     else {
@@ -69,15 +93,19 @@ pub trait FXCGenSerde: FXCodeGenContextual {
                         let (_, generics, _) = ctx.input().generics().split_for_impl();
                         let default_fn_ident = self.serde_field_default_fn(fctx)?;
 
-                        format!(
-                            "{}{}::{}",
-                            struct_ident,
-                            generics.as_turbofish().to_token_stream(),
-                            default_fn_ident
+                        syn::LitStr::new(
+                            &format!(
+                                "{}{}::{}",
+                                struct_ident,
+                                generics.as_turbofish().to_token_stream(),
+                                default_fn_ident
+                            ),
+                            dv_span,
                         )
+                        .to_token_stream()
                     };
 
-                    default_arg = Some(quote_spanned![dv_span=> default = #serde_default_str]);
+                    default_arg = Some(quote_spanned![dv_span=> default = #serde_default]);
                 }
                 else {
                     default_arg = Some(quote_spanned![dv_span=> default]);
@@ -88,11 +116,10 @@ pub trait FXCGenSerde: FXCodeGenContextual {
                 serde_attr_args.push(default_arg);
             }
 
-            // Refer directly to the field's base name, because FieldCtx::base_name() always returns a valid identifier.
-            if let Some(base_name) = fctx.props().field_props().base_name() {
-                let span = base_name.span();
-                let base_name = base_name.to_string();
-                serde_attr_args.push(quote_spanned![span=> rename = #base_name]);
+            if let Some(rename_arg) =
+                serde_rename_attr(fctx.serde_rename_serialize(), fctx.serde_rename_deserialize(), span)
+            {
+                serde_attr_args.push(rename_arg);
             }
 
             if serde_attr_args.is_empty() {
@@ -130,19 +157,25 @@ pub trait FXCGenSerde: FXCodeGenContextual {
     }
 
     fn serde_shadow_field(&self, fctx: &FXFieldCtx) {
-        let ident = fctx.ident();
-        let attrs = self.filter_shadow_attributes(fctx);
-        let serde_attr = self.ok_or_empty(self.serde_field_attribute(fctx));
-        let user_attrs = fctx.serde_attributes();
-        let ty = self.serde_shadow_field_type(fctx);
+        let mut fc = FieldConstructor::new(
+            fctx.ident().clone(),
+            self.serde_shadow_field_type(fctx),
+            fctx.serde().final_span(),
+        );
 
-        self.ctx()
-            .add_shadow_field_decl(quote_spanned! [fctx.serde().final_span()=>
-                #serde_attr
-                #user_attrs
-                #( #attrs )*
-                #ident: #ty
-            ]);
+        fc.add_attributes(self.filter_shadow_attributes(fctx));
+        fc.add_attribute(self.ok_or_empty(self.serde_field_attribute(fctx)));
+        if let Some(serde_attrs) = fctx.serde_attributes() {
+            fc.add_attribute(serde_attrs);
+        }
+        fc.set_type(self.serde_shadow_field_type(fctx));
+
+        // let attrs = self.filter_shadow_attributes(fctx);
+        // let serde_attr = self.ok_or_empty(self.serde_field_attribute(fctx));
+        // let user_attrs = fctx.serde_attributes();
+        // let ty = self.serde_shadow_field_type(fctx);
+
+        self.ctx().add_shadow_field_decl(fc.to_field());
     }
 
     fn serde_shadow_field_default(&self, fctx: &FXFieldCtx) {
@@ -188,6 +221,7 @@ pub trait FXCGenSerde: FXCodeGenContextual {
                 fctx.ident()
             )));
         };
+        let serde_default = self.serde_shadow_field_value(fctx, serde_default.to_token_stream());
 
         let span = serde.final_span();
         let mut fn_ident = fctx.default_fn_ident()?.clone();
@@ -242,23 +276,28 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
             let mut serde_args: Vec<TokenStream> = vec![];
 
             let (_, generics, _) = ctx.input().generics().split_for_impl();
-            let shadow_ident = format!(
-                "{}{}",
-                arg_props.serde_shadow_ident().unwrap(),
-                generics.to_token_stream(),
+            let mut shadow_ident_str = syn::LitStr::new(
+                &format!(
+                    "{}{}",
+                    arg_props.serde_shadow_ident().unwrap(),
+                    generics.to_token_stream(),
+                ),
+                serde.final_span(),
             );
             let serde_span = serde.final_span();
 
             let needs_serialize = arg_props.needs_serialize();
             if *needs_serialize {
                 let span = needs_serialize.final_span();
-                serde_args.push(quote_spanned![span=> into = #shadow_ident]);
+                shadow_ident_str.set_span(span);
+                serde_args.push(quote_spanned![span=> into = #shadow_ident_str]);
             }
 
             let needs_deserialize = arg_props.needs_deserialize();
             if *needs_deserialize {
                 let span = needs_deserialize.final_span();
-                serde_args.push(quote_spanned![span=> from = #shadow_ident]);
+                shadow_ident_str.set_span(span);
+                serde_args.push(quote_spanned![span=> from = #shadow_ident_str]);
             }
 
             if serde_args.len() > 0 {
@@ -284,6 +323,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
             let shadow_ident = arg_props.serde_shadow_ident().unwrap();
             let fields = ctx.shadow_fields();
             let mut attrs = vec![];
+            let mut serde_attr_args = vec![];
             let derive_attr = crate::util::derive_toks(&self.serde_derive_traits());
             let (_, generics, where_clause) = ctx.input().generics().split_for_impl();
             let vis = arg_props.serde_visibility();
@@ -291,8 +331,20 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
 
             attrs.push(derive_attr);
 
+            if let Some(rename_attr) = serde_rename_attr(
+                arg_props.serde_rename_serialize(),
+                arg_props.serde_rename_deserialize(),
+                span,
+            ) {
+                serde_attr_args.push(rename_attr);
+            }
+
             if let Some(default_attr_arg) = self.serde_shadow_default_fn()? {
-                attrs.push(quote_spanned![default_attr_arg.span()=> #[serde(#default_attr_arg)]]);
+                serde_attr_args.push(default_attr_arg);
+            }
+
+            if serde_attr_args.len() > 0 {
+                attrs.push(quote_spanned![span=> #[serde(#( #serde_attr_args ),*)]]);
             }
 
             let default_impl = if *arg_props.needs_default() {
@@ -311,14 +363,14 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                 quote![]
             };
 
-            ctx.tokens_extend(quote_spanned![span=>
+            ctx.tokens_extend(quote_spanned! {span=>
                 #( #attrs )*
                 #user_attributes
                 #vis struct #shadow_ident #generics #where_clause {
                     #( #fields ),*
                 }
                 #default_impl
-            ]);
+            });
         }
 
         Ok(())
@@ -401,7 +453,6 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                     ctx.exec_or_record(|| {
                         let cgen = self.field_codegen(&fctx)?;
                         let fetch_struct_field = cgen.field_from_struct(&fctx)?;
-                        let span = *fctx.span();
 
                         let lazy = fctx.lazy();
                         if *lazy {
@@ -423,7 +474,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                     #( #fields ),*
                 }
             });
-            let from_method = mc.into_method();
+            let from_method = mc.to_method();
 
             ctx.tokens_extend(quote_spanned![span=>
                 impl #generics ::std::convert::From<#struct_ident #generics> for #shadow_ident #generics #where_clause {
@@ -480,17 +531,6 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                 }
                 else {
                     let default_code = default_value.value().cloned();
-                    // if let NestedMeta::Meta(Meta::NameValue(_)) = default_code {
-                    //     let err = darling::Error::custom(format!("Unexpected kind of argument")).with_span(&span);
-                    //     #[cfg(feature = "diagnostics")]
-                    //     let err = err.note(format!(
-                    //         "{}\n{}\n{}",
-                    //         "Consider using a string, as with serde `default`: \"Type::function\"`",
-                    //         "                                       or a path: `Type::static_or_constant`",
-                    //         "                       or a call-like expression: `Type::function()`"
-                    //     ));
-                    //     return Err(err);
-                    // }
                     quote_spanned![default_span=> #default_code]
                 };
 
@@ -504,7 +544,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                     }
                 ]);
 
-                let default_str = format!("{}::{}", ctx.input_ident(), fn_ident);
+                let default_str = syn::LitStr::new(&format!("{}::{}", ctx.input_ident(), fn_ident), span);
 
                 return Ok(Some(quote_spanned![span=> default = #default_str]));
             }

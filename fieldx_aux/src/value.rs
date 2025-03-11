@@ -1,6 +1,6 @@
 //! Literal value arguments
 
-use crate::{FXFrom, FXProp, FXPropBool, FXSynValueArg, FXTriggerHelper, FromNestAttr};
+use crate::{traits::FXSetState, FXFrom, FXProp, FXSynValueArg, FXTriggerHelper, FXTryFrom, FromNestAttr};
 use darling::{util::Flag, FromMeta};
 use syn::Lit;
 
@@ -55,7 +55,23 @@ impl<T, const BOOL_ONLY: bool> FXValueArg<T, BOOL_ONLY> {
 
 impl<T, const BOOL_ONLY: bool> FXTriggerHelper for FXValueArg<T, BOOL_ONLY> {
     fn is_true(&self) -> FXProp<bool> {
-        FXProp::from(self.off).not()
+        if self.off.is_present() {
+            FXProp::new(false, Some(self.off.span()))
+        }
+        else {
+            true.into()
+        }
+    }
+}
+
+impl<T, const BOOL_ONLY: bool> FXSetState for FXValueArg<T, BOOL_ONLY> {
+    fn is_set(&self) -> FXProp<bool> {
+        if self.off.is_present() {
+            FXProp::new(false, Some(self.off.span()))
+        }
+        else {
+            FXProp::new(self.value.is_some(), None)
+        }
     }
 }
 
@@ -106,8 +122,36 @@ impl<T, const BOOL_ONLY: bool> FXFrom<Option<T>> for FXValueArg<T, BOOL_ONLY> {
     }
 }
 
+impl FXFrom<syn::LitStr> for FXValueArg<String> {
+    fn fx_from(value: syn::LitStr) -> Self {
+        Self {
+            value: Some(value.value()),
+            off:   Flag::default(),
+        }
+    }
+}
+
+impl FXTryFrom<syn::Lit> for FXValueArg<String> {
+    type Error = darling::Error;
+
+    fn fx_try_from(value: syn::Lit) -> Result<Self, Self::Error> {
+        if let syn::Lit::Str(lit) = value {
+            Ok(Self {
+                value: Some(lit.value()),
+                off:   Flag::from(false),
+            })
+        }
+        else {
+            Err(darling::Error::unexpected_lit_type(&value))
+        }
+    }
+}
+
 macro_rules! from_nest_attr_num {
-    ($from:path => $ty:ty) => {
+    ( $($from:path => $ty:ty);+ $(;)? ) => {
+        $(from_nest_attr_num!(@ $from => $ty);)+
+    };
+    (@ $from:path => $ty:ty) => {
         impl crate::FromNestAttr for FXValueArg<$ty, false> {
             fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
                 Self::validate_literals(literals)?;
@@ -128,7 +172,10 @@ macro_rules! from_nest_attr_num {
 }
 
 macro_rules! from_nest_attr_val {
-    ($from:path => $ty:ty) => {
+    ( $( $from:path => $ty:ty );+ $(;)? ) => {
+        $(from_nest_attr_val!(@ $from => $ty);)+
+    };
+    (@ $from:path => $ty:ty) => {
         impl crate::FromNestAttr for FXValueArg<$ty, false> {
             fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
                 Self::validate_literals(literals)?;
@@ -148,17 +195,20 @@ macro_rules! from_nest_attr_val {
     };
 }
 
-from_nest_attr_num!(Lit::Int => i8);
-from_nest_attr_num!(Lit::Int => i16);
-from_nest_attr_num!(Lit::Int => i32);
-from_nest_attr_num!(Lit::Int => i64);
-from_nest_attr_num!(Lit::Int => u8);
-from_nest_attr_num!(Lit::Int => u16);
-from_nest_attr_num!(Lit::Int => u32);
-from_nest_attr_num!(Lit::Int => u64);
-from_nest_attr_num!(Lit::Float => f32);
-from_nest_attr_num!(Lit::Float => f64);
-from_nest_attr_val!(Lit::Str => String);
-from_nest_attr_val!(Lit::ByteStr => Vec<u8>);
-from_nest_attr_val!(Lit::Char => char);
-from_nest_attr_val!(Lit::Bool => bool);
+from_nest_attr_num! {
+    Lit::Int => i8;
+    Lit::Int => i16;
+    Lit::Int => i32;
+    Lit::Int => i64;
+    Lit::Int => u8;
+    Lit::Int => u16;
+    Lit::Int => u32;
+    Lit::Int => u64;
+    Lit::Float => f32;
+    Lit::Float => f64;
+}
+from_nest_attr_val! {
+    Lit::Str => String;
+    Lit::Char => char;
+    Lit::Bool => bool;
+}

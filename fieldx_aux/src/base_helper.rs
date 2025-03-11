@@ -1,6 +1,8 @@
 //! The most basic helper declaration
 
-use crate::{set_literals, FXAttributes, FXInto, FXOrig, FXProp, FXString, FXTriggerHelper, FromNestAttr};
+use crate::{
+    set_literals, FXAttributes, FXBool, FXOrig, FXProp, FXSetState, FXString, FXTriggerHelper, FXTryInto, FromNestAttr,
+};
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;

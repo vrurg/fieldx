@@ -1,5 +1,5 @@
 use super::{
-    method_constructor::MethodConstructor, FXCodeGenCtx, FXCodeGenPlain, FXCodeGenSync, FXFieldCtx, FXInlining,
+    constructor::method::MethodConstructor, FXCodeGenCtx, FXCodeGenPlain, FXCodeGenSync, FXFieldCtx, FXInlining,
     FXValueRepr,
 };
 use crate::{helper::*, FXInputReceiver};
@@ -8,7 +8,7 @@ use fieldx_aux::{FXProp, FXPropBool};
 use proc_macro2::{Span, TokenStream, TokenTree};
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use std::rc::Rc;
-use syn::{spanned::Spanned, token::Use, Ident};
+use syn::spanned::Spanned;
 
 #[enum_dispatch]
 pub enum FXCodeGenerator<'a> {
@@ -57,7 +57,7 @@ pub trait FXCodeGenContextual {
     // fn add_shadow_default_decl(&self, field: TokenStream);
 
     fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> darling::Result<&'s TokenStream>;
-    fn ref_count_types(&self) -> (TokenStream, TokenStream);
+    fn ref_count_types(&self, span: Span) -> (TokenStream, TokenStream);
     // fn copyable_types(&self) -> Ref<Vec<syn::Type>>;
     // #[cfg(feature = "serde")]
     // fn shadow_fields(&self) -> Ref<Vec<TokenStream>>;
@@ -96,10 +96,12 @@ pub trait FXCodeGenContextual {
     }
 
     fn generic_params(&self) -> TokenStream {
-        let generic_idents = self.ctx().input().generic_param_idents();
+        let input = self.ctx().input();
+        let generic_idents = input.generic_param_idents();
+        let span = input.generics().span();
 
         if generic_idents.len() > 0 {
-            quote![< #( #generic_idents ),* >]
+            quote_spanned![span=> < #( #generic_idents ),* >]
         }
         else {
             quote![]
@@ -109,8 +111,9 @@ pub trait FXCodeGenContextual {
     fn maybe_ref_counted<TT: ToTokens>(&self, ty: &TT) -> TokenStream {
         let ref_counted = self.ctx().arg_props().rc();
         if *ref_counted {
-            let (rc_type, _) = self.ref_count_types();
-            return quote_spanned![ref_counted.final_span()=> #rc_type<#ty>];
+            let rc_span = ref_counted.final_span();
+            let (rc_type, _) = self.ref_count_types(rc_span);
+            return quote_spanned![rc_span=> #rc_type<#ty>];
         }
 
         ty.to_token_stream()
@@ -141,9 +144,10 @@ pub trait FXCodeGenContextual {
         let rc = arg_props.rc();
 
         if *rc {
-            let (rc_type, _) = self.ref_count_types();
+            let rc_span = rc.final_span();
+            let (rc_type, _) = self.ref_count_types(rc_span);
             let myself_field = arg_props.myself_field_ident();
-            quote_spanned![rc.final_span()=>
+            quote_spanned![rc_span=>
                 #rc_type::new_cyclic(
                     |me| {
                         #self_name {
@@ -176,22 +180,16 @@ pub trait FXCodeGenContextual {
     }
 
     fn field_decl(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
-        let attributes = fctx.all_attrs();
-        let vis = fctx.vis();
+        let mut constructor = fctx.constructor();
 
-        let ty_tok = if *fctx.skipped() {
-            fctx.ty().to_token_stream()
-        }
-        else {
-            self.type_tokens(&fctx)?.clone()
+        constructor.set_vis(fctx.vis());
+
+        if !*fctx.skipped() {
+            constructor.set_type(self.type_tokens(&fctx)?.clone());
         };
         // No check for None is needed because we're only applying to named structs.
-        let ident = fctx.ident();
 
-        self.ctx().add_field_decl(quote_spanned! [*fctx.span()=>
-            #( #attributes )*
-            #vis #ident: #ty_tok
-        ]);
+        self.ctx().add_field_decl(constructor.to_field());
 
         Ok(())
     }
@@ -236,8 +234,6 @@ pub trait FXCodeGenContextual {
     }
 
     fn field_default_value(&self, fctx: &FXFieldCtx) -> FXValueRepr<TokenStream> {
-        let field = fctx.field();
-
         if let Some(default_value) = fctx.default_value() {
             FXValueRepr::Versatile(default_value.to_token_stream())
         }
@@ -268,7 +264,7 @@ pub trait FXCodeGenContextual {
             mc.add_statement(quote_spanned! {span=> self.#ident = ::std::option::Option::Some(value #into_tok);});
             mc.set_ret_stmt(quote_spanned! {span=> self});
 
-            mc.into_method()
+            mc.to_method()
         }
         else {
             quote![]

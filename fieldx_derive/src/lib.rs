@@ -425,7 +425,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// ```
 /// # use fieldx::fxstruct;
 /// # use serde::{Serialize, Deserialize};
-/// #[fxstruct(sync, get, serde("BazDup", default(Self::serde_default())))]
+/// #[fxstruct(sync, get, serde(shadow_name("BazDup"), default(Self::serde_default())))]
 /// #[derive(Clone)]
 /// struct Baz {
 ///     #[fieldx(reader)]

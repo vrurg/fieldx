@@ -1,4 +1,4 @@
-use crate::{FXAttributes, FXProp, FXPubMode};
+use crate::{FXAttributes, FXProp};
 
 /// Trait for arguments with trigger behavior. For example, `fieldx` `get` which can be disabled by `off` subargument.
 pub trait FXTriggerHelper {
@@ -17,7 +17,39 @@ pub trait FXInto<T> {
     fn fx_into(self) -> T;
 }
 
-/// Implements `FXTriggerHelper`-like functionality for types that are optional.
+impl<T, U> FXInto<U> for T
+where
+    U: FXFrom<T>,
+{
+    #[inline]
+    fn fx_into(self) -> U {
+        U::fx_from(self)
+    }
+}
+
+pub trait FXTryFrom<T>: Sized {
+    type Error;
+    fn fx_try_from(value: T) -> Result<Self, Self::Error>;
+}
+
+pub trait FXTryInto<T>: Sized {
+    type Error;
+    fn fx_try_into(self) -> Result<T, Self::Error>;
+}
+
+impl<T, U> FXTryInto<U> for T
+where
+    U: FXTryFrom<T>,
+{
+    type Error = U::Error;
+
+    #[inline]
+    fn fx_try_into(self) -> Result<U, Self::Error> {
+        U::fx_try_from(self)
+    }
+}
+
+/// Implements `FXTriggerHelper`-like functionality for Option<impl FXTriggerHelper>
 pub trait FXBoolHelper {
     fn is_true(&self) -> FXProp<bool>;
     fn is_true_opt(&self) -> Option<FXProp<bool>>;
@@ -35,16 +67,6 @@ pub trait FXHelperTrait: FXTriggerHelper {
     fn visibility(&self) -> Option<&syn::Visibility>;
 }
 
-impl<T, U> FXInto<U> for T
-where
-    U: FXFrom<T>,
-{
-    #[inline]
-    fn fx_into(self) -> U {
-        U::fx_from(self)
-    }
-}
-
 impl<H: FXTriggerHelper> FXBoolHelper for Option<H> {
     #[inline]
     fn is_true(&self) -> FXProp<bool> {
@@ -55,4 +77,12 @@ impl<H: FXTriggerHelper> FXBoolHelper for Option<H> {
     fn is_true_opt(&self) -> Option<FXProp<bool>> {
         self.as_ref().map(|h| h.is_true())
     }
+}
+
+/// Make value traits report their set/unset state. This means:
+/// - For types with `off` support unset means `off` is present.
+/// - If `off` is ommitted then unset means `None`.
+/// - For types that are optional unset means `None`.
+pub trait FXSetState {
+    fn is_set(&self) -> FXProp<bool>;
 }

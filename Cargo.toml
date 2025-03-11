@@ -44,3 +44,6 @@
     fieldx_aux            = { path = "fieldx_aux" }
     fieldx_derive         = { path = "fieldx_derive" }
     fieldx_derive_support = { path = "fieldx_derive_support" }
+
+[profile.dev]
+    debug = true

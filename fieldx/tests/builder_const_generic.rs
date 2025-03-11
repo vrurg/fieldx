@@ -2,7 +2,7 @@ use fieldx::fxstruct;
 
 #[fxstruct(builder)]
 struct Foo<const N: usize = 1> {
-    #[fieldx(get, default(N))]
+    #[fieldx(get, default(N), builder(attributes_fn(allow(unused))))]
     v: usize,
 }
 

@@ -85,72 +85,11 @@ pub use crate::{
     serde_helper::FXSerdeHelper,
     setter_helper::FXSetterHelper,
     syn_value::{FXPunctuated, FXSynTupleArg, FXSynValueArg},
-    traits::{FXBoolHelper, FXFrom, FXHelperTrait, FXInto, FXTriggerHelper},
-    util::public_mode,
+    traits::*,
     value::FXValueArg,
     with_origin::FXOrig,
 };
-use darling::FromMeta;
-use quote::{quote, quote_spanned, ToTokens};
-use syn::{ext::IdentExt, Lit};
-
-/// Visibility of an element
-#[derive(FromMeta, Debug, Clone, Default)]
-pub enum FXPubMode {
-    /// private
-    #[darling(skip)]
-    Private,
-    /// `pub(crate)`
-    Crate,
-    /// `pub(super)`
-    Super,
-    /// `pub(in crate::Module)`
-    InMod(syn::Path),
-    #[default]
-    #[darling(skip)]
-    All,
-}
-
-impl FromNestAttr for FXPubMode {
-    fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
-        Ok(Self::All)
-    }
-
-    fn set_literals(self, _literals: &Vec<Lit>) -> darling::Result<Self> {
-        Err(darling::Error::custom("No literals allowed here"))
-    }
-}
-
-impl ToTokens for FXPubMode {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        tokens.extend(match self {
-            FXPubMode::Private => quote! {},
-            FXPubMode::All => quote!(pub),
-            FXPubMode::Super => quote!(pub(super)),
-            FXPubMode::Crate => quote!(pub(crate)),
-            FXPubMode::InMod(ref path) => quote!(pub(in #path)),
-        });
-    }
-}
-
-impl ToTokens for FXProp<FXPubMode> {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let span = self.final_span();
-        tokens.extend(match self.value() {
-            FXPubMode::Private => quote! {},
-            FXPubMode::All => quote_spanned! {span=> pub},
-            FXPubMode::Super => quote_spanned! {span=> pub(super)},
-            FXPubMode::Crate => quote_spanned! {span=> pub(crate)},
-            FXPubMode::InMod(ref path) => quote_spanned! {span=> pub(in #path)},
-        })
-    }
-}
-
-impl FXTriggerHelper for FXPubMode {
-    fn is_true(&self) -> FXProp<bool> {
-        FXProp::new(true, None)
-    }
-}
+use syn::ext::IdentExt;
 
 /// Concurrency mode
 ///

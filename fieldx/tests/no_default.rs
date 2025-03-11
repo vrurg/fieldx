@@ -11,12 +11,12 @@ impl From<&str> for Bar {
     }
 }
 
-#[fxstruct(get(public), builder, default(off))]
+#[fxstruct(get(vis(pub)), builder, default(off))]
 struct Plain {
     #[fieldx(set)]
     bar: Bar,
 
-    #[fieldx(lazy, clearer)]
+    #[fieldx(lazy, clearer, builder(off))]
     b2: Bar,
 
     #[fieldx(get(clone), set, into)]
@@ -45,7 +45,7 @@ impl Plain {
 }
 
 #[cfg(feature = "sync")]
-#[fxstruct(sync, get(public), builder, no_new)]
+#[fxstruct(sync, get(vis(pub)), builder, no_new)]
 struct IsSync {
     #[fieldx(set)]
     bar: Bar,

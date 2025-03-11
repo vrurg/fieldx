@@ -6,9 +6,9 @@ struct Bar {
     note: String,
 }
 
-#[fxstruct(builder)]
+#[fxstruct(builder(vis(pub(crate))))]
 pub struct Foo {
-    #[fieldx(predicate, get(public(crate), as_ref))]
+    #[fieldx(predicate, get(private, as_ref))]
     b1: Bar,
 }
 

@@ -34,7 +34,7 @@ struct Foo {
     )]
     count: i32,
 
-    #[fieldx(lazy, get(copy), serde(default(0f64)))]
+    #[fieldx(lazy, get(copy), serde(default(0.0f64)))]
     pi: f64,
 
     #[fieldx(lazy, get(copy), serde)]

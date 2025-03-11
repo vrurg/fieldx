@@ -1,12 +1,12 @@
 //! Parameters of builder pattern and builder object.
 use crate::{
-    set_literals, FXAttributes, FXBool, FXHelperTrait, FXInto, FXNestingAttr, FXOrig, FXProp, FXPubMode, FXPunctuated,
-    FXString, FXSynValue, FXTriggerHelper, FromNestAttr,
+    set_literals, FXAttributes, FXBool, FXOrig, FXProp, FXPunctuated, FXSetState, FXString, FXSynValue,
+    FXTriggerHelper, FXTryInto, FromNestAttr,
 };
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
-use syn::{Lit, Token};
+use syn::Token;
 
 // TODO try to issue warnings with `diagnostics` for sub-arguments which are not supported at struct or field level.
 /// Implementation of builder argument.

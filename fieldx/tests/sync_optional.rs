@@ -24,12 +24,12 @@ struct Bar {
 
 #[test]
 fn it_is_optional() {
-    let foo = Foo::new();
+    let mut foo = Foo::new();
     assert_eq!(*foo.foo(), None);
     foo.set_foo("manual");
     assert_eq!(*foo.foo(), Some("manual".to_string()));
 
-    let bar = Bar::new();
+    let mut bar = Bar::new();
     assert_eq!(*bar.bar(), None);
     bar.set_bar("manual");
     assert_eq!(*bar.bar(), Some("manual".to_string()));

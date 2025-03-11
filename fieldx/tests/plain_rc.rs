@@ -2,7 +2,7 @@ use fieldx::fxstruct;
 use std::rc::{Rc, Weak};
 
 #[derive(Debug)]
-#[fxstruct(rc(public))]
+#[fxstruct(rc(vis(pub)))]
 struct Bar {
     #[fieldx(get(copy), attributes_fn(allow(dead_code)))]
     id: usize,

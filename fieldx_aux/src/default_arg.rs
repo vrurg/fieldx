@@ -1,6 +1,6 @@
 //! Default value.
 
-use crate::{FXOrig, FXProp, FXPropBool, FXTriggerHelper, FromNestAttr};
+use crate::{FXOrig, FXProp, FXPropBool, FXSetState, FXTriggerHelper, FromNestAttr};
 use darling::{util::Flag, FromMeta};
 use getset::Getters;
 use proc_macro2::{Span, TokenStream};
@@ -113,6 +113,17 @@ impl FromMeta for FXDefault {
                 value: Some(name_value.value.clone()),
                 orig:  Some(name_value.to_token_stream()),
             }),
+        }
+    }
+}
+
+impl FXSetState for FXDefault {
+    fn is_set(&self) -> FXProp<bool> {
+        if self.off.is_present() {
+            FXProp::new(false, self.orig_span())
+        }
+        else {
+            FXProp::new(self.value.is_some(), self.orig_span())
         }
     }
 }

@@ -1,21 +1,14 @@
-use fieldx_aux::{
-    FXAccessorMode, FXAttributes, FXDefault, FXHelperTrait, FXOrig, FXProp, FXPropBool, FXPubMode, FXTriggerHelper,
-};
+#[cfg(feature = "serde")]
+use fieldx_aux::FXDefault;
+use fieldx_aux::{FXAccessorMode, FXAttributes, FXHelperTrait, FXProp, FXPropBool};
 use fieldx_derive_support::fallback_prop;
 use once_cell::sync::OnceCell;
-use proc_macro2::Span;
 use quote::format_ident;
 use std::rc::Rc;
 
-use crate::{
-    codegen::{self, FXInlining},
-    ctx::FXCodeGenCtx,
-    fields::FXFieldProps,
-    helper::FXHelperKind,
-    util::args::FXArgProps,
-};
+use crate::{ctx::FXCodeGenCtx, fields::FXFieldProps, helper::FXHelperKind, util::args::FXArgProps};
 
-macro_rules! helper_standard_methods {
+macro_rules! helper_visibility_method {
     ( $( $helper:ident ),* $(,)? ) => {
         $(
             ::paste::paste!{
@@ -24,7 +17,15 @@ macro_rules! helper_standard_methods {
                         self.helper_visibility(FXHelperKind::[<$helper:camel>])
                     })
                 }
+            }
+        )*
+    };
+}
 
+macro_rules! helper_ident_method {
+    ( $( $helper:ident ),* $(,)? ) => {
+        $(
+            ::paste::paste!{
                 pub fn [<$helper _ident>](&self) -> &syn::Ident {
                     self.[<$helper _ident>].get_or_init(|| {
                         self.helper_ident(FXHelperKind::[<$helper:camel>])
@@ -84,7 +85,6 @@ pub(crate) struct FieldCTXProps {
     writer_ident:              OnceCell<syn::Ident>,
     // Lazy helper standard properties
     lazy:                      OnceCell<FXProp<bool>>,
-    lazy_visibility:           OnceCell<syn::Visibility>,
     lazy_ident:                OnceCell<syn::Ident>,
     // --- Other properties
     // The final base name of the field. Will be used in method name generation.
@@ -100,16 +100,18 @@ pub(crate) struct FieldCTXProps {
     optional:                  OnceCell<FXProp<bool>>,
 
     #[cfg(feature = "serde")]
-    serde:            OnceCell<FXProp<bool>>,
+    serde:                    OnceCell<FXProp<bool>>,
     #[cfg(feature = "serde")]
-    serialize:        OnceCell<FXProp<bool>>,
+    serialize:                OnceCell<FXProp<bool>>,
     #[cfg(feature = "serde")]
-    deserialize:      OnceCell<FXProp<bool>>,
+    deserialize:              OnceCell<FXProp<bool>>,
     #[cfg(feature = "serde")]
     /// Field is an Option in the shadow struct if it is optional or lazy and has no default value
-    serde_optional:   OnceCell<FXProp<bool>>,
+    serde_optional:           OnceCell<FXProp<bool>>,
     #[cfg(feature = "serde")]
-    serde_attributes: OnceCell<Option<FXAttributes>>,
+    serde_rename_serialize:   OnceCell<Option<FXProp<String>>>,
+    #[cfg(feature = "serde")]
+    serde_rename_deserialize: OnceCell<Option<FXProp<String>>>,
 }
 
 impl FieldCTXProps {
@@ -123,15 +125,40 @@ impl FieldCTXProps {
             cloned, // Means that the value is cloned from the field or argument.
             default FXProp::new(FXAccessorMode::None, None);
 
+        // Field is implicitly optional if either clearer or predicate are set, unless there is `lazy` which is then
+        // taking over.
+        optional, bool, default {
+            if *self.lazy() {
+                false.into()
+            }
+            else {
+                let maybe = self.clearer().or(self.predicate());
+                if *maybe {
+                    maybe
+                }
+                else {
+                    false.into()
+                }
+            }
+        };
+
+        lock, bool, default {
+            self.reader().or(self.writer()).or(
+                if *self.mode_sync() {
+                    self.inner_mut()
+                }
+                else {
+                    false.into()
+                }
+            )
+        };
+
         accessor_mut, false;
-        builder, false;
         builder_into, false;
         builder_required, false;
         clearer, false;
         inner_mut, false;
         lazy, false;
-        lock, false;
-        optional, false;
         predicate, false;
         reader, false;
         setter, false;
@@ -139,7 +166,9 @@ impl FieldCTXProps {
         writer, false;
     }
 
-    helper_standard_methods! { accessor, accessor_mut, clearer, lazy, predicate, reader, setter, writer }
+    helper_ident_method! { accessor, accessor_mut, clearer, lazy, predicate, reader, setter, writer }
+
+    helper_visibility_method! { accessor, accessor_mut, clearer, predicate, reader, setter, writer }
 
     pub(crate) fn new(field: FXFieldProps, codegen_ctx: Rc<FXCodeGenCtx>) -> Self {
         Self {
@@ -176,7 +205,6 @@ impl FieldCTXProps {
             writer_visibility: OnceCell::new(),
             writer_ident: OnceCell::new(),
             lazy: OnceCell::new(),
-            lazy_visibility: OnceCell::new(),
             lazy_ident: OnceCell::new(),
             base_name: OnceCell::new(),
             fallible: OnceCell::new(),
@@ -198,16 +226,14 @@ impl FieldCTXProps {
             #[cfg(feature = "serde")]
             serde_optional: OnceCell::new(),
             #[cfg(feature = "serde")]
-            serde_attributes: OnceCell::new(),
+            serde_rename_serialize: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_rename_deserialize: OnceCell::new(),
         }
     }
 
     pub fn field_props(&self) -> &FXFieldProps {
         &self.field_props
-    }
-
-    pub(crate) fn codegen_ctx(&self) -> &Rc<FXCodeGenCtx> {
-        &self.codegen_ctx
     }
 
     pub(crate) fn arg_props(&self) -> &Rc<FXArgProps> {
@@ -263,6 +289,25 @@ impl FieldCTXProps {
             .or_else(|| self.field_props.field().attributes_fn().as_ref())
             .or_else(|| self.arg_props.helper_attributes_fn(helper_kind))
             .or_else(|| self.codegen_ctx.args().attributes_fn().as_ref())
+    }
+
+    pub fn builder(&self) -> FXProp<bool> {
+        *self.builder.get_or_init(|| {
+            self.field_props()
+                .builder()
+                .or_else(|| {
+                    let arg_props = self.arg_props();
+                    arg_props.builder().and_then(|b| {
+                        if *b && !*arg_props.builder_opt_in() {
+                            Some(b)
+                        }
+                        else {
+                            Some(b.not())
+                        }
+                    })
+                })
+                .unwrap_or_else(|| FXProp::new(false, *self.field_props.field().fieldx_attr_span()))
+        })
     }
 
     pub fn builder_ident(&self) -> &syn::Ident {
@@ -386,19 +431,23 @@ impl FieldCTXProps {
         })
     }
 
-    pub fn has_default(&self) -> FXProp<bool> {
-        self.field_props().has_default()
-    }
-
     pub fn default_value(&self) -> Option<&syn::Expr> {
         self.field_props.default_value()
     }
 
     #[cfg(feature = "serde")]
     pub fn serde(&self) -> FXProp<bool> {
-        *self
-            .serde
-            .get_or_init(|| self.field_props().serde().unwrap_or_else(|| self.arg_props().serde()))
+        *self.serde.get_or_init(|| {
+            if let Some(field_serde) = self.field_props().serde() {
+                FXProp::new(
+                    field_serde.value().unwrap_or_else(|| *self.arg_props().serde()),
+                    Some(field_serde.final_span()),
+                )
+            }
+            else {
+                self.arg_props().serde()
+            }
+        })
     }
 
     #[cfg(feature = "serde")]
@@ -412,15 +461,9 @@ impl FieldCTXProps {
     }
 
     #[cfg(feature = "serde")]
+    #[inline(always)]
     pub fn serde_attributes(&self) -> Option<&FXAttributes> {
-        self.serde_attributes
-            .get_or_init(|| {
-                self.field_props()
-                    .serde_attributes()
-                    .or_else(|| self.arg_props().serde_attributes())
-                    .cloned()
-            })
-            .as_ref()
+        self.field_props().serde_attributes()
     }
 
     #[cfg(feature = "serde")]
@@ -441,5 +484,33 @@ impl FieldCTXProps {
                 .or_else(|| self.arg_props().deserialize())
                 .unwrap_or_else(|| FXProp::new(true, *self.field_props.field().fieldx_attr_span()))
         })
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn serde_rename_serialize(&self) -> Option<&FXProp<String>> {
+        self.serde_rename_serialize
+            .get_or_init(|| {
+                let field_props = self.field_props();
+                field_props.serde_rename_serialize().cloned().or_else(|| {
+                    field_props
+                        .base_name()
+                        .map(|bn| FXProp::new(bn.to_string(), Some(bn.span())))
+                })
+            })
+            .as_ref()
+    }
+
+    #[cfg(feature = "serde")]
+    pub fn serde_rename_deserialize(&self) -> Option<&FXProp<String>> {
+        self.serde_rename_deserialize
+            .get_or_init(|| {
+                let field_props = self.field_props();
+                field_props.serde_rename_deserialize().cloned().or_else(|| {
+                    field_props
+                        .base_name()
+                        .map(|bn| FXProp::new(bn.to_string(), Some(bn.span())))
+                })
+            })
+            .as_ref()
     }
 }

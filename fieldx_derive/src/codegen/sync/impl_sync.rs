@@ -1,5 +1,5 @@
 use super::{FXCodeGenSync, FXSyncImplDetails};
-use crate::{codegen::FXCodeGenContextual, ctx::FXFieldCtx};
+use crate::ctx::FXFieldCtx;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 
@@ -31,10 +31,6 @@ impl FXSyncImplDetails for FXSyncImplementor {
         let lazy_builder_name = fctx.lazy_ident();
         let span = fctx.lazy().final_span();
         quote_spanned![span=> <#input_type>::#lazy_builder_name]
-    }
-
-    fn is_async(&self) -> bool {
-        false
     }
 
     fn await_call(&self, _span: Span) -> TokenStream {

@@ -4,14 +4,14 @@ use fieldx::fxstruct;
 use serde::{Deserialize, Serialize};
 
 // get() and builder() literal values are used as prefixes thus shielding us from "type" used as method names.
-#[fxstruct(get("get_", public), serde(default), builder("set_"))]
+#[fxstruct(get("get_", vis(pub)), serde(default), builder)]
 #[derive(Clone)]
 struct Foo {
-    #[fieldx(rename("type"))]
+    #[fieldx(rename("type"), builder("set_type"))]
     ty: String,
 }
 
-#[fxstruct(get(public), serde(default), builder(public, into))]
+#[fxstruct(get(vis(pub)), serde(default), builder(vis(pub(crate)), into))]
 #[derive(Clone)]
 struct Bar {
     // Similar to Foo, but on the field level literal values are used as actual methods names.
@@ -19,6 +19,7 @@ struct Bar {
         rename("match"),
         get("match_constraint"),
         builder("set_match_constraint"),
+        // reserved for future use, currently they must do nothing.
         serde("__mmm", shadow_name("__match"))
     )]
     ma: String,

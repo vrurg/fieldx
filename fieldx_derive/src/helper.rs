@@ -1,5 +1,4 @@
-pub(crate) use fieldx_aux::{FXAccessorMode, FXHelperTrait, FXOrig, FXTriggerHelper};
-use proc_macro2::Span;
+pub(crate) use fieldx_aux::FXAccessorMode;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum FXHelperKind {
@@ -12,11 +11,6 @@ pub(crate) enum FXHelperKind {
     Reader,
     Setter,
     Writer,
-}
-
-pub(crate) trait FXHelperContainer {
-    fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait>;
-    fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span>;
 }
 
 impl ToString for FXHelperKind {

@@ -11,7 +11,7 @@ struct Foo {
     #[fieldx(inner_mut, get(clone))]
     m2: String,
 
-    #[fieldx(lazy, inner_mut, get(copy))]
+    #[fieldx(lazy, inner_mut, get(copy), builder(off))]
     m3: i32,
 }
 
@@ -30,7 +30,7 @@ struct Bar {
     #[fieldx(inner_mut, get(clone))]
     m2: String,
 
-    #[fieldx(lazy, inner_mut, get(copy))]
+    #[fieldx(lazy, inner_mut, get(copy), builder(off))]
     m3: i32,
 }
 
@@ -51,6 +51,8 @@ fn basic_sync() {
 
     assert_eq!(foo.m1(), 42);
     assert_eq!(foo.m2(), "from builder".to_string());
+
+    foo.set_m1(12);
 
     *foo.m2_mut() = "from user".to_string();
     assert_eq!(foo.m2(), "from user");

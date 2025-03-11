@@ -1,10 +1,7 @@
 use super::{FXCodeGenSync, FXSyncImplDetails};
-use crate::{
-    codegen::{self, FXCodeGenContextual},
-    ctx::FXFieldCtx,
-};
+use crate::{codegen::FXCodeGenContextual, ctx::FXFieldCtx};
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned};
+use quote::{format_ident, quote_spanned};
 
 pub struct FXAsyncImplementor;
 
@@ -54,10 +51,6 @@ impl FXSyncImplDetails for FXAsyncImplementor {
         let input_type = codegen.input_type_toks();
         let wrapper_name = self.lazy_wrapper_name(fctx);
         quote_spanned! {span=> ::std::boxed::Box::new(<#input_type>::#wrapper_name)}
-    }
-
-    fn is_async(&self) -> bool {
-        true
     }
 
     fn await_call(&self, span: Span) -> TokenStream {
