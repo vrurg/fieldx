@@ -333,7 +333,7 @@ impl<'a> FXRewriter<'a> {
     fn builder_impl(&'a self) -> TokenStream {
         let ctx = self.ctx();
         let arg_props = ctx.arg_props();
-        let span = arg_props.builder().unwrap().final_span();
+        let span = arg_props.builder_struct().final_span();
         let vis = arg_props.builder_struct_visibility();
         let builder_struct_ident = arg_props.builder_struct_ident();
         let builders = ctx.builders_combined();
