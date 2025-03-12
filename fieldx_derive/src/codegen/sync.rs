@@ -475,7 +475,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         let field_ident = fctx.ident();
         let me_var = self.ctx().me_var_ident();
         let mut field_access = quote_spanned! {field_ident.span()=> #me_var.#field_ident };
-        let into_inner = fctx.serde_optional().or(fctx.lock());
+        let into_inner = fctx.lock().or(fctx.lazy());
         if *into_inner {
             field_access = quote_spanned! {into_inner.final_span()=> #field_access.into_inner() };
         }
