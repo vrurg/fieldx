@@ -619,6 +619,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
             let ty = fctx.ty();
             let implementor = self.implementor(fctx);
             let await_call = implementor.await_call(span);
+            let lock = fctx.lock();
 
             mc.set_vis(fctx.clearer_visibility());
             mc.add_attribute(fctx.helper_attributes_fn(FXHelperKind::Clearer, FXInlining::Always, span));
@@ -630,9 +631,13 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
             if *lazy {
                 mc.set_ret_stmt(quote_spanned! {lazy.final_span()=> self.#ident.clear()#await_call});
             }
-            else {
+            else if *lock {
                 // If not lazy then it's optional
                 mc.set_ret_stmt(quote_spanned! {span=> self.#ident.write()#await_call.take()});
+            }
+            else {
+                mc.set_self_mut(true);
+                mc.set_ret_stmt(quote_spanned! {span=> self.#ident #await_call.take()});
             }
 
             mc.to_method()

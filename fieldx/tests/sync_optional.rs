@@ -20,6 +20,9 @@ impl Foo {
 struct Bar {
     #[fieldx(optional, get, set(into), reader(off))]
     bar: String,
+
+    #[fieldx(optional, get(copy), set, clearer)]
+    f1: i32,
 }
 
 #[test]
@@ -33,6 +36,9 @@ fn it_is_optional() {
     assert_eq!(*bar.bar(), None);
     bar.set_bar("manual");
     assert_eq!(*bar.bar(), Some("manual".to_string()));
+
+    bar.set_f1(12);
+    assert_eq!(bar.f1(), Some(12));
 }
 
 #[test]
