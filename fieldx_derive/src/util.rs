@@ -5,7 +5,7 @@ use quote::quote;
 
 #[allow(dead_code)]
 // Used by serde generation.
-pub fn derive_toks(traits: &[TokenStream]) -> TokenStream {
+pub(crate) fn derive_toks(traits: &[TokenStream]) -> TokenStream {
     if traits.len() > 0 {
         quote!(#[derive(#( #traits ),*)])
     }
@@ -99,21 +99,21 @@ macro_rules! simple_bool_prop {
     };
 
     (@fin $field:ident, $prop_field:ident, $meth:ident) => {
-        pub fn $meth(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn $meth(&self) -> Option<FXProp<bool>> {
             *self
                 .$prop_field
                 .get_or_init(|| self.source.$field.as_ref().map(|f| f.into()))
         }
     };
     (@fin $field:ident, $prop_field:ident $(,)?) => {
-        pub fn $prop_field(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn $prop_field(&self) -> Option<FXProp<bool>> {
             *self
                 .$prop_field
                 .get_or_init(|| self.source.$field.as_ref().map(|f| f.into()))
         }
     };
     (@fin $field:ident) => {
-        pub fn $field(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn $field(&self) -> Option<FXProp<bool>> {
             *self
                 .$field
                 .get_or_init(|| self.source.$field.as_ref().map(|f| f.into()))
@@ -124,7 +124,7 @@ macro_rules! simple_bool_prop {
 macro_rules! simple_type_prop {
     ( $( $field:ident, $type:ty, $prop_field:ident, $meth:ident );+ $(;)? ) => {
         $(
-            pub fn $meth(&self) -> Option<&FXProp<$type>> {
+            pub(crate) fn $meth(&self) -> Option<&FXProp<$type>> {
                 self.$prop_field
                     .get_or_init(|| {
                         self.source.$field.as_ref().map(|f: &FXNestingAttr<$type>| {
@@ -137,7 +137,7 @@ macro_rules! simple_type_prop {
     };
     ( $( $field:ident, $type:ty, $prop_field:ident );+ $(;)? ) => {
         $(
-            pub fn $prop_field(&self) -> Option<&FXProp<$type>> {
+            pub(crate) fn $prop_field(&self) -> Option<&FXProp<$type>> {
                 self.$prop_field
                     .get_or_init(|| {
                         self.source.$field.as_ref().map(|f: &FXNestingAttr<$type>| {
@@ -150,7 +150,7 @@ macro_rules! simple_type_prop {
     };
     ( $( $field:ident, $type:ty );+ $(;)? ) => {
         $(
-            pub fn $field(&self) -> Option<&FXProp<$type>> {
+            pub(crate) fn $field(&self) -> Option<&FXProp<$type>> {
                 self.$field
                     .get_or_init(|| {
                         self.source.$field.as_ref().map(|f: &FXNestingAttr<$type>| {
@@ -168,13 +168,13 @@ macro_rules! helper_standard_methods {
         $(
             simple_bool_prop!{ $helper }
             ::paste::paste! {
-                pub fn [<$helper _visibility>](&self) -> Option<&syn::Visibility> {
+                pub(crate) fn [<$helper _visibility>](&self) -> Option<&syn::Visibility> {
                     self.[<$helper _visibility>]
                         .get_or_init(|| self.visibility_of(&self.source.$helper))
                         .as_ref()
                 }
 
-                pub fn [<$helper _ident>](&self) -> Option<&syn::Ident> {
+                pub(crate) fn [<$helper _ident>](&self) -> Option<&syn::Ident> {
                     self.[<$helper _ident>]
                         .get_or_init(||
                             self.source.$helper
@@ -186,7 +186,7 @@ macro_rules! helper_standard_methods {
                         .as_ref()
                 }
 
-                pub fn [<$helper _attributes_fn>](&self) -> Option<&FXAttributes> {
+                pub(crate) fn [<$helper _attributes_fn>](&self) -> Option<&FXAttributes> {
                     self.source.$helper.as_ref().and_then(|h| h.attributes_fn())
                 }
             }
@@ -207,16 +207,13 @@ macro_rules! common_prop_impl {
             accessor, accessor_mut, builder, setter, clearer, predicate, reader, writer, lazy
         }
 
-        pub fn accessor_mode(&self) -> Option<&FXProp<FXAccessorMode>> {
+        pub(crate) fn accessor_mode(&self) -> Option<&FXProp<FXAccessorMode>> {
             self.accessor_mode
                 .get_or_init(|| {
                     self.source
                         .accessor()
                         .as_ref()
-                        .and_then(|am| {
-                            am.mode()
-                                .map(|m| FXProp::new(m, self.source.accessor_mode_span()))
-                        })
+                        .and_then(|am| am.mode())
                         .or_else(|| {
                             if *self.source.get_clone().is_true() {
                                 Some(FXProp::new(
@@ -239,7 +236,7 @@ macro_rules! common_prop_impl {
                 .as_ref()
         }
 
-        pub fn builder_into(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn builder_into(&self) -> Option<FXProp<bool>> {
             *self.builder_into.get_or_init(|| {
                 self.source
                     .builder
@@ -249,13 +246,13 @@ macro_rules! common_prop_impl {
             })
         }
 
-        pub fn builder_required(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn builder_required(&self) -> Option<FXProp<bool>> {
             *self
                 .builder_required
                 .get_or_init(|| self.source.builder.as_ref().and_then(|b| b.is_required().into()))
         }
 
-        pub fn setter_into(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn setter_into(&self) -> Option<FXProp<bool>> {
             *self.setter_into.get_or_init(|| {
                 self.source
                     .setter
@@ -265,23 +262,23 @@ macro_rules! common_prop_impl {
             })
         }
 
-        pub fn mode_sync(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn mode_sync(&self) -> Option<FXProp<bool>> {
             *self
                 .mode_sync
                 .get_or_init(|| mode_sync_prop(&self.source.mode_sync, &self.source.mode))
         }
 
-        pub fn mode_async(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn mode_async(&self) -> Option<FXProp<bool>> {
             *self
                 .mode_async
                 .get_or_init(|| mode_async_prop(&self.source.mode_async, &self.source.mode))
         }
 
-        pub fn mode_plain(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn mode_plain(&self) -> Option<FXProp<bool>> {
             *self.mode_plain.get_or_init(|| mode_plain_prop(&self.source.mode))
         }
 
-        pub fn lock(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn lock(&self) -> Option<FXProp<bool>> {
             *self.lock.get_or_init(|| {
                 self.source.lock.as_ref().map(|l| l.into()).or_else(|| {
                     self.mode_sync().and_then(|s| {
@@ -296,7 +293,7 @@ macro_rules! common_prop_impl {
             })
         }
 
-        pub fn optional(&self) -> Option<FXProp<bool>> {
+        pub(crate) fn optional(&self) -> Option<FXProp<bool>> {
             *self.optional.get_or_init(|| {
                 self.source.optional.as_ref().map(|o| o.into()).or_else(|| {
                     self.lazy().and_then(|l| {
@@ -312,7 +309,7 @@ macro_rules! common_prop_impl {
             })
         }
 
-        pub fn helper_visibility(&self, helper_kind: FXHelperKind) -> Option<&syn::Visibility> {
+        pub(crate) fn helper_visibility(&self, helper_kind: FXHelperKind) -> Option<&syn::Visibility> {
             match helper_kind {
                 FXHelperKind::Accessor => self.accessor_visibility(),
                 FXHelperKind::AccessorMut => self.accessor_mut_visibility(),
@@ -326,7 +323,7 @@ macro_rules! common_prop_impl {
             }
         }
 
-        pub fn helper_ident(&self, helper_kind: FXHelperKind) -> Option<&syn::Ident> {
+        pub(crate) fn helper_ident(&self, helper_kind: FXHelperKind) -> Option<&syn::Ident> {
             match helper_kind {
                 FXHelperKind::Accessor => self.accessor_ident(),
                 FXHelperKind::AccessorMut => self.accessor_mut_ident(),
@@ -340,7 +337,7 @@ macro_rules! common_prop_impl {
             }
         }
 
-        pub fn helper_attributes_fn(&self, helper_kind: FXHelperKind) -> Option<&FXAttributes> {
+        pub(crate) fn helper_attributes_fn(&self, helper_kind: FXHelperKind) -> Option<&FXAttributes> {
             match helper_kind {
                 FXHelperKind::Accessor => self.accessor_attributes_fn(),
                 FXHelperKind::AccessorMut => self.accessor_mut_attributes_fn(),
@@ -354,7 +351,7 @@ macro_rules! common_prop_impl {
             }
         }
 
-        pub fn visibility_of<H>(&self, helper: &Option<fieldx_aux::FXNestingAttr<H>>) -> Option<syn::Visibility>
+        pub(crate) fn visibility_of<H>(&self, helper: &Option<fieldx_aux::FXNestingAttr<H>>) -> Option<syn::Visibility>
         where
             H: fieldx_aux::FXHelperTrait + fieldx_aux::FromNestAttr,
         {
@@ -365,12 +362,12 @@ macro_rules! common_prop_impl {
         }
 
         #[cfg(feature = "serde")]
-        pub fn serde_attributes(&self) -> Option<&FXAttributes> {
+        pub(crate) fn serde_attributes(&self) -> Option<&FXAttributes> {
             self.source.serde().as_ref().and_then(|s| s.attributes().as_ref())
         }
 
         #[cfg(feature = "serde")]
-        pub fn serde_default_value(&self) -> Option<&FXDefault> {
+        pub(crate) fn serde_default_value(&self) -> Option<&FXDefault> {
             self.serde_default_value
                 .get_or_init(|| {
                     self.source
@@ -383,7 +380,7 @@ macro_rules! common_prop_impl {
         }
 
         #[cfg(feature = "serde")]
-        pub fn serde_rename_serialize(&self) -> Option<&FXProp<String>> {
+        pub(crate) fn serde_rename_serialize(&self) -> Option<&FXProp<String>> {
             self.serde_rename_serialize
                 .get_or_init(|| {
                     self.source
@@ -399,7 +396,7 @@ macro_rules! common_prop_impl {
         }
 
         #[cfg(feature = "serde")]
-        pub fn serde_rename_deserialize(&self) -> Option<&FXProp<String>> {
+        pub(crate) fn serde_rename_deserialize(&self) -> Option<&FXProp<String>> {
             self.serde_rename_deserialize
                 .get_or_init(|| {
                     self.source

@@ -1,9 +1,9 @@
 use super::{FXCodeGenSync, FXSyncImplDetails};
-use crate::ctx::FXFieldCtx;
+use crate::{codegen::constructor::FXFnConstructor, ctx::FXFieldCtx};
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
 
-pub struct FXSyncImplementor;
+pub(crate) struct FXSyncImplementor;
 
 impl FXSyncImplDetails for FXSyncImplementor {
     fn field_proxy_type(&self, span: Span) -> TokenStream {
@@ -22,8 +22,8 @@ impl FXSyncImplDetails for FXSyncImplementor {
         quote_spanned![span=> ::fieldx::sync::FXBuilderInfallible]
     }
 
-    fn lazy_wrapper_fn(&self, _: &FXCodeGenSync, _: &FXFieldCtx) -> Result<TokenStream, darling::Error> {
-        Ok(quote![])
+    fn lazy_wrapper_fn(&self, _: &FXCodeGenSync, _: &FXFieldCtx) -> Result<Option<FXFnConstructor>, darling::Error> {
+        Ok(None)
     }
 
     fn lazy_builder(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> TokenStream {

@@ -1,9 +1,9 @@
-pub mod codegen_trait;
-pub mod constructor;
+pub(crate) mod codegen_trait;
+pub(crate) mod constructor;
 mod plain;
 #[cfg(feature = "serde")]
 mod serde;
-mod sync;
+pub(crate) mod sync;
 
 use crate::{
     ctx::{codegen::FXCodeGenCtx, field::FXFieldCtx},
@@ -12,20 +12,21 @@ use crate::{
     util::args::FXSArgs,
     FXInputReceiver,
 };
-pub use codegen_trait::FXCodeGenContextual;
+pub(crate) use codegen_trait::FXCodeGenContextual;
 use codegen_trait::FXCodeGenerator;
+use constructor::{FXConstructor, FXFnConstructor, FXImplConstructor};
 use darling::FromField;
-pub use plain::FXCodeGenPlain;
-use proc_macro2::TokenStream;
-use quote::{quote, quote_spanned, ToTokens};
+pub(crate) use plain::FXCodeGenPlain;
+use proc_macro2::{Span, TokenStream};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 #[cfg(feature = "serde")]
 use serde::FXRewriteSerde;
 use std::{cell::OnceCell, rc::Rc};
-use syn::parse_quote_spanned;
-pub use sync::FXCodeGenSync;
+use syn::{parse_quote_spanned, spanned::Spanned};
+pub(crate) use sync::FXCodeGenSync;
 
 #[allow(dead_code)]
-pub enum FXInlining {
+pub(crate) enum FXInlining {
     Default,
     Inline,
     Always,
@@ -80,14 +81,14 @@ impl<T> FXValueRepr<T> {
 
 // Methods that are related to the current context if first place.
 
-pub struct FXRewriter<'a> {
+pub(crate) struct FXRewriter<'a> {
     codegen_ctx: Rc<FXCodeGenCtx>,
     plain:       OnceCell<FXCodeGenerator<'a>>,
     sync:        OnceCell<FXCodeGenerator<'a>>,
 }
 
 impl<'a> FXRewriter<'a> {
-    pub fn new(input: FXInputReceiver, args: FXSArgs) -> Self {
+    pub(crate) fn new(input: FXInputReceiver, args: FXSArgs) -> Self {
         let ctx = FXCodeGenCtx::new(input, args);
 
         Self {
@@ -97,21 +98,21 @@ impl<'a> FXRewriter<'a> {
         }
     }
 
-    pub fn plain_gen(&'a self) -> &'a FXCodeGenerator<'a> {
+    pub(crate) fn plain_gen(&'a self) -> &'a FXCodeGenerator<'a> {
         self.plain
             .get_or_init(|| FXCodeGenerator::ModePlain(FXCodeGenPlain::new(self, self.codegen_ctx.clone())))
     }
 
-    pub fn sync_gen(&'a self) -> &'a FXCodeGenerator<'a> {
+    pub(crate) fn sync_gen(&'a self) -> &'a FXCodeGenerator<'a> {
         self.sync
             .get_or_init(|| FXCodeGenerator::ModeSync(FXCodeGenSync::new(self, self.codegen_ctx.clone())))
     }
 
-    pub fn ctx(&self) -> &Rc<FXCodeGenCtx> {
+    pub(crate) fn ctx(&self) -> &Rc<FXCodeGenCtx> {
         &self.codegen_ctx
     }
 
-    pub fn field_codegen(&'a self, fctx: &FXFieldCtx) -> darling::Result<&'a FXCodeGenerator<'a>> {
+    pub(crate) fn field_codegen(&'a self, fctx: &FXFieldCtx) -> darling::Result<&'a FXCodeGenerator<'a>> {
         Ok(if *fctx.mode_plain() {
             self.plain_gen()
         }
@@ -121,7 +122,7 @@ impl<'a> FXRewriter<'a> {
         })
     }
 
-    pub fn struct_codegen(&'a self) -> &'a FXCodeGenerator<'a> {
+    pub(crate) fn struct_codegen(&'a self) -> &'a FXCodeGenerator<'a> {
         if *self.ctx().syncish() {
             self.sync_gen()
         }
@@ -130,7 +131,7 @@ impl<'a> FXRewriter<'a> {
         }
     }
 
-    pub fn rewrite(&'a mut self) -> TokenStream {
+    pub(crate) fn rewrite(&'a mut self) -> TokenStream {
         self.prepare_struct();
         self.rewrite_struct();
         self.finalize()
@@ -179,7 +180,7 @@ impl<'a> FXRewriter<'a> {
         }
 
         #[cfg(feature = "serde")]
-        self.serde_prepare_struct();
+        ctx.ok_or_record(self.serde_prepare_struct());
     }
 
     fn prepare_field(&'a self, fctx: &FXFieldCtx) -> darling::Result<()> {
@@ -213,17 +214,20 @@ impl<'a> FXRewriter<'a> {
         let builder_struct = arg_props.builder_struct();
 
         if *builder_struct {
-            let builder_ident = arg_props.builder_struct_ident();
             let span = builder_struct.final_span();
             let generic_params = ctx.struct_generic_params();
-            let vis = arg_props.builder_struct_visibility();
-            let builder_tt = quote_spanned! {span=>
-                #[inline]
-                #vis fn builder() -> #builder_ident #generic_params {
-                    #builder_ident::new()
-                }
-            };
-            ctx.add_method_decl(builder_tt);
+            let builder_ident = arg_props.builder_struct_ident();
+            let mut mc = FXFnConstructor::new_associated(format_ident!("builder", span = span));
+
+            ctx.ok_or_record(
+                mc.set_span(span)
+                    .set_vis(arg_props.builder_struct_visibility())
+                    .set_ret_type(quote_spanned! {span=> #builder_ident #generic_params })
+                    .set_ret_stmt(quote_spanned! {span=> #builder_ident::new() })
+                    .add_attribute_toks(quote_spanned! {span=> #[inline]}),
+            );
+
+            ctx.add_method(mc);
         }
 
         #[cfg(feature = "serde")]
@@ -243,25 +247,27 @@ impl<'a> FXRewriter<'a> {
             let span = needs_default.final_span();
             // Generate fn new()
             let new_name = if *needs_new {
-                quote_spanned! {needs_new.final_span()=> new}
+                format_ident!("new", span = needs_new.final_span())
             }
             else {
-                quote_spanned! {span=> __fieldx_new}
+                format_ident!("__fieldx_new", span = span)
             };
 
-            let return_type = cgen.maybe_ref_counted(&quote_spanned![span=> Self]);
-            let body = cgen.maybe_ref_counted_create(
-                &quote_spanned![span=> Self],
-                &quote_spanned![span=> ..Self::default()],
-                None,
+            let mut mc = FXFnConstructor::new_associated(new_name);
+
+            ctx.ok_or_record(
+                mc.set_span(span)
+                    .set_ret_type(cgen.maybe_ref_counted(&quote_spanned![span=> Self]))
+                    .set_vis(quote_spanned![span=> pub])
+                    .set_ret_stmt(cgen.maybe_ref_counted_create(
+                        &quote_spanned![span=> Self],
+                        &quote_spanned![span=> ..Self::default()],
+                        None,
+                    ))
+                    .add_attribute_toks(quote_spanned! {span=> #[inline] }),
             );
 
-            ctx.add_method_decl(quote_spanned! {span=>
-                #[inline]
-                pub fn #new_name() -> #return_type {
-                    #body
-                }
-            });
+            ctx.add_method(mc);
         }
     }
 
@@ -272,85 +278,108 @@ impl<'a> FXRewriter<'a> {
 
         if *rc {
             let rc_span = rc.final_span();
-            let myself_name = arg_props.myself_name();
-            let downgrade_name = arg_props.myself_downgrade_name();
-            let myself_field = arg_props.myself_field_ident();
             let (rc_type, weak_type) = self.struct_codegen().ref_count_types(rc_span);
-            let visibility = arg_props.rc_visibility();
+            let mut myself_mc = FXFnConstructor::new(arg_props.myself_name().cloned().unwrap());
+            let mut downgrade_mc = FXFnConstructor::new(arg_props.myself_downgrade_name().cloned().unwrap());
+            let myself_field = arg_props.myself_field_ident();
 
-            ctx.add_method_decl(quote_spanned![rc_span=>
-                #[allow(dead_code)]
-                #[inline(always)]
-                #visibility fn #myself_name(&self) -> ::std::option::Option<#rc_type<Self>> {
-                    #weak_type::upgrade(&self.#myself_field)
-                }
-            ]);
-            ctx.add_method_decl(quote_spanned![rc_span=>
-                #[allow(dead_code)]
-                #[inline(always)]
-                #visibility fn #downgrade_name(&self) -> #weak_type<Self> {
-                    #weak_type::clone(&self.#myself_field)
-                }
-            ]);
+            ctx.ok_or_record(
+                myself_mc
+                    .set_span(rc_span)
+                    .set_vis(arg_props.rc_visibility().clone())
+                    .set_ret_type(quote_spanned![rc_span=> ::std::option::Option<#rc_type<Self>>])
+                    .add_statement(quote_spanned![rc_span=> #weak_type::upgrade(&self.#myself_field)])
+                    .add_attribute_toks(quote_spanned![rc_span=> #[allow(dead_code)] #[inline(always)]]),
+            );
+
+            ctx.ok_or_record(
+                downgrade_mc
+                    .set_span(rc_span)
+                    .set_vis(arg_props.rc_visibility().clone())
+                    .set_ret_type(quote_spanned![rc_span=> #weak_type<Self>])
+                    .add_statement(quote_spanned![rc_span=> #weak_type::clone(&self.#myself_field)])
+                    .add_attribute_toks(quote_spanned![rc_span=> #[allow(dead_code)] #[inline(always)]]),
+            );
+
+            ctx.add_method(myself_mc);
+            ctx.add_method(downgrade_mc);
         }
     }
 
-    fn default_impl(&self) -> TokenStream {
+    fn default_impl(&self) {
         let ctx = self.ctx();
 
         let needs_default = ctx.needs_default();
 
         if !*needs_default {
-            return quote![];
+            return;
         }
-
-        let ident = ctx.input().ident();
-        let (impl_generics, type_generics, where_clause) = ctx.input().generics().split_for_impl();
 
         if let Some(defaults) = ctx.defaults_combined() {
-            quote_spanned! {needs_default.final_span()=>
-                impl #impl_generics Default for #ident #type_generics #where_clause {
-                    fn default() -> Self {
-                        Self { #defaults }
-                    }
-                }
-            }
-        }
-        else {
-            quote![]
+            let span = needs_default.final_span();
+            let mut default_impl = FXImplConstructor::new(format_ident!("Default", span = span));
+            let mut default_method = FXFnConstructor::new_associated(format_ident!("default", span = span));
+
+            let mut user_struct = ctx.user_struct_mut();
+            default_impl
+                .set_for_ident(user_struct.ident())
+                .set_from_generics(user_struct.generics().clone())
+                .set_span(span);
+            default_method
+                .set_span(span)
+                .set_ret_type(quote_spanned! {span=> Self})
+                .set_ret_stmt(quote_spanned! {span=> Self { #defaults }});
+            default_impl.add_method(default_method);
+            user_struct.add_trait_impl(default_impl);
         }
     }
 
-    fn builder_field_ctxs(&self) -> Vec<darling::Result<Rc<FXFieldCtx>>> {
+    fn builder_field_ctxs(&self) -> darling::Result<Vec<darling::Result<Rc<FXFieldCtx>>>> {
         let ctx = self.ctx();
-        let builder_field_idents = ctx.builder_field_ident().borrow();
-        builder_field_idents
-            .iter()
+        Ok(ctx
+            .builder_struct()?
+            .field_idents()
             .map(|ident| ctx.ident_field_ctx(&ident))
-            .collect()
+            .collect())
     }
 
-    fn builder_impl(&'a self) -> TokenStream {
+    fn builder_impl(&'a self) -> darling::Result<()> {
         let ctx = self.ctx();
         let arg_props = ctx.arg_props();
         let span = arg_props.builder_struct().final_span();
-        let vis = arg_props.builder_struct_visibility();
-        let builder_struct_ident = arg_props.builder_struct_ident();
-        let builders = ctx.builders_combined();
+        let cgen = self.struct_codegen();
+        let builder_return_type = cgen.maybe_ref_counted(&cgen.builder_return_type());
+        let builder_error_type = if let Some(error_type) = arg_props.builder_error_type() {
+            quote_spanned![span=> #error_type]
+        }
+        else {
+            quote_spanned! {span=> ::fieldx::error::FieldXError}
+        };
+
+        let mut new_method = FXFnConstructor::new_associated(format_ident!("new", span = span));
+        let mut build_method = FXFnConstructor::new(format_ident!("build", span = span));
+
+        new_method
+            .set_span(span)
+            .set_vis(arg_props.builder_struct_visibility())
+            .set_ret_type(quote_spanned! {span=> Self})
+            .add_attribute_toks(quote_spanned! {span=> #[inline(always)]})?;
+
+        build_method
+            .set_span(span)
+            .set_self_mut(true)
+            .set_vis(arg_props.builder_struct_visibility())
+            .set_ret_type(quote_spanned! {span=> ::std::result::Result<#builder_return_type, #builder_error_type>})
+            .add_attribute_toks(quote_spanned! {span=> #[inline]})?;
+
         let input_ident = ctx.input_ident();
-        let (impl_generics, _, where_clause) = ctx.input().generics().split_for_impl();
-        let generic_params = ctx.struct_generic_params();
-        let attributes = ctx.args().builder_impl_attributes();
         let post_build_ident = arg_props.post_build_ident().cloned();
 
         let mut field_setters = Vec::<TokenStream>::new();
-        let mut use_default = false;
         let mut builder_checkers = vec![];
         let mut fields_new = vec![];
-        if let Some(myself_field) = arg_props.myself_field_ident() {
-            fields_new.push(quote_spanned! {span=> #myself_field: ::std::default::Default::default() });
-        }
-        for fctx in self.builder_field_ctxs() {
+
+        for fctx in self.builder_field_ctxs()? {
             if let Ok(fctx) = fctx {
                 let ident = fctx.ident();
                 fields_new.push(quote_spanned! {span=> #ident: None });
@@ -362,14 +391,17 @@ impl<'a> FXRewriter<'a> {
                         continue;
                     }
                 };
+
                 fgen.field_builder_value_required(&fctx);
-                let fsetter = ctx.ok_or_empty(fgen.field_builder_setter(&fctx));
-                if fsetter.is_empty() {
-                    use_default = true;
-                }
-                else {
-                    field_setters.push(fsetter);
-                }
+
+                match fgen.field_builder_setter(&fctx) {
+                    Ok(fsetter) => field_setters.push(fsetter),
+                    Err(err) => {
+                        ctx.push_error(err);
+                        continue;
+                    }
+                };
+
                 if let Some(bchecker) = fctx.builder_checker() {
                     builder_checkers.push(bchecker);
                 }
@@ -379,162 +411,106 @@ impl<'a> FXRewriter<'a> {
             }
         }
 
-        let default_initializer = if use_default && *arg_props.needs_default() {
-            quote_spanned! {span=> ..::std::default::Default::default()}
-        }
-        else {
-            quote![]
-        };
-
-        let cgen = self.struct_codegen();
-        let builder_return_type = cgen.maybe_ref_counted(&cgen.builder_return_type());
-
-        let fn_new = quote_spanned! {span=>
-            #vis fn new() -> Self {
-                Self {
-                    #( #fields_new ),*
-                }
+        new_method.set_ret_stmt(quote_spanned! {span=>
+            Self {
+                #( #fields_new ),*
             }
-        };
+        });
 
         let construction = cgen.maybe_ref_counted_create(
             &input_ident.to_token_stream(),
             &quote_spanned! {span=>
                     #(#field_setters,)*
-                    #default_initializer
             },
             post_build_ident,
         );
 
-        let builder_error_type = if let Some(error_type) = arg_props.builder_error_type() {
-            quote_spanned![span=> #error_type]
-        }
-        else {
-            quote_spanned! {span=> ::fieldx::error::FieldXError}
-        };
+        build_method.add_statement(quote_spanned! {span=> #( #builder_checkers );* });
+        build_method.set_ret_stmt(quote_spanned! {span=> Ok(#construction) });
 
-        quote_spanned! {span=>
-            #attributes
-            impl #impl_generics #builder_struct_ident #generic_params
-            #where_clause
-            {
-                #fn_new
-                #builders
-                #vis fn build(&mut self) -> ::std::result::Result<#builder_return_type, #builder_error_type> {
-                    #( #builder_checkers );*
-                    Ok(#construction)
-                }
-            }
-        }
+        let mut bsc = ctx.builder_struct_mut()?;
+        let bic = bsc.struct_impl_mut();
+        bic.add_method(new_method);
+        bic.add_method(build_method);
+
+        Ok(())
     }
 
-    fn builder_struct(&'a self) -> TokenStream {
+    fn builder_struct(&'a self) -> darling::Result<TokenStream> {
         let ctx = self.ctx();
         let arg_props = ctx.arg_props();
         let builder_struct = arg_props.builder_struct();
 
-        if *builder_struct {
-            let args = ctx.args();
-            let cgen = self.struct_codegen();
-            let builder_fields = ctx.builder_fields_combined();
-            let builder_impl = self.builder_impl();
-            let generics = ctx.input().generics();
-            let where_clause = &generics.where_clause;
-            let span = builder_struct.final_span();
-            let vis = arg_props.builder_struct_visibility();
-            let attributes = args.builder_attributes();
-            let builder_ident = arg_props.builder_struct_ident();
-            let rc = arg_props.rc();
-
-            let myself_field = if *rc {
-                let (_, weak_type) = cgen.ref_count_types(rc.final_span());
-                let mf = arg_props.myself_field_ident();
-                let input_ident = ctx.input_ident();
-                quote_spanned![span=> #mf: #weak_type<#input_ident #generics>,]
-            }
-            else {
-                quote![]
-            };
-
-            quote_spanned! {span=>
-                // #derive_attr
-                #attributes
-                #vis struct #builder_ident #generics
-                #where_clause
-                {
-                    #myself_field
-                    #builder_fields
-                }
-
-                #builder_impl
-            }
+        Ok(if *builder_struct {
+            self.builder_impl()?;
+            ctx.builder_struct()?.to_token_stream()
         }
         else {
             quote![]
-        }
+        })
     }
 
     fn finalize(&'a self) -> TokenStream {
         let ctx = self.ctx();
+        // This is the case where we better point to the `fxstruct` attribute itself.
+        let span = Span::call_site(); // ctx.input().ident().span();
 
-        let &FXInputReceiver {
-            ref vis,
-            ref ident,
-            ref generics,
-            ..
-        } = ctx.input();
-
-        let span = ctx.input().ident().span();
+        // Make sure the Default trait is implemented if needed.
+        self.default_impl();
 
         // ctx.add_attr(self.derive_toks(&self.derive_traits()));
 
-        let attributes = ctx.all_attrs();
-        let attributes_impl = ctx.args().attributes_impl().as_ref();
-        let methods = ctx.methods_combined();
-        let fields = ctx.struct_fields();
-        let default = self.default_impl();
-        let builder_struct = self.builder_struct();
-        let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
+        ctx.user_struct_mut()
+            .struct_impl_mut()
+            // .add_attributes(ctx.all_attrs().iter())
+            .maybe_add_attributes(ctx.args().attributes_impl().as_ref().map(|a| a.iter()));
 
         let copyables = ctx.copyable_types();
-        let copyable_validation = if !copyables.is_empty() {
-            let copyables: Vec<TokenStream> = copyables.iter().map(|ct| ct.to_token_stream()).collect();
-            Some(quote![
-                #[allow(dead_code)]
-                fn __fieldx_copy_validation() {
-                    fn field_implements_copy<T: ?Sized + Copy>() {}
-                    #( field_implements_copy::<#copyables>(); )*
-                }
-            ])
-        }
-        else {
-            None
-        };
+        if !copyables.is_empty() {
+            let copyables: Vec<TokenStream> = copyables
+                .iter()
+                .map(|ct| {
+                    quote_spanned! {ct.span()=> __field_implements_copy::<#ct>()}
+                })
+                .collect();
 
-        let s_impl = quote_spanned! [span=>
+            let mut fcv_fn = FXFnConstructor::new_associated(format_ident!("__fieldx_copy_validation", span = span));
+
+            ctx.ok_or_record(
+                fcv_fn
+                    .set_span(span)
+                    .add_statement(quote_spanned! {span=> fn __field_implements_copy<T: ?Sized + Copy>() {} })
+                    .add_statement(quote_spanned! {span=> #( #copyables; )* })
+                    .add_attribute_toks(quote_spanned! {span=> #[allow(dead_code)] }),
+            );
+
+            ctx.user_struct_mut().struct_impl_mut().add_method(fcv_fn);
+        }
+
+        let mut fxstruct_trait = FXImplConstructor::new(format_ident!("FXStruct", span = span));
+        fxstruct_trait
+            .set_span(span)
+            .set_for_ident(ctx.input_ident())
+            .set_from_generics(Some(ctx.input().generics().clone()));
+        ctx.user_struct_mut().add_trait_impl(fxstruct_trait);
+
+        let builder_struct = ctx.ok_or_empty(self.builder_struct());
+        let user_struct = ctx.user_struct().to_token_stream();
+        #[cfg(feature = "serde")]
+        let shadow_struct = ctx.ok_or_empty(self.serde_finalize());
+        #[cfg(not(feature = "serde"))]
+        let shadow_struct = quote![];
+
+        let struct_impl = quote_spanned! {span=>
             #[allow(unused_imports)]
             use ::fieldx::traits::*;
 
-            #( #attributes )*
-            #vis struct #ident #generics
-            #where_clause
-            {
-                #( #fields ),*
-            }
-
-            impl #impl_generics FXStruct for #ident #type_generics #where_clause {}
-
-            #attributes_impl
-            impl #impl_generics #ident #type_generics #where_clause {
-                #methods
-                #copyable_validation
-            }
-
-            #default
-
+            #user_struct
             #builder_struct
-        ];
-        ctx.tokens_extend(s_impl);
+            #shadow_struct
+        };
+
+        ctx.tokens_extend(struct_impl);
         ctx.finalize()
     }
 }

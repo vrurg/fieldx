@@ -12,7 +12,7 @@ macro_rules! helper_visibility_method {
     ( $( $helper:ident ),* $(,)? ) => {
         $(
             ::paste::paste!{
-                pub fn [<$helper _visibility>](&self) -> &syn::Visibility {
+                pub(crate) fn [<$helper _visibility>](&self) -> &syn::Visibility {
                     self.[<$helper _visibility>].get_or_init(|| {
                         self.helper_visibility(FXHelperKind::[<$helper:camel>])
                     })
@@ -26,7 +26,7 @@ macro_rules! helper_ident_method {
     ( $( $helper:ident ),* $(,)? ) => {
         $(
             ::paste::paste!{
-                pub fn [<$helper _ident>](&self) -> &syn::Ident {
+                pub(crate) fn [<$helper _ident>](&self) -> &syn::Ident {
                     self.[<$helper _ident>].get_or_init(|| {
                         self.helper_ident(FXHelperKind::[<$helper:camel>])
                     })
@@ -232,7 +232,7 @@ impl FieldCTXProps {
         }
     }
 
-    pub fn field_props(&self) -> &FXFieldProps {
+    pub(crate) fn field_props(&self) -> &FXFieldProps {
         &self.field_props
     }
 
@@ -283,7 +283,7 @@ impl FieldCTXProps {
             })
     }
 
-    pub fn helper_attributes_fn(&self, helper_kind: FXHelperKind) -> Option<&FXAttributes> {
+    pub(crate) fn helper_attributes_fn(&self, helper_kind: FXHelperKind) -> Option<&FXAttributes> {
         self.field_props
             .helper_attributes_fn(helper_kind)
             .or_else(|| self.field_props.field().attributes_fn().as_ref())
@@ -291,7 +291,7 @@ impl FieldCTXProps {
             .or_else(|| self.codegen_ctx.args().attributes_fn().as_ref())
     }
 
-    pub fn builder(&self) -> FXProp<bool> {
+    pub(crate) fn builder(&self) -> FXProp<bool> {
         *self.builder.get_or_init(|| {
             self.field_props()
                 .builder()
@@ -310,7 +310,7 @@ impl FieldCTXProps {
         })
     }
 
-    pub fn builder_ident(&self) -> &syn::Ident {
+    pub(crate) fn builder_ident(&self) -> &syn::Ident {
         self.builder_ident.get_or_init(|| {
             self.field_props()
                 .builder_ident()
@@ -319,13 +319,13 @@ impl FieldCTXProps {
         })
     }
 
-    pub fn builder_method_visibility(&self) -> &syn::Visibility {
+    pub(crate) fn builder_method_visibility(&self) -> &syn::Visibility {
         self.builder_method_visibility
             .get_or_init(|| self.helper_visibility(FXHelperKind::Builder))
     }
 
     // A special case when the builder is forced by the field attribute.
-    pub fn forced_builder(&self) -> FXProp<bool> {
+    pub(crate) fn forced_builder(&self) -> FXProp<bool> {
         *self.forced_builder.get_or_init(|| {
             self.field_props
                 .field()
@@ -338,7 +338,7 @@ impl FieldCTXProps {
 
     // Fallible is specific because it can be enabled on the field level, but the error type can be defined on the
     // struct level.
-    pub fn fallible(&self) -> FXProp<bool> {
+    pub(crate) fn fallible(&self) -> FXProp<bool> {
         *self.fallible.get_or_init(|| {
             self.field_props()
                 .fallible()
@@ -348,7 +348,7 @@ impl FieldCTXProps {
         })
     }
 
-    pub fn fallible_error(&self) -> Option<&syn::Path> {
+    pub(crate) fn fallible_error(&self) -> Option<&syn::Path> {
         self.fallible_error
             .get_or_init(|| {
                 self.field_props()
@@ -363,7 +363,7 @@ impl FieldCTXProps {
             .as_ref()
     }
 
-    pub fn mode_sync(&self) -> FXProp<bool> {
+    pub(crate) fn mode_sync(&self) -> FXProp<bool> {
         *self.mode_sync.get_or_init(|| {
             let field_props = self.field_props();
             field_props
@@ -381,7 +381,7 @@ impl FieldCTXProps {
         })
     }
 
-    pub fn mode_async(&self) -> FXProp<bool> {
+    pub(crate) fn mode_async(&self) -> FXProp<bool> {
         *self.mode_async.get_or_init(|| {
             let field_props = self.field_props();
             field_props
@@ -399,7 +399,7 @@ impl FieldCTXProps {
         })
     }
 
-    pub fn mode_plain(&self) -> FXProp<bool> {
+    pub(crate) fn mode_plain(&self) -> FXProp<bool> {
         *self.mode_plain.get_or_init(|| {
             let field_props = self.field_props();
             field_props
@@ -422,7 +422,7 @@ impl FieldCTXProps {
         })
     }
 
-    pub fn base_name(&self) -> &syn::Ident {
+    pub(crate) fn base_name(&self) -> &syn::Ident {
         self.base_name.get_or_init(|| {
             self.field_props()
                 .base_name()
@@ -431,12 +431,12 @@ impl FieldCTXProps {
         })
     }
 
-    pub fn default_value(&self) -> Option<&syn::Expr> {
+    pub(crate) fn default_value(&self) -> Option<&syn::Expr> {
         self.field_props.default_value()
     }
 
     #[cfg(feature = "serde")]
-    pub fn serde(&self) -> FXProp<bool> {
+    pub(crate) fn serde(&self) -> FXProp<bool> {
         *self.serde.get_or_init(|| {
             if let Some(field_serde) = self.field_props().serde() {
                 FXProp::new(
@@ -451,23 +451,23 @@ impl FieldCTXProps {
     }
 
     #[cfg(feature = "serde")]
-    pub fn serde_optional(&self) -> FXProp<bool> {
+    pub(crate) fn serde_optional(&self) -> FXProp<bool> {
         *self.serde_optional.get_or_init(|| self.optional().or(self.lazy()))
     }
 
     #[cfg(feature = "serde")]
-    pub fn serde_default_value(&self) -> Option<&FXDefault> {
+    pub(crate) fn serde_default_value(&self) -> Option<&FXDefault> {
         self.field_props.serde_default_value()
     }
 
     #[cfg(feature = "serde")]
     #[inline(always)]
-    pub fn serde_attributes(&self) -> Option<&FXAttributes> {
+    pub(crate) fn serde_attributes(&self) -> Option<&FXAttributes> {
         self.field_props().serde_attributes()
     }
 
     #[cfg(feature = "serde")]
-    pub fn serialize(&self) -> FXProp<bool> {
+    pub(crate) fn serialize(&self) -> FXProp<bool> {
         *self.serialize.get_or_init(|| {
             self.field_props()
                 .serialize()
@@ -477,7 +477,7 @@ impl FieldCTXProps {
     }
 
     #[cfg(feature = "serde")]
-    pub fn deserialize(&self) -> FXProp<bool> {
+    pub(crate) fn deserialize(&self) -> FXProp<bool> {
         *self.deserialize.get_or_init(|| {
             self.field_props()
                 .deserialize()
@@ -487,7 +487,7 @@ impl FieldCTXProps {
     }
 
     #[cfg(feature = "serde")]
-    pub fn serde_rename_serialize(&self) -> Option<&FXProp<String>> {
+    pub(crate) fn serde_rename_serialize(&self) -> Option<&FXProp<String>> {
         self.serde_rename_serialize
             .get_or_init(|| {
                 let field_props = self.field_props();
@@ -501,7 +501,7 @@ impl FieldCTXProps {
     }
 
     #[cfg(feature = "serde")]
-    pub fn serde_rename_deserialize(&self) -> Option<&FXProp<String>> {
+    pub(crate) fn serde_rename_deserialize(&self) -> Option<&FXProp<String>> {
         self.serde_rename_deserialize
             .get_or_init(|| {
                 let field_props = self.field_props();

@@ -1,8 +1,11 @@
 use super::{
-    constructor::method::MethodConstructor, FXCodeGenCtx, FXCodeGenPlain, FXCodeGenSync, FXFieldCtx, FXInlining,
+    constructor::r#fn::FXFnConstructor, FXCodeGenCtx, FXCodeGenPlain, FXCodeGenSync, FXFieldCtx, FXInlining,
     FXValueRepr,
 };
-use crate::{helper::*, FXInputReceiver};
+use crate::{
+    codegen::constructor::{FXConstructor, FXFieldConstructor},
+    helper::*,
+};
 use enum_dispatch::enum_dispatch;
 use fieldx_aux::{FXProp, FXPropBool};
 use proc_macro2::{Span, TokenStream, TokenTree};
@@ -11,31 +14,31 @@ use std::rc::Rc;
 use syn::spanned::Spanned;
 
 #[enum_dispatch]
-pub enum FXCodeGenerator<'a> {
+pub(crate) enum FXCodeGenerator<'a> {
     ModePlain(FXCodeGenPlain<'a>),
     ModeSync(FXCodeGenSync<'a>),
 }
 
 #[enum_dispatch(FXCodeGenerator)]
-pub trait FXCodeGenContextual {
+pub(crate) trait FXCodeGenContextual {
     fn ctx(&self) -> &Rc<FXCodeGenCtx>;
 
     // Actual code producers
-    fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
-    fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
     fn field_builder_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
-    fn field_reader(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
-    fn field_writer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
-    fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
-    fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
-    fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
-    fn field_lazy_builder_wrapper(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_reader(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_writer(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_lazy_builder_wrapper(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
     fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<TokenStream>) -> darling::Result<TokenStream>;
     fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
     fn field_lazy_initializer(
         &self,
         fctx: &FXFieldCtx,
-        method_constructor: &mut MethodConstructor,
+        method_constructor: &mut FXFnConstructor,
     ) -> darling::Result<TokenStream>;
     #[cfg(feature = "serde")]
     // How to move field from shadow struct
@@ -72,28 +75,6 @@ pub trait FXCodeGenContextual {
     // fn builder_fields_combined(&self) -> TokenStream;
     // fn builders_combined(&self) -> TokenStream;
     // fn struct_fields(&self) -> Ref<Vec<TokenStream>>;
-
-    // Common implementations
-    fn input(&self) -> &FXInputReceiver {
-        &self.ctx().input()
-    }
-
-    fn ok_or_empty(&self, outcome: darling::Result<TokenStream>) -> TokenStream {
-        self.ok_or_else(outcome, || quote![])
-    }
-
-    fn ok_or_else<T>(&self, outcome: darling::Result<T>, mapper: impl FnOnce() -> T) -> T {
-        outcome.unwrap_or_else(|err| {
-            self.ctx().push_error(err);
-            mapper()
-        })
-    }
-
-    fn ok_or_record(&self, outcome: darling::Result<()>) {
-        if let Err(err) = outcome {
-            self.ctx().push_error(err)
-        }
-    }
 
     fn generic_params(&self) -> TokenStream {
         let input = self.ctx().input();
@@ -180,16 +161,15 @@ pub trait FXCodeGenContextual {
     }
 
     fn field_decl(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
-        let mut constructor = fctx.constructor();
+        let mut constructor = fctx.take_constructor()?;
 
         constructor.set_vis(fctx.vis());
 
         if !*fctx.skipped() {
             constructor.set_type(self.type_tokens(&fctx)?.clone());
         };
-        // No check for None is needed because we're only applying to named structs.
 
-        self.ctx().add_field_decl(constructor.to_field());
+        self.ctx().add_field_decl(constructor);
 
         Ok(())
     }
@@ -197,18 +177,17 @@ pub trait FXCodeGenContextual {
     fn field_methods(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
         if !*fctx.skipped() {
             let ctx = self.ctx();
-            ctx.add_method_decl(self.field_accessor(&fctx)?);
-            ctx.add_method_decl(self.field_accessor_mut(&fctx)?);
-            ctx.add_method_decl(self.field_reader(&fctx)?);
-            ctx.add_method_decl(self.field_writer(&fctx)?);
-            ctx.add_method_decl(self.field_setter(&fctx)?);
-            ctx.add_method_decl(self.field_clearer(&fctx)?);
-            ctx.add_method_decl(self.field_predicate(&fctx)?);
-            ctx.add_method_decl(self.field_lazy_builder_wrapper(&fctx)?);
+            ctx.maybe_add_method(self.field_accessor(&fctx)?)
+                .maybe_add_method(self.field_accessor_mut(&fctx)?)
+                .maybe_add_method(self.field_reader(&fctx)?)
+                .maybe_add_method(self.field_writer(&fctx)?)
+                .maybe_add_method(self.field_setter(&fctx)?)
+                .maybe_add_method(self.field_clearer(&fctx)?)
+                .maybe_add_method(self.field_predicate(&fctx)?)
+                .maybe_add_method(self.field_lazy_builder_wrapper(&fctx)?);
             if *ctx.arg_props().builder_struct() {
-                ctx.add_builder_decl(self.field_builder(&fctx)?);
-                ctx.add_builder_field_decl(self.field_builder_field(&fctx)?);
-                ctx.add_builder_field_ident(fctx.ident().clone());
+                ctx.add_builder_method(self.field_builder(&fctx)?)?
+                    .add_builder_field(self.field_builder_field(&fctx)?)?;
             }
         }
 
@@ -245,50 +224,48 @@ pub trait FXCodeGenContextual {
         }
     }
 
-    fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+    fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let builder = fctx.forced_builder().or(fctx.builder());
         Ok(if *builder {
             let span = builder.final_span();
             let mut builder_ident = fctx.builder_ident().clone();
             builder_ident.set_span(span);
-            let mut mc = MethodConstructor::new(builder_ident);
+            let mut mc = FXFnConstructor::new(builder_ident);
             let ident = fctx.ident();
             let (val_type, gen_params, into_tok) = self.into_toks(fctx, fctx.builder_into());
 
-            mc.set_span(span);
-            mc.set_vis(fctx.builder_method_visibility());
-            mc.add_attribute(fctx.helper_attributes_fn(FXHelperKind::Builder, FXInlining::Always, span));
-            mc.maybe_add_generic(gen_params);
-            mc.set_self_mut(true);
-            mc.add_param(quote_spanned! {span=> value: #val_type});
-            mc.set_self_borrow(false);
-            mc.set_ret_type(quote_spanned! {span=> Self});
-            mc.add_statement(quote_spanned! {span=> self.#ident = ::std::option::Option::Some(value #into_tok);});
-            mc.set_ret_stmt(quote_spanned! {span=> self});
+            mc.set_span(span)
+                .set_vis(fctx.builder_method_visibility())
+                .maybe_add_generic(gen_params)
+                .set_self_mut(true)
+                .add_param(quote_spanned! {span=> value: #val_type})
+                .set_self_borrow(false)
+                .set_ret_type(quote_spanned! {span=> Self})
+                .add_statement(quote_spanned! {span=> self.#ident = ::std::option::Option::Some(value #into_tok);})
+                .set_ret_stmt(quote_spanned! {span=> self})
+                .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Builder, FXInlining::Always, span))?;
 
-            mc.to_method()
+            Some(mc)
         }
         else {
-            quote![]
+            None
         })
     }
 
-    fn field_builder_field(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
-        let ident = fctx.ident();
+    fn field_builder_field(&self, fctx: &FXFieldCtx) -> darling::Result<FXFieldConstructor> {
         let span = *fctx.span();
-        let ty = fctx.ty().to_token_stream();
-        let attributes = fctx.props().field_props().builder_attributes();
+        let ty = fctx.ty();
+        let ty = quote_spanned! {span=> ::std::option::Option<#ty>};
+        let mut fc = FXFieldConstructor::new(fctx.ident().clone(), ty, span);
+        fc.maybe_add_attributes(fctx.props().field_props().builder_attributes().map(|a| a.iter()));
         // A precautionary measure as this kind of fields are unlikely to be read. However, some attributes may affect
         // the validity of the builder, like when they refer to generic lifetimes.
         // A reminder to self: this used to be `!forced_builder && !builder`.
         let not_builder = fctx.forced_builder().or(fctx.builder()).not();
-        let allow_attr = if *not_builder {
-            quote_spanned![not_builder.final_span()=> #[allow(dead_code)]]
+        if *not_builder {
+            fc.add_attribute_toks(quote_spanned![not_builder.final_span()=> #[allow(dead_code)]])?;
         }
-        else {
-            quote![]
-        };
-        Ok(quote_spanned![span=> #attributes #allow_attr #ident: ::std::option::Option<#ty>])
+        Ok(fc)
     }
 
     // Ensure that we return an error or panic if the builder field is required but not set.
@@ -362,7 +339,7 @@ pub trait FXCodeGenContextual {
         };
 
         if let Some(alternative) = alternative {
-            let manual_wrapped = self.ok_or_empty(
+            let manual_wrapped = ctx.ok_or_empty(
                 self.field_value_wrap(fctx, FXValueRepr::Versatile(quote_spanned![span=>field_manual_value])),
             );
             quote_spanned![span=>
@@ -377,7 +354,7 @@ pub trait FXCodeGenContextual {
         else {
             // If no alternative init path provided then we just unwrap. It'd be either totally safe if builder checker
             // is set for this field, or won't be ever run because of an earlier error in this method.
-            let value_wrapped = self.ok_or_empty(self.field_value_wrap(
+            let value_wrapped = ctx.ok_or_empty(self.field_value_wrap(
                 fctx,
                 FXValueRepr::Versatile(quote_spanned![span=> self.#field_ident.take().unwrap()]),
             ));
@@ -440,25 +417,25 @@ pub trait FXCodeGenContextual {
         quote_spanned![*span=> #field_ident: #set_toks ]
     }
 
-    fn maybe_ref_counted_self(&self, fctx: &FXFieldCtx, mc: &mut MethodConstructor) {
-        if mc.self_rc_ident().is_some() {
-            // Already set, no need to do it again
-            return;
+    fn maybe_ref_counted_self(&self, fctx: &FXFieldCtx, mc: &mut FXFnConstructor) -> darling::Result<()> {
+        if mc.self_rc_ident().is_none() {
+            let ctx = self.ctx();
+            let arg_props = ctx.arg_props();
+            let rc = arg_props.rc();
+            if *rc {
+                let myself_method = arg_props.myself_name();
+                let span = rc.final_span();
+                let self_rc = format_ident!("__fx_self_rc", span = span);
+                let self_ident = mc.self_ident();
+                let expect_msg = format!("Can't obtain weak reference to myself for field '{}'", fctx.ident());
+                mc.add_statement(quote_spanned! {span=>
+                    let #self_rc = #self_ident.#myself_method().expect(#expect_msg);
+                });
+                mc.set_self_rc_ident(self_rc.to_token_stream())?;
+            }
         }
-        let ctx = self.ctx();
-        let arg_props = ctx.arg_props();
-        let rc = arg_props.rc();
-        if *rc {
-            let myself_method = arg_props.myself_name();
-            let span = rc.final_span();
-            let self_rc = format_ident!("__fx_self_rc", span = span);
-            let self_ident = mc.self_ident();
-            let expect_msg = format!("Can't obtain weak reference to myself for field {}", fctx.ident());
-            mc.add_statement(quote_spanned! {span=>
-                let #self_rc = #self_ident.#myself_method().expect(#expect_msg);
-            });
-            mc.set_self_rc_ident(Some(self_rc.to_token_stream()));
-        }
+
+        Ok(())
     }
 
     #[inline]

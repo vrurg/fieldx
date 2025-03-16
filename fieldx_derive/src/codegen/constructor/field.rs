@@ -1,16 +1,20 @@
+use getset::Getters;
 use proc_macro2::{Span, TokenStream};
 use quote::{quote_spanned, ToTokens};
 
-#[derive(Debug)]
-pub(crate) struct FieldConstructor {
+use super::FXConstructor;
+
+#[derive(Debug, Getters)]
+#[getset(get = "pub(crate)")]
+pub(crate) struct FXFieldConstructor {
     ident:      syn::Ident,
     ty:         TokenStream,
     vis:        Option<TokenStream>,
-    attributes: Vec<TokenStream>,
-    span:       Span,
+    attributes: Vec<syn::Attribute>,
+    span:       Option<Span>,
 }
 
-impl FieldConstructor {
+impl FXFieldConstructor {
     #[inline]
     pub(crate) fn new<T: ToTokens>(ident: syn::Ident, ty: T, span: Span) -> Self {
         Self {
@@ -18,50 +22,51 @@ impl FieldConstructor {
             ty: ty.to_token_stream(),
             vis: None,
             attributes: Vec::new(),
-            span,
+            span: Some(span),
         }
     }
 
     #[inline]
-    pub(crate) fn add_attribute<T: ToTokens>(&mut self, attribute: T) {
-        let attr = attribute.to_token_stream();
-        if !attr.is_empty() {
-            self.attributes.push(attr);
-        }
-    }
-
-    #[inline]
-    pub(crate) fn add_attributes<T: ToTokens, I: Iterator<Item = T>>(&mut self, attributes: I) {
-        for attribute in attributes {
-            self.add_attribute(attribute);
-        }
-    }
-
-    #[inline]
-    pub(crate) fn set_vis<T: ToTokens>(&mut self, vis: T) {
+    pub(crate) fn set_vis<T: ToTokens>(&mut self, vis: T) -> &mut Self {
         self.vis = Some(vis.to_token_stream());
+        self
     }
 
     #[inline]
-    pub(crate) fn set_type<T: ToTokens>(&mut self, ty: T) {
+    pub(crate) fn set_type<T: ToTokens>(&mut self, ty: T) -> &mut Self {
         self.ty = ty.to_token_stream();
+        self
     }
+}
 
-    pub(crate) fn to_field(&self) -> TokenStream {
+impl FXConstructor for FXFieldConstructor {
+    fn fx_to_tokens(&self) -> TokenStream {
         let vis = self.vis.as_ref();
         let attributes = &self.attributes;
         let ident = &self.ident;
         let ty = &self.ty;
+        let span = self.span.unwrap_or_else(|| Span::call_site());
 
-        quote_spanned! {self.span=>
+        quote_spanned! {span=>
             #(#attributes)*
             #vis #ident: #ty
         }
     }
+
+    fn set_span(&mut self, span: proc_macro2::Span) -> &mut Self {
+        self.span = Some(span);
+        self
+    }
+
+    #[inline]
+    fn add_attribute(&mut self, attribute: syn::Attribute) -> &mut Self {
+        self.attributes.push(attribute);
+        self
+    }
 }
 
-impl ToTokens for FieldConstructor {
+impl ToTokens for FXFieldConstructor {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.extend(self.to_field());
+        tokens.extend(self.fx_to_tokens());
     }
 }

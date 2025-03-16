@@ -139,7 +139,7 @@ impl FXFieldReceiver {
     // FXFieldCtx.
     // needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
 
-    pub fn validate(&self) -> darling::Result<()> {
+    pub(crate) fn validate(&self) -> darling::Result<()> {
         let mut acc = darling::Error::accumulator();
 
         if let Err(err) = self.validate_exclusives() {
@@ -174,14 +174,14 @@ impl FXFieldReceiver {
         Ok(())
     }
 
-    pub fn ident(&self) -> darling::Result<syn::Ident> {
+    pub(crate) fn ident(&self) -> darling::Result<syn::Ident> {
         self.ident.clone().ok_or_else(|| {
             darling::Error::custom("This is weird, but the field doesn't have an ident!").with_span(self.span())
         })
     }
 
     #[inline]
-    pub fn has_default_value(&self) -> bool {
+    pub(crate) fn has_default_value(&self) -> bool {
         if let Some(ref dv) = self.default_value {
             *dv.is_true()
         }
@@ -203,40 +203,23 @@ impl FXFieldReceiver {
     }
 
     #[inline]
-    pub fn set_span(&mut self, span: Span) -> Result<(), Span> {
+    pub(crate) fn set_span(&mut self, span: Span) -> Result<(), Span> {
         self.span.set(span)
     }
 
     #[inline]
-    pub fn set_attr_span(&mut self, span: Span) {
+    pub(crate) fn set_attr_span(&mut self, span: Span) {
         self.fieldx_attr_span = Some(span);
     }
 
     #[inline]
-    pub fn span(&self) -> &Span {
+    pub(crate) fn span(&self) -> &Span {
         self.span.get_or_init(|| Span::call_site())
     }
 
     #[inline]
-    pub fn accessor_mode_span(&self) -> Option<Span> {
-        self.accessor
-            .as_ref()
-            .and_then(|a| a.mode_span())
-            .or_else(|| {
-                self.copy
-                    .as_ref()
-                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).orig_span())
-            })
-            .or_else(|| {
-                self.clone
-                    .as_ref()
-                    .and_then(|c| (c as &dyn fieldx_aux::FXOrig<_>).orig_span())
-            })
-    }
-
-    #[inline]
     #[allow(dead_code)]
-    pub fn serde_helper_span(&self) -> Option<Span> {
+    pub(crate) fn serde_helper_span(&self) -> Option<Span> {
         self.serde.as_ref().and_then(|s| s.orig_span())
     }
 }
@@ -272,7 +255,7 @@ impl FXFieldReceiver {
 // }
 
 #[derive(Debug)]
-pub struct FXFieldProps {
+pub(crate) struct FXFieldProps {
     source: FXField,
 
     // --- Helper properties
@@ -359,7 +342,7 @@ impl FXFieldProps {
         fallible, FXFallible;
     }
 
-    pub fn new(field: FXField) -> Self {
+    pub(crate) fn new(field: FXField) -> Self {
         Self {
             source: field,
 
@@ -426,13 +409,13 @@ impl FXFieldProps {
     }
 
     #[inline(always)]
-    pub fn field(&self) -> &FXField {
+    pub(crate) fn field(&self) -> &FXField {
         &self.source
     }
 
     // Returns a true FXProp only if either `lock`, `writer`, or `reader` is set.
     // Otherwise, returns `None`.
-    pub fn syncish(&self) -> FXProp<bool> {
+    pub(crate) fn syncish(&self) -> FXProp<bool> {
         *self.syncish.get_or_init(|| {
             self.source
                 .lock()
@@ -469,11 +452,11 @@ impl FXFieldProps {
         })
     }
 
-    pub fn skipped(&self) -> FXProp<bool> {
+    pub(crate) fn skipped(&self) -> FXProp<bool> {
         *self.skipped.get_or_init(|| self.source.skip().into())
     }
 
-    pub fn visibility(&self) -> Option<&syn::Visibility> {
+    pub(crate) fn visibility(&self) -> Option<&syn::Visibility> {
         self.visibility
             .get_or_init(|| {
                 if *self.source.private.is_true() {
@@ -484,13 +467,13 @@ impl FXFieldProps {
             .as_ref()
     }
 
-    pub fn builder_attributes(&self) -> Option<&FXAttributes> {
+    pub(crate) fn builder_attributes(&self) -> Option<&FXAttributes> {
         self.builder_attributes
             .get_or_init(|| self.source.builder().as_ref().and_then(|b| b.attributes()).cloned())
             .as_ref()
     }
 
-    pub fn base_name(&self) -> Option<&syn::Ident> {
+    pub(crate) fn base_name(&self) -> Option<&syn::Ident> {
         self.base_name
             .get_or_init(|| {
                 if let Some(ref bn) = self.source.base_name {
@@ -503,7 +486,7 @@ impl FXFieldProps {
             .as_ref()
     }
 
-    pub fn default_value(&self) -> Option<&syn::Expr> {
+    pub(crate) fn default_value(&self) -> Option<&syn::Expr> {
         self.default_value
             .get_or_init(|| {
                 self.source
@@ -522,7 +505,7 @@ impl FXFieldProps {
             .as_ref()
     }
 
-    pub fn has_default(&self) -> FXProp<bool> {
+    pub(crate) fn has_default(&self) -> FXProp<bool> {
         *self.has_default.get_or_init(|| {
             self.source
                 .default_value()
@@ -532,7 +515,7 @@ impl FXFieldProps {
     }
 
     #[cfg(feature = "serde")]
-    pub fn serde(&self) -> Option<FXProp<Option<bool>>> {
+    pub(crate) fn serde(&self) -> Option<FXProp<Option<bool>>> {
         *self.serde.get_or_init(|| {
             self.source
                 .serde
@@ -542,14 +525,14 @@ impl FXFieldProps {
     }
 
     #[cfg(feature = "serde")]
-    pub fn serialize(&self) -> Option<FXProp<bool>> {
+    pub(crate) fn serialize(&self) -> Option<FXProp<bool>> {
         *self
             .serialize
             .get_or_init(|| self.source.serde().as_ref().and_then(|s| s.needs_serialize()))
     }
 
     #[cfg(feature = "serde")]
-    pub fn deserialize(&self) -> Option<FXProp<bool>> {
+    pub(crate) fn deserialize(&self) -> Option<FXProp<bool>> {
         *self
             .deserialize
             .get_or_init(|| self.source.serde.as_ref().and_then(|s| s.needs_deserialize()))

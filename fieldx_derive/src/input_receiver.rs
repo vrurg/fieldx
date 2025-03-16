@@ -6,21 +6,21 @@ use quote::ToTokens;
 
 #[derive(Debug, FromDeriveInput, Getters)]
 #[darling(attributes(fieldx), supports(struct_named), forward_attrs)]
-#[getset(get = "pub")]
-pub struct FXInputReceiver {
-    pub vis:      syn::Visibility,
-    pub ident:    syn::Ident,
-    pub data:     ast::Data<(), FXField>,
-    pub attrs:    Vec<syn::Attribute>,
-    pub generics: syn::Generics,
+#[getset(get = "pub(crate)")]
+pub(crate) struct FXInputReceiver {
+    pub(crate) vis:      syn::Visibility,
+    pub(crate) ident:    syn::Ident,
+    pub(crate) data:     ast::Data<(), FXField>,
+    pub(crate) attrs:    Vec<syn::Attribute>,
+    pub(crate) generics: syn::Generics,
 }
 
 impl FXInputReceiver {
-    pub fn fields(&self) -> Vec<&FXField> {
+    pub(crate) fn fields(&self) -> Vec<&FXField> {
         self.data.as_ref().take_struct().map_or_else(|| vec![], |s| s.fields)
     }
 
-    pub fn generic_param_idents(&self) -> Vec<TokenStream> {
+    pub(crate) fn generic_param_idents(&self) -> Vec<TokenStream> {
         let mut idents = vec![];
         for param in self.generics.params.iter() {
             match param {

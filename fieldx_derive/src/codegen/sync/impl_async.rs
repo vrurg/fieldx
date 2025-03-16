@@ -1,9 +1,15 @@
 use super::{FXCodeGenSync, FXSyncImplDetails};
-use crate::{codegen::FXCodeGenContextual, ctx::FXFieldCtx};
+use crate::{
+    codegen::{
+        constructor::{FXConstructor, FXFnConstructor},
+        FXCodeGenContextual,
+    },
+    ctx::FXFieldCtx,
+};
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote_spanned};
 
-pub struct FXAsyncImplementor;
+pub(crate) struct FXAsyncImplementor;
 
 impl FXAsyncImplementor {
     fn lazy_wrapper_name(&self, fctx: &FXFieldCtx) -> syn::Ident {
@@ -30,20 +36,29 @@ impl FXSyncImplDetails for FXAsyncImplementor {
         quote_spanned![span=> ::fieldx::r#async::FXBuilderInfallible]
     }
 
-    fn lazy_wrapper_fn(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+    fn lazy_wrapper_fn(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let span = fctx.lazy().final_span();
-        let wrapper_name = self.lazy_wrapper_name(fctx);
         let lazy_builder_name = fctx.lazy_ident();
         let builder_return = codegen.fallible_return_type(fctx, fctx.ty())?;
-        Ok(quote_spanned! {span=>
-            fn #wrapper_name(&self)
-                -> ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = #builder_return> + Send + '_>>
-            {
+
+        let mut mc = FXFnConstructor::new(self.lazy_wrapper_name(fctx));
+        mc.set_span(span)
+            .set_ret_type(quote_spanned! {span=> ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = #builder_return> + Send + '_>>})
+            .set_ret_stmt(quote_spanned! {span=>
                 ::std::boxed::Box::pin(
                     self.#lazy_builder_name()
                 )
-            }
-        })
+            });
+        // Ok(quote_spanned! {span=>
+        //     fn #wrapper_name(&self)
+        //         -> ::std::pin::Pin<::std::boxed::Box<dyn ::std::future::Future<Output = #builder_return> + Send + '_>>
+        //     {
+        //         ::std::boxed::Box::pin(
+        //             self.#lazy_builder_name()
+        //         )
+        //     }
+        // })
+        Ok(Some(mc))
     }
 
     fn lazy_builder(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> TokenStream {

@@ -1,10 +1,8 @@
 //! Implementation of accessor helper (`get` argument of `fxstruct`/`fieldx` attributes).
-
 use crate::{FXAttributes, FXBool, FXInto, FXOrig, FXProp, FXSetState, FXString, FXTriggerHelper, FromNestAttr};
 use darling::{util::Flag, FromMeta};
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
-use proc_macro2::Span;
 use quote::ToTokens;
 use syn::Lit;
 
@@ -65,34 +63,19 @@ pub struct FXAccessorHelper<const BOOL_ONLY: bool = false> {
 }
 
 impl<const BOOL_ONLY: bool> FXAccessorHelper<BOOL_ONLY> {
-    pub fn mode(&self) -> Option<FXAccessorMode> {
-        if self.clone.is_present() {
-            Some(FXAccessorMode::Clone)
+    pub fn mode(&self) -> Option<FXProp<FXAccessorMode>> {
+        Some(if self.clone.is_present() {
+            FXProp::new(FXAccessorMode::Clone, Some(self.clone.span()))
         }
         else if self.copy.is_present() {
-            Some(FXAccessorMode::Copy)
+            FXProp::new(FXAccessorMode::Copy, Some(self.copy.span()))
         }
         else if self.as_ref.is_present() {
-            Some(FXAccessorMode::AsRef)
+            FXProp::new(FXAccessorMode::AsRef, Some(self.as_ref.span()))
         }
         else {
-            None
-        }
-    }
-
-    pub fn mode_span(&self) -> Option<Span> {
-        if self.copy.is_present() {
-            self.copy.span().into()
-        }
-        else if self.clone.is_present() {
-            self.clone.span().into()
-        }
-        else if self.as_ref.is_present() {
-            self.as_ref.span().into()
-        }
-        else {
-            None
-        }
+            return None;
+        })
     }
 }
 

@@ -1,4 +1,3 @@
-#![cfg(feature = "sync")]
 use fieldx::fxstruct;
 
 #[fxstruct]
@@ -7,6 +6,7 @@ struct FooPlain {
     mutable: String,
 }
 
+#[cfg(feature = "sync")]
 #[fxstruct(sync)]
 struct FooSync {
     #[fieldx(inner_mut, optional, get_mut, get, set, clearer, predicate)]
@@ -35,6 +35,7 @@ fn plain() {
     assert_eq!(*ns.mutable(), Some("via get_mut".to_string()));
 }
 
+#[cfg(feature = "sync")]
 #[test]
 fn sync() {
     let ns = FooSync::new();

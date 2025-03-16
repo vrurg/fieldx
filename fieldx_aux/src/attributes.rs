@@ -22,12 +22,9 @@ pub struct FXAttributes {
     list: Vec<syn::Attribute>,
 }
 
-impl IntoIterator for FXAttributes {
-    type IntoIter = std::vec::IntoIter<syn::Attribute>;
-    type Item = syn::Attribute;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.list.into_iter()
+impl FXAttributes {
+    pub fn iter(&self) -> impl Iterator<Item = &syn::Attribute> {
+        self.list.iter()
     }
 }
 
