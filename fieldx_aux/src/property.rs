@@ -3,7 +3,7 @@ use std::ops::Deref;
 use darling::util::Flag;
 use proc_macro2::Span;
 
-use crate::FXTriggerHelper;
+use crate::{FXSpaned, FXTriggerHelper};
 
 #[derive(Debug)]
 pub struct FXProp<T> {
@@ -59,6 +59,12 @@ where
         else {
             other
         }
+    }
+}
+
+impl<T> FXSpaned for FXProp<T> {
+    fn fx_span(&self) -> Span {
+        self.final_span()
     }
 }
 

@@ -1,3 +1,6 @@
+use proc_macro2::Span;
+use syn::spanned::Spanned;
+
 use crate::{FXAttributes, FXProp};
 
 /// Trait for arguments with trigger behavior. For example, `fieldx` `get` which can be disabled by `off` subargument.
@@ -85,4 +88,42 @@ impl<H: FXTriggerHelper> FXBoolHelper for Option<H> {
 /// - For types that are optional unset means `None`.
 pub trait FXSetState {
     fn is_set(&self) -> FXProp<bool>;
+}
+
+impl<T> FXSetState for Option<T>
+where
+    T: FXSetState,
+{
+    fn is_set(&self) -> FXProp<bool> {
+        self.as_ref().map_or(FXProp::new(false, None), |v| v.is_set())
+    }
+}
+
+impl<T> FXSetState for &T
+where
+    T: FXSetState,
+{
+    fn is_set(&self) -> FXProp<bool> {
+        T::is_set(*self)
+    }
+}
+
+impl FXSetState for syn::Visibility {
+    fn is_set(&self) -> FXProp<bool> {
+        FXProp::new(true, Some(self.span()))
+    }
+}
+
+// Generic trait for all kinds of objects that can report their span.
+pub trait FXSpaned {
+    fn fx_span(&self) -> Span;
+}
+
+impl<T> FXSpaned for T
+where
+    T: Spanned,
+{
+    fn fx_span(&self) -> Span {
+        self.span()
+    }
 }

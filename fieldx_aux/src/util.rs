@@ -32,6 +32,19 @@ macro_rules! set_literals {
     };
 }
 
+#[macro_export]
+macro_rules! ident_or_alias {
+    ($name:ident) => {
+        stringify!($name)
+    };
+    ($name:ident, $alias:ident) => {
+        stringify!($alias)
+    };
+    ($name:ident, $alias:literal) => {
+        $alias
+    };
+}
+
 /// Generate `validate_exclusives` that would return a [`darling::Result`] if two arguments of an attribute are
 /// conflicting with each other.
 #[macro_export]
@@ -56,8 +69,7 @@ macro_rules! validate_exclusives {
                     let subgroup = exclusives.last_mut().unwrap();
                     $(
                         let fref = self.$field.as_ref();
-                        subgroup.push( ( validate_exclusives!(or_alias:
-                                            stringify!($field), $( $alias )? ),
+                        subgroup.push( ( $crate::ident_or_alias!($field $(, $alias )? ),
                                             fref.map(|f| *f.is_set()).unwrap_or(false),
                                             fref.map(|f| f.to_token_stream()) ) );
                     )+
@@ -114,6 +126,42 @@ macro_rules! validate_exclusives {
                     all_errs.push(darling::Error::multiple(errs));
                 }
             }
+
+            if all_errs.len() > 0 {
+                Err(darling::Error::multiple(all_errs))
+            }
+            else {
+                Ok(())
+            }
+        }
+    };
+}
+
+/// Generate function to produce errors on sub-arguments that won't be used in certain context.
+#[macro_export]
+macro_rules! validate_no_macro_args {
+    ($level:literal : $($arg:ident $( as $alias:ident )? . $subarg:ident $( as $sub_alias:ident )? ),+ $(,)?) => {
+        fn validate_subargs(&self) -> darling::Result<()> {
+            use $crate::FXSpaned;
+            let mut all_errs = vec![];
+            $(
+                if let Some(ref arg) = self.$arg() {
+                    let is_set = arg.$subarg().is_set();
+                    if *is_set {
+                        all_errs.push(
+                            darling::Error::custom(
+                                format!(
+                                    "'{}' is not allowed in '{}' context at {} level",
+                                    $crate::ident_or_alias!($subarg $(, $sub_alias )?),
+                                    $crate::ident_or_alias!($arg $(, $alias)?),
+                                    $level,
+                                )
+                            )
+                            .with_span(&arg.$subarg().fx_span())
+                        );
+                    }
+                }
+            )+
 
             if all_errs.len() > 0 {
                 Err(darling::Error::multiple(all_errs))

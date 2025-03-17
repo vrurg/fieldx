@@ -4,9 +4,9 @@ use crate::{
 };
 use darling::{util::Flag, FromField};
 use fieldx_aux::{
-    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBool, FXBoolHelper, FXBuilder,
-    FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXSerde, FXSetState, FXSetter,
-    FXString, FXSynValue, FXSyncMode, FXTriggerHelper,
+    validate_exclusives, validate_no_macro_args, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBool,
+    FXBoolHelper, FXBuilder, FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXSerde,
+    FXSetState, FXSetter, FXString, FXSynValue, FXSyncMode, FXTriggerHelper,
 };
 use getset::Getters;
 use once_cell::unsync::OnceCell;
@@ -68,6 +68,7 @@ pub(crate) struct FXFieldReceiver {
     copy:          Option<FXBool>,
     lock:          Option<FXBool>,
     inner_mut:     Option<FXBool>,
+    #[cfg(feature = "serde")]
     serde:         Option<FXSerde>,
 
     #[darling(skip)]
@@ -135,6 +136,11 @@ impl FXFieldReceiver {
         "visibility": private; visibility as "vis";
     }
 
+    #[cfg(feature = "serde")]
+    validate_no_macro_args! {
+        "field": serde.shadow_name, serde.visibility, serde.private,
+    }
+
     // Generate field-level needs_<helper> methods. The final decision of what's needed and what's not is done by
     // FXFieldCtx.
     // needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
@@ -143,6 +149,10 @@ impl FXFieldReceiver {
         let mut acc = darling::Error::accumulator();
 
         if let Err(err) = self.validate_exclusives() {
+            acc.push(err);
+        }
+
+        if let Err(err) = self.validate_subargs() {
             acc.push(err);
         }
 
@@ -320,6 +330,7 @@ pub(crate) struct FXFieldProps {
     visibility:              OnceCell<Option<syn::Visibility>>,
     default_value:           OnceCell<Option<syn::Expr>>,
     has_default:             OnceCell<FXProp<bool>>,
+    doc:                     OnceCell<Vec<syn::Attribute>>,
 
     #[cfg(feature = "serde")]
     serde:                    OnceCell<Option<FXProp<Option<bool>>>>,
@@ -392,6 +403,7 @@ impl FXFieldProps {
             visibility:              OnceCell::new(),
             default_value:           OnceCell::new(),
             has_default:             OnceCell::new(),
+            doc:                     OnceCell::new(),
 
             #[cfg(feature = "serde")]
             serde:                                              OnceCell::new(),
@@ -511,6 +523,17 @@ impl FXFieldProps {
                 .default_value()
                 .as_ref()
                 .map_or_else(|| false.into(), |d| d.is_true())
+        })
+    }
+
+    pub(crate) fn doc(&self) -> &Vec<syn::Attribute> {
+        self.doc.get_or_init(|| {
+            self.source
+                .attrs()
+                .iter()
+                .filter(|a| a.path().is_ident("doc"))
+                .cloned()
+                .collect()
         })
     }
 
