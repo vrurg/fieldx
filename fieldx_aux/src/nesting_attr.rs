@@ -271,7 +271,14 @@ where
 {
     #[inline(always)]
     fn from(value: FXNestingAttr<T, WITH_LITERALS>) -> Self {
-        value.inner.into()
+        let orig_span = value.orig_span();
+        let p: Self = value.inner.into();
+        if let Some(p) = p {
+            Some(p.respan(orig_span))
+        }
+        else {
+            None
+        }
     }
 }
 
@@ -282,7 +289,13 @@ where
 {
     #[inline(always)]
     fn from(value: &FXNestingAttr<T, WITH_LITERALS>) -> Self {
-        (&value.inner).into()
+        let p: Self = (&value.inner).into();
+        if let Some(p) = p {
+            Some(p.respan(value.orig_span()))
+        }
+        else {
+            None
+        }
     }
 }
 
