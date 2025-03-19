@@ -28,6 +28,8 @@
     script = '''
 toolchain_list = array %{__FIELDX_TOOLCHAINS__}
 
+set_env RUSTFLAGS "-D warnings"
+
 for toolchain in ${toolchain_list}
     echo "Testing toolchain '${toolchain}'"
     set_env __FIELDX_DEFAULT_TOOLCHAIN__ ${toolchain}
@@ -36,7 +38,7 @@ for toolchain in ${toolchain_list}
     cm_run_task ${__FIELDX_TASK__}
 end
 
-# When successfully done then record last commit
+# If successfully done then record last commit
 commit = exec git describe HEAD
 writefile ${__PREV_RELEASE_TESTING__} ${commit.stdout}
 '''
@@ -93,7 +95,12 @@ exec cargo install cargo-readme
 '''
     script_runner = "@duckscript"
 
-[tasks.doc]
+[tasks.docs]
+    args        = ["doc", "--workspace", "--all-features", "--no-deps", "--exclude", "fieldx_derive_support"]
+    command     = "cargo"
+    description = "Generate documentation"
+
+[tasks.readme]
     description = "Build documentation"
     script = '''
 readme_content = exec --fail-on-error cargo readme -r fieldx --template ../README.tpl
@@ -165,7 +172,7 @@ end
 '''
     script_runner = "@duckscript"
 
-[tasks.post-doc]
+[tasks.post-readme]
     description = "Post-doc commit"
     script = '''
 exec --fail-on-error git add README.md CHANGELOG.md
@@ -180,7 +187,7 @@ end
 
 [tasks.pre-release]
     clear        = true
-    dependencies = ["is-clean", "release-testing", "version-patch-bump", "doc", "changelog", "post-doc"]
+    dependencies = ["is-clean", "release-testing", "version-patch-bump", "readme", "changelog", "post-doc"]
     description  = "Pre-release tasks"
 
 [tasks.publish]
