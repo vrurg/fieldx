@@ -115,15 +115,15 @@ and [`FXProxyAsync`] container types.
 
 ## Sync, Async, And Plain Structs
 
-_Note:_ "Async" is considered to be a synonym to "sync" since both require concurrency safety. Even the code
-generated for sync and async cases is mostly identical.
+_Note:_ "Async" is considered synonymous with "sync" since both require concurrency safety. Even the code generated
+for sync and async cases is mostly identical.
 
 If a thread-safe struct is needed then `fxstruct` must take the `sync` argument: `#[fxstruct(sync, ...)]`. When
 instructed so, the macro will do its best to provide concurrency safety at the field level. It means that:
 
 - lazy builder methods are guaranteed to be invoked once and only once per each initialization, be it single- or
   multi-threaded application
-- access to field is lock-protected for lazy or optional fields implicitly
+- access to field is lock-protected for lazy fields implicitly
 
 In less strict cases it is possible to mark individual fields as sync.
 

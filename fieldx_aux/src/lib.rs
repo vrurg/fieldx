@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/")]
+#![doc(html_root_url = "https://docs.rs/fieldx_aux/")]
 //! # fieldx_aux
 //!
 //! Helper module for the [`fieldx`] crate and for any 3rd party crates, extending its functionality.
@@ -63,6 +63,7 @@ pub mod attributes;
 pub mod base_helper;
 pub mod builder_helper;
 pub mod default_arg;
+pub mod doc_arg;
 pub mod fallible;
 pub mod nesting_attr;
 pub mod property;
@@ -81,6 +82,7 @@ pub use crate::{
     base_helper::FXBaseHelper,
     builder_helper::FXBuilderHelper,
     default_arg::FXDefault,
+    doc_arg::FXDocArg,
     fallible::FXFallible,
     nesting_attr::{FXNestingAttr, FromNestAttr},
     property::*,

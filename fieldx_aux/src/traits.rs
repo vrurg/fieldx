@@ -52,7 +52,7 @@ where
     }
 }
 
-/// Implements `FXTriggerHelper`-like functionality for Option<impl FXTriggerHelper>
+/// Implements `FXTriggerHelper`-like functionality for `Option<impl FXTriggerHelper>`
 pub trait FXBoolHelper {
     fn is_true(&self) -> FXProp<bool>;
     fn is_true_opt(&self) -> Option<FXProp<bool>>;
