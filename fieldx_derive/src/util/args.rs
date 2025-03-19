@@ -2,9 +2,8 @@ pub(crate) mod props;
 
 use darling::FromMeta;
 use fieldx_aux::{
-    validate_exclusives, FXAccessor, FXAccessorMode, FXAttributes, FXBool, FXBoolHelper, FXBuilder, FXFallible,
-    FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXPropBool, FXSerde, FXSetState, FXSetter, FXSynValue,
-    FXSyncMode, FXTriggerHelper,
+    validate_exclusives, validate_no_macro_args, FXAccessor, FXAttributes, FXBool, FXBuilder, FXFallible, FXHelper,
+    FXNestingAttr, FXSerde, FXSetState, FXSetter, FXSynValue, FXSyncMode,
 };
 use getset::Getters;
 pub(crate) use props::FXArgProps;
@@ -71,16 +70,21 @@ impl FXSArgs {
         "visibility": private; visibility as "vis";
     );
 
-    // Generate needs_<helper> methods
-    // needs_helper! {accessor, accessor_mut, setter, reader, writer, clearer, predicate}
+    validate_no_macro_args! {
+        "struct":
+            accessor as get.doc, accessor_mut as get_mut.doc, clearer.doc, predicate.doc, reader.doc, setter.doc,
+            writer.doc, lazy.doc
+    }
 
     #[inline]
     pub(crate) fn validate(self) -> Result<Self, darling::Error> {
         let mut acc = darling::Error::accumulator();
-        if let Err(err) = self
-            .validate_exclusives()
-            .map_err(|err| err.with_span(&Span::call_site()))
-        {
+
+        if let Err(err) = self.validate_exclusives() {
+            acc.push(err);
+        }
+
+        if let Err(err) = self.validate_subargs() {
             acc.push(err);
         }
 

@@ -362,6 +362,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                 .set_span(span)
                 .set_vis(arg_props.serde_visibility())
                 .set_generics(ctx.input().generics().clone())
+                .maybe_add_doc(arg_props.serde_doc())?
                 .add_attribute_toks(arg_props.serde_attributes())?
                 .add_attribute_toks(crate::util::derive_toks(&self.serde_derive_traits()))?;
 

@@ -217,15 +217,22 @@ impl<'a> FXRewriter<'a> {
         if *builder_struct {
             let span = builder_struct.final_span();
             let generic_params = ctx.struct_generic_params();
-            let builder_ident = arg_props.builder_struct_ident();
+            let builder_ident = arg_props.builder_ident();
             let mut mc = FXFnConstructor::new_associated(format_ident!("builder", span = span));
+            let builder_method_doc = arg_props.builder_method_doc().cloned().or_else(|| {
+                Some(FXProp::new(
+                    vec![parse_quote_spanned![span=> "Creates a new builder for this struct."]],
+                    Some(span),
+                ))
+            });
 
             ctx.ok_or_record(
                 mc.set_span(span)
                     .set_vis(arg_props.builder_struct_visibility())
                     .set_ret_type(quote_spanned! {span=> #builder_ident #generic_params })
                     .set_ret_stmt(quote_spanned! {span=> #builder_ident::new() })
-                    .add_attribute_toks(quote_spanned! {span=> #[inline]}),
+                    .maybe_add_doc(builder_method_doc.as_ref())
+                    .and_then(|mc| mc.add_attribute_toks(quote_spanned! {span=> #[inline]})),
             );
 
             ctx.add_method(mc);
@@ -292,6 +299,7 @@ impl<'a> FXRewriter<'a> {
                     .add_statement(quote_spanned![rc_span=> #weak_type::upgrade(&self.#myself_field)])
                     .add_attribute_toks(quote_spanned![rc_span=> #[allow(dead_code)] #[inline(always)]]),
             );
+            ctx.ok_or_record(myself_mc.maybe_add_doc(arg_props.rc_doc()));
 
             ctx.ok_or_record(
                 downgrade_mc
@@ -371,7 +379,11 @@ impl<'a> FXRewriter<'a> {
             .set_self_mut(true)
             .set_vis(arg_props.builder_struct_visibility())
             .set_ret_type(quote_spanned! {span=> ::std::result::Result<#builder_return_type, #builder_error_type>})
-            .add_attribute_toks(quote_spanned! {span=> #[inline]})?;
+            .add_attribute_toks(quote_spanned! {span=> #[inline]})?
+            .add_doc(&FXProp::new(
+                vec![parse_quote_spanned! {span=> "Builds the struct from the builder object."}],
+                Some(span),
+            ))?;
 
         let input_ident = ctx.input_ident();
         let post_build_ident = arg_props.post_build_ident().cloned();
@@ -444,7 +456,9 @@ impl<'a> FXRewriter<'a> {
 
         Ok(if *builder_struct {
             self.builder_impl()?;
-            ctx.builder_struct()?.to_token_stream()
+            ctx.builder_struct_mut()?
+                .maybe_add_doc(arg_props.builder_doc())?
+                .to_token_stream()
         }
         else {
             quote![]

@@ -234,10 +234,8 @@ impl FXCodeGenCtx {
     }
 
     #[inline(always)]
-    pub(crate) fn add_builder_method(&self, builder: Option<FXFnConstructor>) -> darling::Result<&Self> {
-        if let Some(builder) = builder {
-            self.builder_struct_mut()?.struct_impl_mut().add_method(builder);
-        }
+    pub(crate) fn add_builder_method(&self, builder: FXFnConstructor) -> darling::Result<&Self> {
+        self.builder_struct_mut()?.struct_impl_mut().add_method(builder);
         Ok(self)
     }
 

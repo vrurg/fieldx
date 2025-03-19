@@ -4,8 +4,9 @@ pub(crate) mod r#impl;
 pub(crate) mod r#struct;
 
 pub(crate) use field::*;
+use fieldx_aux::FXProp;
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{quote, quote_spanned, ToTokens};
 pub(crate) use r#fn::*;
 pub(crate) use r#impl::*;
 pub(crate) use r#struct::*;
@@ -79,6 +80,24 @@ pub(crate) trait FXConstructor {
         let attributes = Attributizer::parse(attribute.to_token_stream())?.into_inner();
         for attribute in attributes {
             self.add_attribute(attribute);
+        }
+        Ok(self)
+    }
+
+    fn add_doc(&mut self, literals: &FXProp<Vec<syn::LitStr>>) -> darling::Result<&mut Self> {
+        let lits = literals.value();
+        self.add_attributes(
+            Attributizer::parse(quote_spanned! {literals.final_span()=>  #( #[doc = #lits] )* })?
+                .into_inner()
+                .iter(),
+        );
+        Ok(self)
+    }
+
+    #[inline]
+    fn maybe_add_doc(&mut self, literals: Option<&FXProp<Vec<syn::LitStr>>>) -> darling::Result<&mut Self> {
+        if let Some(literals) = literals {
+            self.add_doc(literals)?;
         }
         Ok(self)
     }

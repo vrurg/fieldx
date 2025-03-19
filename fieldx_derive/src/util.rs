@@ -395,8 +395,26 @@ macro_rules! common_prop_impl {
         }
     };
 }
-//
+
+macro_rules! doc_props {
+    ($($doc_prop:ident from $arg:ident . $subarg:ident );+ $(;)?) => {
+        $(
+            pub(crate) fn $doc_prop(&self) -> Option<&FXProp<Vec<syn::LitStr>>> {
+                self.$doc_prop
+                    .get_or_init(|| {
+                        self.source
+                            .$arg()
+                            .as_ref()
+                            .and_then(|p| p.$subarg().as_ref().and_then(|doc| doc.into()))
+                    })
+                    .as_ref()
+            }
+        )+
+    };
+}
+
 pub(crate) use common_prop_impl;
+pub(crate) use doc_props;
 #[allow(unused_imports)]
 pub(crate) use dump_tt;
 #[allow(unused_imports)]

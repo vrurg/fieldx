@@ -217,6 +217,8 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
             #[darling(rename = "vis")]
             visibility: Option<crate::FXSynValue<syn::Visibility>>,
             private: Option<FXBool>,
+            #[getset(get = #getset_vis)]
+            doc: Option<crate::FXDoc>,
 
             #( #fields_tt ),*
         }

@@ -165,3 +165,5 @@ pub type FXSetter<const BOOL_ONLY: bool = false> = FXNestingAttr<FXSetterHelper<
 pub type FXBuilder<const STRUCT: bool = false> = FXNestingAttr<FXBuilderHelper<STRUCT>>;
 /// `serde` argument
 pub type FXSerde = FXNestingAttr<FXSerdeHelper>;
+/// `doc` argument
+pub type FXDoc = FXNestingAttr<FXDocArg>;

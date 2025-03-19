@@ -2,10 +2,14 @@ use fieldx::fxstruct;
 
 #[fxstruct(default, get)]
 struct Foo {
+    /// Just a doc...
+    /// ```ignore
+    /// let foo = Foo::new();
+    /// ```
     #[fieldx(get(copy))]
     v: i32,
 
-    #[fieldx(default = "from name/value")]
+    #[fieldx(default = "from name/value", get_mut(doc("doc line1", "doc line2")))]
     s1: &'static str,
 
     #[fieldx(default("from list"))]

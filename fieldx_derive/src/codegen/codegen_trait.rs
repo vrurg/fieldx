@@ -174,20 +174,70 @@ pub(crate) trait FXCodeGenContextual {
         Ok(())
     }
 
+    fn maybe_add_helper_method(
+        &self,
+        method: Option<FXFnConstructor>,
+        helper_kind: FXHelperKind,
+        fctx: &FXFieldCtx,
+    ) -> darling::Result<()> {
+        if let Some(mut method) = method {
+            let ctx = self.ctx();
+            let props = fctx.props().field_props();
+            let literals = match helper_kind {
+                FXHelperKind::Accessor => props.accessor_doc(),
+                FXHelperKind::AccessorMut => props.accessor_mut_doc(),
+                FXHelperKind::Reader => props.reader_doc(),
+                FXHelperKind::Writer => props.writer_doc(),
+                FXHelperKind::Setter => props.setter_doc(),
+                FXHelperKind::Clearer => props.clearer_doc(),
+                FXHelperKind::Predicate => props.predicate_doc(),
+                _ => None,
+            };
+
+            if literals.is_some() {
+                method.maybe_add_doc(literals)?;
+            }
+            else if (matches!(helper_kind, FXHelperKind::Accessor) && *fctx.accessor())
+                || (matches!(helper_kind, FXHelperKind::AccessorMut) && *fctx.accessor_mut() && !*fctx.accessor())
+            {
+                // If there is no explicits doc subarg for accessor or accessor_mut then try using field docs if they are
+                // present.  Give priority to the accessor and fallback to the mutable otherwise because it doesn't make
+                // sense to duplicate the documentation and normally whatever is field's docs is what directly makes sense
+                // for its accessor.
+                method.add_attributes(props.doc().iter());
+            }
+
+            ctx.add_method(method);
+        }
+
+        Ok(())
+    }
+
     fn field_methods(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
         if !*fctx.skipped() {
             let ctx = self.ctx();
-            ctx.maybe_add_method(self.field_accessor(&fctx)?)
-                .maybe_add_method(self.field_accessor_mut(&fctx)?)
-                .maybe_add_method(self.field_reader(&fctx)?)
-                .maybe_add_method(self.field_writer(&fctx)?)
-                .maybe_add_method(self.field_setter(&fctx)?)
-                .maybe_add_method(self.field_clearer(&fctx)?)
-                .maybe_add_method(self.field_predicate(&fctx)?)
-                .maybe_add_method(self.field_lazy_builder_wrapper(&fctx)?);
+
+            self.maybe_add_helper_method(self.field_accessor(fctx)?, FXHelperKind::Accessor, fctx)?;
+            self.maybe_add_helper_method(self.field_accessor_mut(fctx)?, FXHelperKind::AccessorMut, fctx)?;
+            self.maybe_add_helper_method(self.field_reader(&fctx)?, FXHelperKind::Reader, fctx)?;
+            self.maybe_add_helper_method(self.field_writer(&fctx)?, FXHelperKind::Writer, fctx)?;
+            self.maybe_add_helper_method(self.field_setter(&fctx)?, FXHelperKind::Setter, fctx)?;
+            self.maybe_add_helper_method(self.field_clearer(&fctx)?, FXHelperKind::Clearer, fctx)?;
+            self.maybe_add_helper_method(self.field_predicate(&fctx)?, FXHelperKind::Predicate, fctx)?;
+            ctx.maybe_add_method(self.field_lazy_builder_wrapper(&fctx)?);
+
             if *ctx.arg_props().builder_struct() {
-                ctx.add_builder_method(self.field_builder(&fctx)?)?
-                    .add_builder_field(self.field_builder_field(&fctx)?)?;
+                if let Some(mut bm) = self.field_builder(&fctx)? {
+                    // If the builder method for the field doesn't have its own doc, use the field's doc.
+                    if let Some(literals) = fctx.props().field_props().builder_doc() {
+                        bm.add_doc(literals)?;
+                    }
+                    else {
+                        bm.add_attributes(fctx.props().field_props().doc().iter());
+                    }
+                    ctx.add_builder_method(bm)?;
+                }
+                ctx.add_builder_field(self.field_builder_field(&fctx)?)?;
             }
         }
 

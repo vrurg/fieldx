@@ -1,6 +1,6 @@
 use crate::{
-    set_literals, FXAttributes, FXBool, FXBoolHelper, FXDefault, FXInto, FXNestingAttr, FXOrig, FXProp, FXSetState,
-    FXString, FXSynValue, FXTriggerHelper, FXTryFrom, FXTryInto, FromNestAttr,
+    set_literals, FXAttributes, FXBool, FXBoolHelper, FXDefault, FXDoc, FXInto, FXNestingAttr, FXOrig, FXProp,
+    FXSetState, FXString, FXSynValue, FXTriggerHelper, FXTryFrom, FXTryInto, FromNestAttr,
 };
 use darling::{
     util::{Flag, PathList},
@@ -86,6 +86,7 @@ pub struct FXSerdeHelper {
     // Name of the new type to be used for deserialization. By default it's __<ident>Shadow
     shadow_name:   Option<FXString>,
     rename:        Option<FXNestingAttr<FXSerdeRename>>,
+    doc:           Option<FXDoc>,
 }
 
 impl FromNestAttr for FXSerdeHelper {

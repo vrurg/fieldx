@@ -1,6 +1,6 @@
 //! Parameters of builder pattern and builder object.
 use crate::{
-    set_literals, FXAttributes, FXBool, FXOrig, FXProp, FXPunctuated, FXSetState, FXString, FXSynValue,
+    set_literals, FXAttributes, FXBool, FXDoc, FXOrig, FXProp, FXPunctuated, FXSetState, FXString, FXSynValue,
     FXTriggerHelper, FXTryInto, FromNestAttr,
 };
 use darling::{util::Flag, FromMeta};
@@ -18,6 +18,7 @@ pub struct FXBuilderHelper<const STRUCT: bool = false> {
     attributes:      Option<FXAttributes>,
     #[getset(skip)]
     attributes_impl: Option<FXAttributes>,
+
     /// If set then builder setter methods must use the [`Into`] trait to coerce their arguments when possible.
     /// This should make both of the following allowed:
     ///
@@ -26,7 +27,8 @@ pub struct FXBuilderHelper<const STRUCT: bool = false> {
     /// let f2 = Foo::builder().comment(String::from("comment 2")).build()?;
     /// ```
     #[getset(get = "pub")]
-    into:            Option<FXBool>,
+    into: Option<FXBool>,
+
     /// Wether builder is required or optional. In `fieldx` it means that for `required` optional fields user must
     /// anyway always provide a value:
     ///
@@ -40,23 +42,30 @@ pub struct FXBuilderHelper<const STRUCT: bool = false> {
     /// let foo = Foo::builder().build()?; // Error because the `comment` is left unset
     /// ```
     #[getset(get = "pub")]
-    required:        Option<FXBool>,
+    required: Option<FXBool>,
+
     /// Means that by default a field doesn't get a builder unless explicitly specified. Only makes sense at struct
     /// level and when some builder parameters need to be set but we don't want all non-optional fields to get a builder
     /// method by default.
-    opt_in:          Option<FXBool>,
+    opt_in: Option<FXBool>,
+
     /// Name of the method that would be invoked right after builder constructs the object and before it's returned to
     /// the calling code.
     #[getset(get = "pub")]
-    post_build:      Option<FXSynValue<syn::Ident, true>>,
+    post_build: Option<FXSynValue<syn::Ident, true>>,
+
     /// If we want a fallible `post_build` then this is where its error type is defined. If two path's are given then
     /// the second one must be a variant of the error enum that builder will use to report unset field.
     #[getset(get = "pub")]
-    error:           Option<FXSynValue<FXPunctuated<syn::Path, Token![,], 1, 2>>>,
+    error: Option<FXSynValue<FXPunctuated<syn::Path, Token![,], 1, 2>>>,
 
     /// Prefix for the builder setter methods.
     #[getset(get = "pub")]
     prefix: Option<FXString>,
+
+    /// Documentation for the builder method.
+    #[getset(get = "pub")]
+    method_doc: Option<FXDoc>,
 }
 
 impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {

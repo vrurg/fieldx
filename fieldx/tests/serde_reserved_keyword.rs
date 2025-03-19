@@ -20,7 +20,7 @@ struct Bar {
         get("match_constraint"),
         builder("set_match_constraint"),
         // reserved for future use, currently they must do nothing.
-        serde("__mmm", shadow_name("__match"))
+        serde("__mmm")
     )]
     ma: String,
 }
