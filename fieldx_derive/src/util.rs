@@ -197,14 +197,14 @@ macro_rules! helper_standard_methods {
 // Implement methods that are common for argument properties and field properties.
 // Since the methods directly access the structs’ fields, implementing these via a trait makes little sense.
 macro_rules! common_prop_impl {
-    () => {
+    ( $( $std_helper:ident ),+ $(,)? ) => {
         simple_bool_prop! {
             inner_mut;
             into, into, is_into;
         }
 
         $crate::util::helper_standard_methods! {
-            accessor, accessor_mut, builder, setter, clearer, predicate, reader, writer, lazy
+            $( $std_helper ),+
         }
 
         pub(crate) fn accessor_mode(&self) -> Option<&FXProp<FXAccessorMode>> {
@@ -320,20 +320,6 @@ macro_rules! common_prop_impl {
                 FXHelperKind::Reader => self.reader_visibility(),
                 FXHelperKind::Setter => self.setter_visibility(),
                 FXHelperKind::Writer => self.writer_visibility(),
-            }
-        }
-
-        pub(crate) fn helper_ident(&self, helper_kind: FXHelperKind) -> Option<&syn::Ident> {
-            match helper_kind {
-                FXHelperKind::Accessor => self.accessor_ident(),
-                FXHelperKind::AccessorMut => self.accessor_mut_ident(),
-                FXHelperKind::Builder => self.builder_ident(),
-                FXHelperKind::Clearer => self.clearer_ident(),
-                FXHelperKind::Lazy => self.lazy_ident(),
-                FXHelperKind::Predicate => self.predicate_ident(),
-                FXHelperKind::Reader => self.reader_ident(),
-                FXHelperKind::Setter => self.setter_ident(),
-                FXHelperKind::Writer => self.writer_ident(),
             }
         }
 

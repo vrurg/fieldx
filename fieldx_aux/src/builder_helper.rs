@@ -53,6 +53,10 @@ pub struct FXBuilderHelper<const STRUCT: bool = false> {
     /// the second one must be a variant of the error enum that builder will use to report unset field.
     #[getset(get = "pub")]
     error:           Option<FXSynValue<FXPunctuated<syn::Path, Token![,], 1, 2>>>,
+
+    /// Prefix for the builder setter methods.
+    #[getset(get = "pub")]
+    prefix: Option<FXString>,
 }
 
 impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {

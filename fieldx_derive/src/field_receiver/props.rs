@@ -1,268 +1,20 @@
 use crate::{
     helper::FXHelperKind,
-    util::{common_prop_impl, mode_async_prop, mode_plain_prop, mode_sync_prop, simple_bool_prop, simple_type_prop},
+    util::{
+        common_prop_impl, doc_props, mode_async_prop, mode_plain_prop, mode_sync_prop, simple_bool_prop,
+        simple_type_prop,
+    },
 };
-use darling::{util::Flag, FromField};
+#[cfg(feature = "serde")]
+use fieldx_aux::FXDefault;
 use fieldx_aux::{
-    validate_exclusives, validate_no_macro_args, FXAccessor, FXAccessorMode, FXAttributes, FXBaseHelper, FXBool,
-    FXBoolHelper, FXBuilder, FXDefault, FXFallible, FXHelper, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXSerde,
-    FXSetState, FXSetter, FXString, FXSynValue, FXSyncMode, FXTriggerHelper,
+    FXAccessorMode, FXAttributes, FXBoolHelper, FXFallible, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXSetState,
+    FXTriggerHelper,
 };
-use getset::Getters;
 use once_cell::unsync::OnceCell;
-use proc_macro2::{Span, TokenStream};
-use quote::{quote_spanned, ToTokens};
-use std::ops::Deref;
-use syn::{spanned::Spanned, Meta};
+use syn::spanned::Spanned;
 
-#[derive(Debug, FromField, Getters, Clone)]
-#[getset(get = "pub(crate)")]
-#[darling(attributes(fieldx), forward_attrs)]
-pub(crate) struct FXFieldReceiver {
-    #[getset(skip)]
-    ident: Option<syn::Ident>,
-    vis:   syn::Visibility,
-    ty:    syn::Type,
-    attrs: Vec<syn::Attribute>,
-
-    skip: Flag,
-
-    #[getset(skip)]
-    mode:       Option<FXSynValue<FXSyncMode>>,
-    #[getset(skip)]
-    #[darling(rename = "sync")]
-    mode_sync:  Option<FXBool>,
-    #[getset(skip)]
-    #[darling(rename = "r#async")]
-    mode_async: Option<FXBool>,
-
-    // Default method attributes for this field.
-    attributes_fn: Option<FXAttributes>,
-    fallible:      Option<FXNestingAttr<FXFallible>>,
-    lazy:          Option<FXHelper>,
-    #[darling(rename = "rename")]
-    #[getset(skip)]
-    base_name:     Option<FXString>,
-    #[darling(rename = "get")]
-    accessor:      Option<FXAccessor>,
-    #[darling(rename = "get_mut")]
-    accessor_mut:  Option<FXHelper>,
-    #[darling(rename = "set")]
-    setter:        Option<FXSetter>,
-    reader:        Option<FXHelper>,
-    writer:        Option<FXHelper>,
-    clearer:       Option<FXHelper>,
-    predicate:     Option<FXHelper>,
-    optional:      Option<FXBool>,
-
-    #[darling(rename = "vis")]
-    visibility:    Option<FXSynValue<syn::Visibility>>,
-    private:       Option<FXBool>,
-    #[darling(rename = "default")]
-    default_value: Option<FXDefault>,
-    builder:       Option<FXBuilder>,
-    into:          Option<FXBool>,
-    #[getset(get = "pub with_prefix")]
-    clone:         Option<FXBool>,
-    #[getset(get = "pub with_prefix")]
-    copy:          Option<FXBool>,
-    lock:          Option<FXBool>,
-    inner_mut:     Option<FXBool>,
-    #[cfg(feature = "serde")]
-    serde:         Option<FXSerde>,
-
-    #[darling(skip)]
-    #[getset(skip)]
-    span: OnceCell<Span>,
-
-    #[darling(skip)]
-    fieldx_attr_span: Option<Span>,
-}
-
-#[derive(Debug, Clone)]
-pub(crate) struct FXField(FXFieldReceiver);
-
-impl FromField for FXField {
-    fn from_field(field: &syn::Field) -> darling::Result<Self> {
-        let mut fxfield = FXFieldReceiver::from_field(field)?;
-        for attr in (&field.attrs).into_iter() {
-            // Intercept #[fieldx] form of the attribute and mark the field manually
-            if attr.path().is_ident("fieldx") {
-                fxfield.set_attr_span(attr.span());
-
-                if attr.meta.require_path_only().is_ok() {
-                    fxfield.mark_implicitly(attr.meta.clone()).map_err(|err| {
-                        darling::Error::custom(format!("Can't use bare word '{}'", err)).with_span(attr)
-                    })?;
-                }
-            }
-        }
-        if let Err(_) = fxfield.set_span((field as &dyn Spanned).span()) {
-            let err = darling::Error::custom("Can't set span for a field receiver object: it's been set already!")
-                .with_span(field);
-            #[cfg(feature = "diagnostics")]
-            let err = err.note("This must not happen normally, please report this error to the author of fieldx");
-            return Err(err);
-        }
-        fxfield.validate()?;
-        Ok(Self(fxfield))
-    }
-}
-
-impl Deref for FXField {
-    type Target = FXFieldReceiver;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl ToTokens for FXField {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let fxr = &self.0;
-        let FXFieldReceiver {
-            ident, vis, ty, attrs, ..
-        } = fxr;
-        tokens.extend(quote_spanned![*fxr.span()=> #( #attrs )* #vis #ident: #ty])
-    }
-}
-
-impl FXFieldReceiver {
-    validate_exclusives! {
-        "accessor mode": copy; clone;
-        "field mode":  lazy; optional;
-        "in-/fallible mode": fallible; lock, optional, inner_mut;
-        "concurrency mode": mode_sync as "sync"; mode_async as "async"; mode;
-        "visibility": private; visibility as "vis";
-    }
-
-    #[cfg(feature = "serde")]
-    validate_no_macro_args! {
-        "field": serde.shadow_name, serde.visibility, serde.private,
-    }
-
-    // Generate field-level needs_<helper> methods. The final decision of what's needed and what's not is done by
-    // FXFieldCtx.
-    // needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
-
-    pub(crate) fn validate(&self) -> darling::Result<()> {
-        let mut acc = darling::Error::accumulator();
-
-        if let Err(err) = self.validate_exclusives() {
-            acc.push(err);
-        }
-
-        if let Err(err) = self.validate_subargs() {
-            acc.push(err);
-        }
-
-        // XXX Make it a warning when possible.
-        // if self.is_fallible().unwrap_or(false) && !self.is_lazy().unwrap_or(false) {
-        //     return Err(
-        //         darling::Error::custom("Parameter 'fallible' only makes sense when 'lazy' is set too")
-        //             .with_span(&self.fallible().fx_span()),
-        //     );
-        // }
-
-        #[cfg(not(feature = "sync"))]
-        if let Some(err) = crate::util::feature_required("sync", &self.mode_sync) {
-            acc.push(err);
-        }
-
-        #[cfg(not(feature = "async"))]
-        if let Some(err) = crate::util::feature_required("async", &self.mode_async) {
-            acc.push(err);
-        }
-
-        #[cfg(not(feature = "serde"))]
-        if let Some(err) = crate::util::feature_required("serde", &self.serde) {
-            acc.push(err);
-        }
-
-        acc.finish()?;
-
-        Ok(())
-    }
-
-    pub(crate) fn ident(&self) -> darling::Result<syn::Ident> {
-        self.ident.clone().ok_or_else(|| {
-            darling::Error::custom("This is weird, but the field doesn't have an ident!").with_span(self.span())
-        })
-    }
-
-    #[inline]
-    pub(crate) fn has_default_value(&self) -> bool {
-        if let Some(ref dv) = self.default_value {
-            *dv.is_true()
-        }
-        else {
-            false
-        }
-    }
-
-    fn mark_implicitly(&mut self, orig: Meta) -> Result<(), &str> {
-        match self.lazy {
-            None => {
-                self.lazy = Some(FXNestingAttr::new(FXBaseHelper::from(true), Some(orig.clone())));
-                self.clearer = Some(FXNestingAttr::new(FXBaseHelper::from(true), Some(orig.clone())));
-                self.predicate = Some(FXNestingAttr::new(FXBaseHelper::from(true), Some(orig)));
-            }
-            _ => (),
-        };
-        Ok(())
-    }
-
-    #[inline]
-    pub(crate) fn set_span(&mut self, span: Span) -> Result<(), Span> {
-        self.span.set(span)
-    }
-
-    #[inline]
-    pub(crate) fn set_attr_span(&mut self, span: Span) {
-        self.fieldx_attr_span = Some(span);
-    }
-
-    #[inline]
-    pub(crate) fn span(&self) -> &Span {
-        self.span.get_or_init(|| Span::call_site())
-    }
-
-    #[inline]
-    #[allow(dead_code)]
-    pub(crate) fn serde_helper_span(&self) -> Option<Span> {
-        self.serde.as_ref().and_then(|s| s.orig_span())
-    }
-}
-
-// impl FXHelperContainer for FXFieldReceiver {
-//     fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait> {
-//         match kind {
-//             FXHelperKind::Accessor => self.accessor().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Builder => self.builder().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Clearer => self.clearer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Predicate => self.predicate().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Reader => self.reader().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Setter => self.setter().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Writer => self.writer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//         }
-//     }
-
-//     fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span> {
-//         match kind {
-//             FXHelperKind::Accessor => self.accessor().as_ref().map(|h| (h.span())),
-//             FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| h.span()),
-//             FXHelperKind::Builder => self.builder().as_ref().map(|h| h.span()),
-//             FXHelperKind::Clearer => self.clearer().as_ref().map(|h| h.span()),
-//             FXHelperKind::Lazy => self.lazy().as_ref().map(|h| h.span()),
-//             FXHelperKind::Predicate => self.predicate().as_ref().map(|h| h.span()),
-//             FXHelperKind::Reader => self.reader().as_ref().map(|h| h.span()),
-//             FXHelperKind::Setter => self.setter().as_ref().map(|h| h.span()),
-//             FXHelperKind::Writer => self.writer().as_ref().map(|h| h.span()),
-//         }
-//     }
-// }
+use super::FXField;
 
 #[derive(Debug)]
 pub(crate) struct FXFieldProps {
@@ -275,10 +27,13 @@ pub(crate) struct FXFieldProps {
     accessor_ident:          OnceCell<Option<syn::Ident>>,
     // Accessor helper extended properties
     accessor_mode:           OnceCell<Option<FXProp<FXAccessorMode>>>,
+    accessor_doc:            OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
     // Mutable accessor helper standard properties
     accessor_mut:            OnceCell<Option<FXProp<bool>>>,
     accessor_mut_visibility: OnceCell<Option<syn::Visibility>>,
     accessor_mut_ident:      OnceCell<Option<syn::Ident>>,
+    // Mutable accessor helper extended properties
+    accessor_mut_doc:        OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
     // Builder helper standard properties
     builder:                 OnceCell<Option<FXProp<bool>>>,
     builder_visibility:      OnceCell<Option<syn::Visibility>>,
@@ -286,30 +41,40 @@ pub(crate) struct FXFieldProps {
     // Builder helper extended properties
     builder_into:            OnceCell<Option<FXProp<bool>>>,
     builder_required:        OnceCell<Option<FXProp<bool>>>,
+    builder_doc:             OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
     // Corresponding builder field attributes
     builder_attributes:      OnceCell<Option<FXAttributes>>,
     // Clearer helper standard properties
     clearer:                 OnceCell<Option<FXProp<bool>>>,
     clearer_visibility:      OnceCell<Option<syn::Visibility>>,
     clearer_ident:           OnceCell<Option<syn::Ident>>,
+    // Clearer helper extended properties
+    clearer_doc:             OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
     // Predicate helper standard properties
     predicate:               OnceCell<Option<FXProp<bool>>>,
     predicate_visibility:    OnceCell<Option<syn::Visibility>>,
     predicate_ident:         OnceCell<Option<syn::Ident>>,
+    // Predicate helper extended properties
+    predicate_doc:           OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
     // Reader helper standard properties
     reader:                  OnceCell<Option<FXProp<bool>>>,
     reader_visibility:       OnceCell<Option<syn::Visibility>>,
     reader_ident:            OnceCell<Option<syn::Ident>>,
+    // Reader helper extended properties
+    reader_doc:              OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
     // Setter helper standard properties
     setter:                  OnceCell<Option<FXProp<bool>>>,
     setter_visibility:       OnceCell<Option<syn::Visibility>>,
     setter_ident:            OnceCell<Option<syn::Ident>>,
     // Setter helper extended properties
     setter_into:             OnceCell<Option<FXProp<bool>>>,
+    setter_doc:              OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
     // Writer helper standard properties
     writer:                  OnceCell<Option<FXProp<bool>>>,
     writer_visibility:       OnceCell<Option<syn::Visibility>>,
     writer_ident:            OnceCell<Option<syn::Ident>>,
+    // Writer helper extended properties
+    writer_doc:              OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
     // Lazy helper standard properties
     lazy:                    OnceCell<Option<FXProp<bool>>>,
     lazy_visibility:         OnceCell<Option<syn::Visibility>>,
@@ -347,7 +112,20 @@ pub(crate) struct FXFieldProps {
 }
 
 impl FXFieldProps {
-    common_prop_impl! {}
+    common_prop_impl! {
+        accessor, accessor_mut, builder, setter, clearer, predicate, reader, writer, lazy
+    }
+
+    doc_props! {
+        accessor_doc from accessor.doc;
+        accessor_mut_doc from accessor_mut.doc;
+        builder_doc from builder.doc;
+        clearer_doc from clearer.doc;
+        predicate_doc from predicate.doc;
+        reader_doc from reader.doc;
+        setter_doc from setter.doc;
+        writer_doc from writer.doc;
+    }
 
     simple_type_prop! {
         fallible, FXFallible;
@@ -361,31 +139,39 @@ impl FXFieldProps {
             accessor_visibility:     OnceCell::new(),
             accessor_ident:          OnceCell::new(),
             accessor_mode:           OnceCell::new(),
+            accessor_doc:            OnceCell::new(),
             accessor_mut:            OnceCell::new(),
             accessor_mut_visibility: OnceCell::new(),
             accessor_mut_ident:      OnceCell::new(),
+            accessor_mut_doc:        OnceCell::new(),
             builder:                 OnceCell::new(),
             builder_attributes:      OnceCell::new(),
             builder_visibility:      OnceCell::new(),
             builder_ident:           OnceCell::new(),
             builder_into:            OnceCell::new(),
             builder_required:        OnceCell::new(),
+            builder_doc:             OnceCell::new(),
             clearer:                 OnceCell::new(),
             clearer_visibility:      OnceCell::new(),
             clearer_ident:           OnceCell::new(),
+            clearer_doc:             OnceCell::new(),
             predicate:               OnceCell::new(),
             predicate_visibility:    OnceCell::new(),
             predicate_ident:         OnceCell::new(),
+            predicate_doc:           OnceCell::new(),
             reader:                  OnceCell::new(),
             reader_visibility:       OnceCell::new(),
             reader_ident:            OnceCell::new(),
+            reader_doc:              OnceCell::new(),
             setter:                  OnceCell::new(),
             setter_visibility:       OnceCell::new(),
             setter_ident:            OnceCell::new(),
             setter_into:             OnceCell::new(),
+            setter_doc:              OnceCell::new(),
             writer:                  OnceCell::new(),
             writer_visibility:       OnceCell::new(),
             writer_ident:            OnceCell::new(),
+            writer_doc:              OnceCell::new(),
             lazy:                    OnceCell::new(),
             lazy_visibility:         OnceCell::new(),
             lazy_ident:              OnceCell::new(),
@@ -462,6 +248,20 @@ impl FXFieldProps {
                 })
                 .unwrap_or_else(|| FXProp::new(false, None))
         })
+    }
+
+    pub(crate) fn helper_ident(&self, helper_kind: FXHelperKind) -> Option<&syn::Ident> {
+        match helper_kind {
+            FXHelperKind::Accessor => self.accessor_ident(),
+            FXHelperKind::AccessorMut => self.accessor_mut_ident(),
+            FXHelperKind::Builder => self.builder_ident(),
+            FXHelperKind::Clearer => self.clearer_ident(),
+            FXHelperKind::Lazy => self.lazy_ident(),
+            FXHelperKind::Predicate => self.predicate_ident(),
+            FXHelperKind::Reader => self.reader_ident(),
+            FXHelperKind::Setter => self.setter_ident(),
+            FXHelperKind::Writer => self.writer_ident(),
+        }
     }
 
     pub(crate) fn skipped(&self) -> FXProp<bool> {

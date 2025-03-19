@@ -1,7 +1,7 @@
 use super::FXFieldCtx;
 use crate::{
     codegen::constructor::{FXConstructor, FXFieldConstructor, FXFnConstructor, FXStructConstructor},
-    fields::FXField,
+    field_receiver::FXField,
     input_receiver::FXInputReceiver,
     util::args::{self, FXArgProps, FXSArgs},
 };
@@ -427,7 +427,7 @@ impl FXCodeGenCtx {
         let prop = arg_props.builder_struct();
         if *prop {
             Ok(self.builder_struct.get_or_init(|| {
-                let builder_struct = RefCell::new(FXStructConstructor::new(arg_props.builder_struct_ident().clone()));
+                let builder_struct = RefCell::new(FXStructConstructor::new(arg_props.builder_ident().clone()));
                 {
                     let mut bs_mut = builder_struct.borrow_mut();
                     bs_mut

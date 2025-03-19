@@ -6,7 +6,7 @@ use crate::{
         constructor::{field::FXFieldConstructor, FXConstructor},
         FXInlining,
     },
-    fields::{FXField, FXFieldProps},
+    field_receiver::{FXField, FXFieldProps},
     helper::FXHelperKind,
 };
 use delegate::delegate;
@@ -116,6 +116,16 @@ impl FXFieldCtx {
             *field.span(),
         );
         constructor.add_attributes(field.attrs().iter());
+
+        // eprintln!(
+        //     "FIELD ATTRS:\n{}",
+        //     field
+        //         .attrs()
+        //         .iter()
+        //         .map(|a| a.to_token_stream().to_string())
+        //         .collect::<Vec<_>>()
+        //         .join("\n")
+        // );
 
         Self {
             props: FieldCTXProps::new(FXFieldProps::new(field.clone()), codegen_ctx.clone()),

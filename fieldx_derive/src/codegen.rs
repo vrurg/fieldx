@@ -7,7 +7,7 @@ pub(crate) mod sync;
 
 use crate::{
     ctx::{codegen::FXCodeGenCtx, field::FXFieldCtx},
-    fields::FXField,
+    field_receiver::FXField,
     helper::*,
     util::args::FXSArgs,
     FXInputReceiver,
@@ -16,6 +16,7 @@ pub(crate) use codegen_trait::FXCodeGenContextual;
 use codegen_trait::FXCodeGenerator;
 use constructor::{FXConstructor, FXFnConstructor, FXImplConstructor};
 use darling::FromField;
+use fieldx_aux::FXProp;
 pub(crate) use plain::FXCodeGenPlain;
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned, ToTokens};

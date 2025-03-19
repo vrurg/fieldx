@@ -1,4 +1,4 @@
-use crate::fields::FXField;
+use crate::field_receiver::FXField;
 use darling::{ast, FromDeriveInput};
 use getset::Getters;
 use proc_macro2::TokenStream;

@@ -6,7 +6,7 @@ use once_cell::sync::OnceCell;
 use quote::format_ident;
 use std::rc::Rc;
 
-use crate::{ctx::FXCodeGenCtx, fields::FXFieldProps, helper::FXHelperKind, util::args::FXArgProps};
+use crate::{ctx::FXCodeGenCtx, field_receiver::FXFieldProps, helper::FXHelperKind, util::args::FXArgProps};
 
 macro_rules! helper_visibility_method {
     ( $( $helper:ident ),* $(,)? ) => {
