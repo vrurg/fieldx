@@ -68,10 +68,10 @@ macro_rules! validate_exclusives {
                     exclusives.push(vec![]);
                     let subgroup = exclusives.last_mut().unwrap();
                     $(
-                        let fref = self.$field.as_ref();
+                        let field_ref = self.$field.as_ref();
                         subgroup.push( ( $crate::ident_or_alias!($field $(, $alias )? ),
-                                            fref.map(|f| *f.is_set()).unwrap_or(false),
-                                            fref.map(|f| f.to_token_stream()) ) );
+                                            field_ref.map(|f| *f.is_set()).unwrap_or(false),
+                                            field_ref.map(|f| f.final_span()) ) );
                     )+
                 )+
             )+
@@ -140,35 +140,29 @@ macro_rules! validate_exclusives {
 /// Generate function to produce errors on sub-arguments that won't be used in certain context.
 #[macro_export]
 macro_rules! validate_no_macro_args {
-    ($level:literal : $($arg:ident $( as $alias:ident )? . $subarg:ident $( as $sub_alias:ident )? ),+ $(,)?) => {
-        fn validate_subargs(&self) -> darling::Result<()> {
-            use $crate::FXSpaned;
-            let mut all_errs = vec![];
+    ($level:literal, $self:ident , $accumulator:ident :
+        $(
+            $arg:ident $( as $alias:ident )? . $subarg:ident $( as $sub_alias:ident )?
+        ),+
+        $(,)?
+    ) => {
             $(
-                if let Some(ref arg) = self.$arg() {
+                if let Some(ref arg) = $self.$arg() {
                     let is_set = arg.$subarg().is_set();
                     if *is_set {
-                        all_errs.push(
+                        $accumulator.push(
                             darling::Error::custom(
                                 format!(
-                                    "'{}' is not allowed in '{}' context at {} level",
+                                    "'{}' has no effect in '{}' context at {} level",
                                     $crate::ident_or_alias!($subarg $(, $sub_alias )?),
                                     $crate::ident_or_alias!($arg $(, $alias)?),
                                     $level,
                                 )
                             )
-                            .with_span(&arg.$subarg().fx_span())
+                            .with_span(&arg.$subarg().final_span())
                         );
                     }
                 }
             )+
-
-            if all_errs.len() > 0 {
-                Err(darling::Error::multiple(all_errs))
-            }
-            else {
-                Ok(())
-            }
-        }
     };
 }

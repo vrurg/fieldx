@@ -78,7 +78,7 @@ pub mod with_origin;
 
 pub use crate::{
     accessor_helper::{FXAccessorHelper, FXAccessorMode},
-    attributes::FXAttributes,
+    attributes::FXAttribute,
     base_helper::FXBaseHelper,
     builder_helper::FXBuilderHelper,
     default_arg::FXDefault,
@@ -169,3 +169,27 @@ pub type FXBuilder<const STRUCT: bool = false> = FXNestingAttr<FXBuilderHelper<S
 pub type FXSerde = FXNestingAttr<FXSerdeHelper>;
 /// `doc` argument
 pub type FXDoc = FXNestingAttr<FXDocArg>;
+
+pub type FXAttributes = FXSynValue<FXPunctuated<FXAttribute, syn::Token![,]>>;
+
+#[cfg(test)]
+mod tests {
+    use quote::ToTokens;
+    use syn::parse_quote;
+
+    use super::*;
+
+    #[test]
+    fn fx_attributes() {
+        let attrs: FXPunctuated<FXAttribute, syn::Token![,]> =
+            parse_quote! {allow(unused), derive(Debug), serde(rename_all="lowercase")};
+
+        assert_eq!(attrs.iter().count(), 3);
+
+        let al = attrs
+            .iter()
+            .map(|a| a.path().get_ident().to_token_stream().to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(al, vec!["allow", "derive", "serde"]);
+    }
+}

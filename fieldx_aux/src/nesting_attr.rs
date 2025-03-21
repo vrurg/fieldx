@@ -179,12 +179,12 @@ impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> AsMut<T> for FXN
     }
 }
 
-impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> ToTokens for FXNestingAttr<T, WITH_LITERALS> {
+impl<T: FromNestAttr<WITH_LITERALS> + ToTokens, const WITH_LITERALS: bool> ToTokens
+    for FXNestingAttr<T, WITH_LITERALS>
+{
     #[inline]
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        if let Some(ref orig) = self.orig {
-            orig.to_tokens(tokens);
-        }
+        tokens.extend(self.inner.to_token_stream());
     }
 }
 

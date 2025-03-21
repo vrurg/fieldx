@@ -154,7 +154,7 @@ macro_rules! from_nest_attr_num {
         $(from_nest_attr_num!(@ $from => $ty);)+
     };
     (@ $from:path => $ty:ty) => {
-        impl crate::FromNestAttr for FXValueArg<$ty, false> {
+        impl $crate::FromNestAttr for FXValueArg<$ty, false> {
             fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
                 Self::validate_literals(literals)?;
                 if let $from(ref lit) = literals[0] {
@@ -178,7 +178,7 @@ macro_rules! from_nest_attr_val {
         $(from_nest_attr_val!(@ $from => $ty);)+
     };
     (@ $from:path => $ty:ty) => {
-        impl crate::FromNestAttr for FXValueArg<$ty, false> {
+        impl $crate::FromNestAttr for FXValueArg<$ty, false> {
             fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
                 Self::validate_literals(literals)?;
                 if let $from(ref lit) = literals[0] {

@@ -12,7 +12,6 @@ use syn::Token;
 /// Implementation of builder argument.
 #[fxhelper(validate = Self::validate)]
 #[derive(Debug, Default, Getters)]
-#[getset(get = "pub")]
 pub struct FXBuilderHelper<const STRUCT: bool = false> {
     #[getset(skip)]
     attributes:      Option<FXAttributes>,
@@ -51,7 +50,6 @@ pub struct FXBuilderHelper<const STRUCT: bool = false> {
 
     /// Name of the method that would be invoked right after builder constructs the object and before it's returned to
     /// the calling code.
-    #[getset(get = "pub")]
     post_build: Option<FXSynValue<syn::Ident, true>>,
 
     /// If we want a fallible `post_build` then this is where its error type is defined. If two path's are given then
@@ -60,11 +58,9 @@ pub struct FXBuilderHelper<const STRUCT: bool = false> {
     error: Option<FXSynValue<FXPunctuated<syn::Path, Token![,], 1, 2>>>,
 
     /// Prefix for the builder setter methods.
-    #[getset(get = "pub")]
     prefix: Option<FXString>,
 
     /// Documentation for the builder method.
-    #[getset(get = "pub")]
     method_doc: Option<FXDoc>,
 }
 
@@ -72,6 +68,7 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
     /// Shortcut to the `into` parameter.
     ///
     /// Since it makes sense at both struct and field level `Option` is returned to know exactly if it is set or not.
+    #[inline]
     pub fn is_into(&self) -> Option<FXProp<bool>> {
         self.into.as_ref().map(|i| i.into())
     }
@@ -79,15 +76,9 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
     /// Shortcut to the `required` parameter.
     ///
     /// Since it makes sense at both struct and field level `Option` is returned to know exactly if it is set or not.
+    #[inline]
     pub fn is_required(&self) -> Option<FXProp<bool>> {
         self.required.as_ref().map(|r| r.into())
-    }
-
-    /// Shortcut to `opt_in` parameter.
-    pub fn is_builder_opt_in(&self) -> FXProp<bool> {
-        self.opt_in
-            .as_ref()
-            .map_or_else(|| FXProp::new(false, None), |o| o.into())
     }
 
     /// Shortcut to `post_build` parameter.
@@ -98,11 +89,13 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
     }
 
     /// Accessor for `attributes_impl`.
+    #[inline]
     pub fn attributes(&self) -> Option<&FXAttributes> {
         self.attributes.as_ref()
     }
 
     /// Accessor for `attributes_impl`.
+    #[inline]
     pub fn attributes_impl(&self) -> Option<&FXAttributes> {
         self.attributes_impl.as_ref()
     }
@@ -113,8 +106,29 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
     }
 
     /// The final error enum variant.
+    #[inline]
     pub fn error_variant(&self) -> Option<&syn::Path> {
         self.error().as_ref().and_then(|ev| ev.items().get(1))
+    }
+
+    #[inline]
+    pub fn method_doc(&self) -> Option<&FXDoc> {
+        self.method_doc.as_ref()
+    }
+
+    #[inline]
+    pub fn post_build(&self) -> Option<&FXSynValue<syn::Ident, true>> {
+        self.post_build.as_ref()
+    }
+
+    #[inline]
+    pub fn prefix(&self) -> Option<&FXString> {
+        self.prefix.as_ref()
+    }
+
+    #[inline]
+    pub fn opt_in(&self) -> Option<&FXBool> {
+        self.opt_in.as_ref()
     }
 
     #[doc(hidden)]

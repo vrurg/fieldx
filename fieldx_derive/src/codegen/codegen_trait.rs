@@ -292,8 +292,8 @@ pub(crate) trait FXCodeGenContextual {
                 .set_self_borrow(false)
                 .set_ret_type(quote_spanned! {span=> Self})
                 .add_statement(quote_spanned! {span=> self.#ident = ::std::option::Option::Some(value #into_tok);})
-                .set_ret_stmt(quote_spanned! {span=> self})
-                .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Builder, FXInlining::Always, span))?;
+                .set_ret_stmt(quote_spanned! {span=> self});
+            mc.add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Builder, FXInlining::Always, span))?;
 
             Some(mc)
         }

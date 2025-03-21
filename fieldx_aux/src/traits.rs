@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::spanned::Spanned;
 
-use crate::{FXAttributes, FXProp};
+use crate::{FXAttributes, FXDoc, FXProp};
 
 /// Trait for arguments with trigger behavior. For example, `fieldx` `get` which can be disabled by `off` subargument.
 pub trait FXTriggerHelper {
@@ -68,6 +68,8 @@ pub trait FXHelperTrait: FXTriggerHelper {
     fn attributes_fn(&self) -> Option<&FXAttributes>;
     /// Helper visibility if explicitly set
     fn visibility(&self) -> Option<&syn::Visibility>;
+    /// Helper doc if explicitly set.
+    fn doc(&self) -> Option<&FXDoc>;
 }
 
 impl<H: FXTriggerHelper> FXBoolHelper for Option<H> {

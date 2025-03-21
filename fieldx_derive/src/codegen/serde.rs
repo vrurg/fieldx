@@ -169,7 +169,7 @@ pub(crate) trait FXCGenSerde: FXCodeGenContextual {
             .add_attributes(self.filter_shadow_attributes(fctx))
             .add_attribute_toks(self.ctx().ok_or_empty(self.serde_field_attribute(fctx)))?;
         if let Some(serde_attrs) = fctx.serde_attributes() {
-            fc.add_attribute_toks(serde_attrs)?;
+            fc.add_attributes(serde_attrs.iter());
         }
 
         self.ctx().shadow_struct_mut()?.add_field(fc);
@@ -363,8 +363,11 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                 .set_vis(arg_props.serde_visibility())
                 .set_generics(ctx.input().generics().clone())
                 .maybe_add_doc(arg_props.serde_doc())?
-                .add_attribute_toks(arg_props.serde_attributes())?
                 .add_attribute_toks(crate::util::derive_toks(&self.serde_derive_traits()))?;
+
+            if let Some(attrs) = arg_props.serde_attributes() {
+                shadow_struct.add_attributes(attrs.iter());
+            }
 
             if let Some(rename_attr) = serde_rename_attr(
                 arg_props.serde_rename_serialize(),

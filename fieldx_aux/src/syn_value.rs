@@ -45,6 +45,25 @@ impl<T> FXSetState for FXSynValueArg<T, false> {
     }
 }
 
+// If can be used as a keyword then it's always set because value becomes just a helpful addition to the main purpose
+// of the argument.
+impl<T> FXSetState for FXSynValueArg<T, true> {
+    fn is_set(&self) -> FXProp<bool> {
+        FXProp::new(true, None)
+    }
+}
+
+impl<T, const AS_KEYWORD: bool> ToTokens for FXSynValueArg<T, AS_KEYWORD>
+where
+    T: ToTokens,
+{
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        if let Some(value) = &self.value {
+            value.to_tokens(tokens);
+        }
+    }
+}
+
 impl<T, const AS_KEYWORD: bool> FromMeta for FXSynValueArg<T, AS_KEYWORD>
 where
     T: Parse,
@@ -117,12 +136,6 @@ where
 {
     fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self { value: None })
-    }
-}
-
-impl FXSetState for FXSynValueArg<(), true> {
-    fn is_set(&self) -> crate::FXProp<bool> {
-        FXProp::new(self.value.is_some(), None)
     }
 }
 
@@ -267,6 +280,10 @@ where
     pub fn items(&self) -> &Vec<T> {
         &self.items
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.items.iter()
+    }
 }
 
 impl<T, S, const MIN: i32, const MAX: i32> syn::parse::Parse for FXPunctuated<T, S, MIN, MAX>
@@ -339,3 +356,17 @@ where
         &self.items
     }
 }
+
+// impl<T, S, const MIN: i32, const MAX: i32> ToTokens for FXPunctuated<T, S, MIN, MAX>
+// where
+//     T: Spanned + ToTokens + Parse + Debug,
+//     S: Spanned + ToTokens + Parse + Debug + Default,
+// {
+//     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+//         for item in self.items.iter() {
+//             item.to_tokens(tokens);
+//             let sep = S { span: item.span() };
+//             tokens.extend(sep.clone());
+//         }
+//     }
+// }

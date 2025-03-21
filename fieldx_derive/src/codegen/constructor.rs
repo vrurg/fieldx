@@ -54,19 +54,22 @@ pub(crate) trait FXConstructor {
         )
     }
 
-    fn add_attributes<'a, I: Iterator<Item = &'a syn::Attribute>>(&'a mut self, attributes: I) -> &'a mut Self {
+    fn add_attributes<'a, A: Into<&'a syn::Attribute>, I: Iterator<Item = A>>(
+        &'a mut self,
+        attributes: I,
+    ) -> &'a mut Self {
         for attribute in attributes {
-            self.add_attribute(attribute.clone());
+            self.add_attribute(attribute.into().clone());
         }
         self
     }
 
-    fn maybe_add_attributes<'a, I: Iterator<Item = &'a syn::Attribute>>(
+    fn maybe_add_attributes<'a, A: Into<&'a syn::Attribute>, I: Iterator<Item = A>>(
         &'a mut self,
         attributes: Option<I>,
     ) -> &'a mut Self {
         if let Some(attributes) = attributes {
-            self.add_attributes(attributes)
+            self.add_attributes(attributes.map(|a| a.into()))
         }
         else {
             self

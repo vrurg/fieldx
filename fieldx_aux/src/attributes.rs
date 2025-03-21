@@ -1,73 +1,74 @@
 //! `attributes*` family of arguments.
 
-use darling::FromMeta;
-use getset::Getters;
-use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
-use syn::{parse_quote_spanned, spanned::Spanned, Meta};
+use std::{borrow::Borrow, ops::Deref};
 
-/// Implementation of `attributes*(...)` family of arguments.
+use proc_macro2::TokenStream;
+use quote::{quote_spanned, ToTokens};
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_quote_spanned,
+    spanned::Spanned,
+};
+
+/// Implementation of a single sub-argument of `attributes*(...)` family of arguments.
 ///
 /// These are arguments that define bodies of attributes to be applied to certain declarations. I.e.
-/// `attributes(derive(Clone), serde(rename_all="lowercase"))` must result in:
+/// `attributes(derive(Debug, Clone), serde(rename_all="lowercase"))` must result in:
 ///
 /// ```ignore
-/// #[derive(Clone)]
+/// #[derive(Debug, Clone)]
 /// #[serde(rename_all="lowercase")]
 /// ```
-#[derive(Debug, Clone, Getters)]
-#[getset(get = "pub")]
-pub struct FXAttributes {
-    /// All attribute declarations
-    list: Vec<syn::Attribute>,
-}
+///
+/// This struct is responsible for parsing [metalist](https://docs.rs/syn/latest/syn/struct.MetaList.html) elements like
+/// `derive(Debug, Clone)` or `serde(rename_all="lowercase")` and converting them into `syn::Attribute` instances.
+#[derive(Debug, Clone)]
+pub struct FXAttribute(syn::Attribute);
 
-impl FXAttributes {
-    pub fn iter(&self) -> impl Iterator<Item = &syn::Attribute> {
-        self.list.iter()
+impl Parse for FXAttribute {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let attr_meta: syn::MetaList = input.parse()?;
+        let span = attr_meta.span();
+        let pound = quote_spanned![span=> #];
+        let attr: syn::Attribute = parse_quote_spanned! {span=> #pound [ #attr_meta ] };
+        Ok(FXAttribute(attr))
     }
 }
 
-impl FromMeta for FXAttributes {
-    fn from_meta(input: &Meta) -> Result<Self, darling::Error> {
-        // eprintln!(">>> {:#?}", input);
-        match input {
-            Meta::List(ref ml) => {
-                let ml_chunks: Vec<TokenStream> = vec![TokenStream::new()];
-                // Split the incoming tokenstream into chunks separated by Puncts (i.e. by commas)
-                let mut ml_chunks = ml.tokens.clone().into_iter().fold(ml_chunks, |mut mlc, item| {
-                    if let proc_macro2::TokenTree::Punct(_) = item {
-                        mlc.push(TokenStream::new());
-                    }
-                    else {
-                        mlc.last_mut().unwrap().extend([item]);
-                    }
-                    mlc
-                });
-
-                // If the list ends with a comma or is empty then we'd end up with an empty chunk at the end.
-                if let Some(last_meta) = ml_chunks.last() {
-                    if last_meta.is_empty() {
-                        let _ = ml_chunks.pop();
-                    }
-                }
-
-                // Transform chunks into attributes
-                let pound = quote![#];
-                Ok(Self {
-                    list: ml_chunks
-                        .iter()
-                        .map(|tt| parse_quote_spanned!(tt.span()=> #pound [ #tt ]))
-                        .collect(),
-                })
-            }
-            _ => unimplemented!("Can't deal with this kind of input"),
-        }
+impl From<FXAttribute> for syn::Attribute {
+    fn from(attr: FXAttribute) -> Self {
+        attr.0
     }
 }
 
-impl ToTokens for FXAttributes {
+impl<'a> From<&'a FXAttribute> for &'a syn::Attribute {
+    fn from(attr: &'a FXAttribute) -> Self {
+        &attr.0
+    }
+}
+
+impl Deref for FXAttribute {
+    type Target = syn::Attribute;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<syn::Attribute> for FXAttribute {
+    fn as_ref(&self) -> &syn::Attribute {
+        &self.0
+    }
+}
+
+impl Borrow<syn::Attribute> for FXAttribute {
+    fn borrow(&self) -> &syn::Attribute {
+        &self.0
+    }
+}
+
+impl ToTokens for FXAttribute {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.extend(self.list.iter().map(|a| a.to_token_stream()));
+        self.0.to_tokens(tokens);
     }
 }

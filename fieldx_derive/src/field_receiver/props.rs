@@ -12,7 +12,6 @@ use fieldx_aux::{
     FXTriggerHelper,
 };
 use once_cell::unsync::OnceCell;
-use syn::spanned::Spanned;
 
 use super::FXField;
 
@@ -289,7 +288,7 @@ impl FXFieldProps {
         self.base_name
             .get_or_init(|| {
                 if let Some(ref bn) = self.source.base_name {
-                    bn.value().map(|name| syn::Ident::new(name, bn.span()))
+                    bn.value().map(|name| syn::Ident::new(name, bn.final_span()))
                 }
                 else {
                     None

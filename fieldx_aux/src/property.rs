@@ -12,7 +12,7 @@ pub struct FXProp<T> {
 }
 
 impl<T> FXProp<T> {
-    pub fn new(value: T, span: Option<Span>) -> Self {
+    pub const fn new(value: T, span: Option<Span>) -> Self {
         Self { value, span }
     }
 

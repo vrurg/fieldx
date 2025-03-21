@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 pub(crate) use fieldx_aux::FXAccessorMode;
 
 #[derive(Debug, Clone, Copy)]
@@ -13,20 +15,23 @@ pub(crate) enum FXHelperKind {
     Writer,
 }
 
-impl ToString for FXHelperKind {
-    fn to_string(&self) -> String {
-        match self {
-            FXHelperKind::Accessor => "accessor",
-            FXHelperKind::AccessorMut => "accessor_mut",
-            FXHelperKind::Builder => "builder setter",
-            FXHelperKind::Clearer => "clearer",
-            FXHelperKind::Lazy => "lazy builder",
-            FXHelperKind::Predicate => "predicate",
-            FXHelperKind::Reader => "reader",
-            FXHelperKind::Setter => "setter",
-            FXHelperKind::Writer => "writer",
-        }
-        .to_string()
+impl Display for FXHelperKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                FXHelperKind::Accessor => "accessor",
+                FXHelperKind::AccessorMut => "accessor_mut",
+                FXHelperKind::Builder => "builder setter",
+                FXHelperKind::Clearer => "clearer",
+                FXHelperKind::Lazy => "lazy builder",
+                FXHelperKind::Predicate => "predicate",
+                FXHelperKind::Reader => "reader",
+                FXHelperKind::Setter => "setter",
+                FXHelperKind::Writer => "writer",
+            }
+        )
     }
 }
 

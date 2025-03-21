@@ -14,7 +14,7 @@ use crate::{
 use fieldx_aux::FXDefault;
 use fieldx_aux::{
     FXAccessorMode, FXAttributes, FXBoolHelper, FXFallible, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXPropBool,
-    FXTriggerHelper,
+    FXSetState, FXTriggerHelper,
 };
 use once_cell::unsync::OnceCell;
 use quote::format_ident;
@@ -287,8 +287,7 @@ impl FXArgProps {
             self.source
                 .builder()
                 .as_ref()
-                .and_then(|b| Some(b.is_builder_opt_in()))
-                .unwrap_or_else(|| FXProp::new(false, None))
+                .map_or(FXProp::new(false, None), |b| b.opt_in().is_set().respan(b.orig_span()))
         })
     }
 
@@ -424,7 +423,7 @@ impl FXArgProps {
                         self.source
                             .builder()
                             .as_ref()
-                            .and_then(|b| b.post_build().as_ref())
+                            .and_then(|b| b.post_build())
                             .and_then(|pb| pb.value().cloned())
                             .unwrap_or_else(|| {
                                 let span = self.has_post_build().span();

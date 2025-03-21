@@ -218,14 +218,14 @@ macro_rules! common_prop_impl {
                             if *self.source.get_clone().is_true() {
                                 Some(FXProp::new(
                                     FXAccessorMode::Clone,
-                                    self.source.get_clone().as_ref().map(|c| c.span()),
+                                    self.source.get_clone().as_ref().map(|c| c.final_span()),
                                 ))
                             }
                             else if *self.source.get_copy().is_true() {
                                 // Changed from self.source.get_copy().is_true()
                                 Some(FXProp::new(
                                     FXAccessorMode::Copy,
-                                    self.source.get_copy().as_ref().map(|c| c.span()),
+                                    self.source.get_copy().as_ref().map(|c| c.final_span()),
                                 ))
                             }
                             else {
@@ -405,7 +405,7 @@ macro_rules! doc_props {
                         self.source
                             .$arg()
                             .as_ref()
-                            .and_then(|p| p.$subarg().as_ref().and_then(|doc| doc.into()))
+                            .and_then(|p| p.$subarg().and_then(|doc| doc.into()))
                     })
                     .as_ref()
             }

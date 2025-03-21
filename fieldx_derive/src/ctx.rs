@@ -5,6 +5,7 @@ pub(crate) use field::FXFieldCtx;
 
 use quote::ToTokens;
 
+#[derive(Debug)]
 pub(crate) struct Attributizer(Vec<syn::Attribute>);
 
 impl Attributizer {
@@ -12,15 +13,16 @@ impl Attributizer {
         self.0
     }
 
+    #[inline]
     pub(crate) fn parse<T: ToTokens>(attrs: T) -> syn::Result<Self> {
-        syn::parse2(attrs.to_token_stream())
+        Ok(syn::parse2(attrs.to_token_stream())?)
     }
 }
 
 impl syn::parse::Parse for Attributizer {
+    #[inline]
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let attrs = input.call(syn::Attribute::parse_outer)?;
-        Ok(Self(attrs))
+        Ok(Self(input.call(syn::Attribute::parse_outer)?))
     }
 }
 

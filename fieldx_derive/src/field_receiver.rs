@@ -1,12 +1,13 @@
 pub(crate) mod props;
 
 use darling::{util::Flag, FromField};
-use fieldx_aux::{
-    validate_exclusives, FXAccessor, FXAttributes, FXBaseHelper, FXBool, FXBuilder, FXDefault, FXFallible, FXHelper,
-    FXNestingAttr, FXSetState, FXSetter, FXString, FXSynValue, FXSyncMode, FXTriggerHelper,
-};
 #[cfg(feature = "serde")]
-use fieldx_aux::{validate_no_macro_args, FXSerde};
+use fieldx_aux::FXSerde;
+use fieldx_aux::{
+    validate_exclusives, validate_no_macro_args, FXAccessor, FXAttributes, FXBaseHelper, FXBool, FXBuilder, FXDefault,
+    FXFallible, FXHelper, FXNestingAttr, FXOrig, FXSetState, FXSetter, FXString, FXSynValue, FXSyncMode,
+    FXTriggerHelper,
+};
 use getset::Getters;
 use once_cell::unsync::OnceCell;
 use proc_macro2::{Span, TokenStream};
@@ -136,11 +137,6 @@ impl FXFieldReceiver {
         "visibility": private; visibility as "vis";
     }
 
-    #[cfg(feature = "serde")]
-    validate_no_macro_args! {
-        "field": serde.shadow_name, serde.visibility, serde.private,
-    }
-
     // Generate field-level needs_<helper> methods. The final decision of what's needed and what's not is done by
     // FXFieldCtx.
     // needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
@@ -153,8 +149,20 @@ impl FXFieldReceiver {
         }
 
         #[cfg(feature = "serde")]
-        if let Err(err) = self.validate_subargs() {
-            acc.push(err);
+        validate_no_macro_args! {
+            "field", self, acc:
+                serde.shadow_name,
+                serde.orig_visibility as visibility,
+                serde.private,
+        }
+
+        validate_no_macro_args! {
+            "field", self, acc:
+                builder.prefix,
+                builder.method_doc,
+                builder.attributes_impl,
+                builder.post_build,
+                builder.opt_in,
         }
 
         // XXX Make it a warning when possible.

@@ -228,12 +228,15 @@ impl FXFieldCtx {
         inlining: FXInlining,
         span: Span,
     ) -> TokenStream {
-        let attrs = self.props.helper_attributes_fn(helper_kind);
+        let attrs = self
+            .props
+            .helper_attributes_fn(helper_kind)
+            .map_or(Vec::new(), |a| a.items().iter().collect::<Vec<_>>());
 
         match inlining {
-            FXInlining::Default => attrs.map_or(quote![], |a| quote![#a]),
-            FXInlining::Inline => quote_spanned![span=> #[inline] #attrs],
-            FXInlining::Always => quote_spanned![span=> #[inline(always)] #attrs],
+            FXInlining::Default => quote_spanned![span=> #( #attrs )*],
+            FXInlining::Inline => quote_spanned![span=> #[inline] #( #attrs )*],
+            FXInlining::Always => quote_spanned![span=> #[inline(always)] #( #attrs )*],
         }
     }
 }

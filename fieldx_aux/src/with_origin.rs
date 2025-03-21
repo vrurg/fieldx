@@ -40,3 +40,21 @@ where
         self.as_ref().map_or_else(|| Span::call_site(), |s| s.final_span())
     }
 }
+
+impl<O, T> FXOrig<O> for &T
+where
+    O: Spanned,
+    T: FXOrig<O>,
+{
+    fn orig(&self) -> Option<&O> {
+        (*self).orig()
+    }
+
+    fn orig_span(&self) -> Option<Span> {
+        (*self).orig_span()
+    }
+
+    fn final_span(&self) -> Span {
+        (*self).final_span()
+    }
+}

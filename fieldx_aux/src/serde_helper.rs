@@ -77,6 +77,7 @@ pub struct FXSerdeHelper {
     #[getset(skip)]
     #[darling(rename = "vis")]
     visibility:    Option<FXSynValue<syn::Visibility>>,
+    #[getset(skip)]
     private:       Option<FXBool>,
     // Attributes of the original struct to be used with the shadow struct.
     forward_attrs: Option<PathList>,
@@ -84,8 +85,10 @@ pub struct FXSerdeHelper {
     #[getset(skip)]
     default_value: Option<FXDefault>,
     // Name of the new type to be used for deserialization. By default it's __<ident>Shadow
+    #[getset(skip)]
     shadow_name:   Option<FXString>,
     rename:        Option<FXNestingAttr<FXSerdeRename>>,
+    #[getset(skip)]
     doc:           Option<FXDoc>,
 }
 
@@ -201,10 +204,31 @@ impl FXSerdeHelper {
     }
 
     #[inline]
+    pub fn doc(&self) -> Option<&FXDoc> {
+        self.doc.as_ref()
+    }
+
+    #[inline]
     pub fn visibility(&self) -> Option<&syn::Visibility> {
         if *self.private.is_true() {
             return Some(&syn::Visibility::Inherited);
         }
         self.visibility.as_ref().map(|v| v.as_ref())
+    }
+
+    /// Give the full property of the visibility for cases where detailed analysis is needed.
+    #[inline]
+    pub fn orig_visibility(&self) -> Option<&FXSynValue<syn::Visibility>> {
+        self.visibility.as_ref()
+    }
+
+    #[inline]
+    pub fn shadow_name(&self) -> Option<&FXString> {
+        self.shadow_name.as_ref()
+    }
+
+    #[inline]
+    pub fn private(&self) -> Option<&FXBool> {
+        self.private.as_ref()
     }
 }
