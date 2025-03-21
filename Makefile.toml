@@ -198,8 +198,13 @@ end
 !include_files makefile.ds
 reply = ask_user "Do you want to publish the crates?"
 reply = lowercase ${reply}
+
 if eq ${reply} "y"
-    exec --fail-on-error cargo release -x --no-confirm
+    if ${DRY_RUN}
+        exec --fail-on-error cargo release --no-confirm
+    else
+        exec --fail-on-error cargo release -x --no-confirm
+    end
 else
     echo "Won't publish."
 end

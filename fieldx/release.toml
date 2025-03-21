@@ -1,9 +1,14 @@
-pre-release-hook = [
-    '/bin/sh', '-c',
-    '''
+pre-release-hook = ['/bin/sh', '-c', '''
 if [ "$CARGO_MAKE_TASK" != "publish" ]; then
     echo "***ERROR*** Must be released with help of 'cargo make publish' in project workspace dir." 1>&2
     exit 1
+else
+    pushd $WORKSPACE_ROOT >/dev/null
+    export CARGO_RELEASE_VERSION={{version}}
+    if ! makers changelog; then
+        echo "***ERROR*** Changelog generation failed." 1>&2
+        exit 1
+    fi
+    popd
 fi
-'''
-]
+''']

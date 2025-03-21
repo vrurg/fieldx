@@ -1,23 +1,26 @@
-allow-branch = [
-    "main",
-    "!HEAD",
-]
-sign-commit = true
-sign-tag = true
-push-remote = "origin"
-release = true
-publish = true
-verify = true
+allow-branch = ["main", "!HEAD"]
+consolidate-commits = false
+dependent-version = "upgrade"
+enable-all-features = true
+enable-features = []
+metadata = "optional"
 owners = []
+pre-release-commit-message = "chore: Release {{crate_name}} version {{version}}"
+pre-release-hook = ['/bin/sh', '-c', '''
+if [ "$CARGO_MAKE_TASK" != "publish" ]; then
+    echo "***ERROR*** Must be released with help of 'cargo make publish' in project workspace dir." 1>&2
+    exit 1
+fi
+''']
+pre-release-replacements = []
+publish = true
 push = true
 push-options = []
-consolidate-commits = false
-pre-release-commit-message = "chore: Release {{crate_name}} version {{version}}"
-pre-release-replacements = []
-tag-message = "chore: Release {{crate_name}} version {{version}}"
-tag-name = "{{prefix}}v{{version}}"
+push-remote = "origin"
+release = true
+sign-commit = true
+sign-tag = true
 tag = true
-enable-features = []
-enable-all-features = true
-dependent-version = "upgrade"
-metadata = "optional"
+tag-message = "chore: Release {{crate_name}} version {{version}}"
+tag-name = "v{{version}}"
+verify = true
