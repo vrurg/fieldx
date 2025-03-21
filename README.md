@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
 ![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
-# fieldx v0.1.11-beta.1
+# fieldx v0.1.11
 
 ## FieldX
 
@@ -152,6 +152,38 @@ struct Foo {
 ```
 
 Of course, whether the struct remains thread-safe would then depend on the safety of unprotected fields.
+
+<a id="ref_count"></a>
+## Reference Counting
+
+In some cases we need to wrap a struct in a reference counted container. For example, we may be looking into
+parent-child cross-object relationships with child-to-parent backlinking. When children are created and added to the parent externally,
+we can manage their lifetimes; or we can wrap the parent in a reference counted container and pass it to the children.
+
+But when spawning a child is the parent's responsibility, things quickly become tedious. For example,
+methods that implement spawning must have their `self` arguments changed to `Rc<Self>` or `Arc<Self>`.
+This change is contagious because it affects all methods that call (or may call) the spawning method.
+
+`fieldx` implements its own approach to this. With the [`rc`](fxstruct#rc) struct-level argument,
+it adds a hidden field to the struct that contains a weak reference to the object itself.
+Also, two methods are installed: `myself`[^myself_is_changable] and `myself_downgrade]. The first returns a reference counted object,
+and the second returns a weak reference. Now we can do the following:
+
+```rust
+fn spawn_child(&self) {
+    self.add_child(
+        Child::new(self.myself_downgrade())
+    );
+}
+```
+
+And don't forget, if the struct's default mode is changed from `plain` to `sync` or `async`, or vice versa then the
+type of the reference count container changes automatically. No hassle for refactoring the code!
+
+This functionality underwent extra development in the [`fieldx_plus`] crate, which implements parent/child
+and application/agent patterns.
+
+[^myself_is_changable]: The name can be changed.
 
 <a id="optional_fields"></a>
 ## Optional Fields
@@ -305,7 +337,7 @@ Most arguments of both `fxstruct` and `fieldx` can take either of the two forms:
 Also, most of the arguments are shared by both `fxstruct` and `fieldx`. But their meaning and the way their
 arguments are interpreted could be slightly different for each attribute. For example, if an argument takes a
 literal string sub-argument it is likely to be a method name when associated with `fieldx`; but for `fxstruct` it
-would define common prefix for method names.
+would define a common prefix for method names.
 
 There is also a commonality between most of the arguments: they can be temporarily (say, for testing purposes) or
 permanently turned off by using `off` sub-argument with them. See `lazy(off)` in the
@@ -478,6 +510,7 @@ implementation details might be helpful to know about:
 
 [`parking_lot`]: https://docs.rs/parking_lot
 [`serde`]: https://docs.rs/serde
+[`fieldx_plus`]: https://docs.rs/fieldx_plus
 
 # License
 
