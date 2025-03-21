@@ -172,7 +172,7 @@ end
 '''
     script_runner = "@duckscript"
 
-[tasks.post-readme]
+[tasks.post-doc]
     description = "Post-doc commit"
     script = '''
 exec --fail-on-error git add README.md CHANGELOG.md
