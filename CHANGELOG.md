@@ -1,6 +1,12 @@
 # Changelog
 
-## [0.1.11] - 2025-03-21
+## [unreleased]
+
+### Bug Fixes
+
+- Missing `documentation` key in crates metadata 
+
+## [v0.1.11] - 2025-03-21
 
 ### Features
 
@@ -46,6 +52,10 @@
 ### Documentation
 
 - Document the latest changes and fix some errors 
+
+### ️ Miscellaneous Tasks
+
+- Release fieldx version 0.1.11 
 
 ## [fieldx-v0.1.10] - 2025-02-22
 
