@@ -1,15 +1,16 @@
 [package]
-    authors.workspace      = true
-    categories.workspace   = true
-    description            = "Various types and tools useful for fieldx crates and, potentially, to users of fieldx"
-    edition.workspace      = true
-    exclude.workspace      = true
-    keywords.workspace     = true
-    license-file.workspace = true
-    name                   = "fieldx_aux"
-    repository.workspace   = true
-    rust-version.workspace = true
-    version                = "0.1.11"
+    authors.workspace       = true
+    categories.workspace    = true
+    description             = "Various types and tools useful for fieldx crates and, potentially, to users of fieldx"
+    documentation.workspace = true
+    edition.workspace       = true
+    exclude.workspace       = true
+    keywords.workspace      = true
+    license-file.workspace  = true
+    name                    = "fieldx_aux"
+    repository.workspace    = true
+    rust-version.workspace  = true
+    version                 = "0.1.11"
 
 [dependencies]
     darling               = { workspace = true, features = ["suggestions"] }

@@ -1,15 +1,16 @@
 [package]
-    authors.workspace      = true
-    categories.workspace   = true
-    description            = "Derive proc macros for fieldx_derive crate"
-    edition.workspace      = true
-    exclude.workspace      = true
-    keywords.workspace     = true
-    license-file.workspace = true
-    name                   = "fieldx_derive_support"
-    repository.workspace   = true
-    rust-version.workspace = true
-    version                = "0.1.11"
+    authors.workspace       = true
+    categories.workspace    = true
+    description             = "Derive proc macros for fieldx_derive crate"
+    documentation.workspace = true
+    edition.workspace       = true
+    exclude.workspace       = true
+    keywords.workspace      = true
+    license-file.workspace  = true
+    name                    = "fieldx_derive_support"
+    repository.workspace    = true
+    rust-version.workspace  = true
+    version                 = "0.1.11"
 
 [dependencies]
     darling     = { workspace = true, features = ["suggestions"] }
