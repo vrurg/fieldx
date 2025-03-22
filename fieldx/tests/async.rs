@@ -176,7 +176,7 @@ async fn threaded() {
             eprintln!("[{thread_id:>4}] started");
             twg.wait().await;
             let mut i = 0;
-            while !tstop.load(Ordering::Relaxed) {
+            'main: loop {
                 i += 1;
                 eprintln!("[{:>4}] {:?}", thread_id, scopy.foo().await.clone());
                 assert_eq!(*scopy.foo().await, (*texpect.lock().await.clone()), "foo value");
@@ -193,10 +193,17 @@ async fn threaded() {
                     *texpect.lock().await = format!("Foo with bar={}", *wnext).to_string();
                     lock_foo.clear();
                     eprintln!(
-                        "Now should expect for '{}' // {}",
+                        "[{:>4}] Now should expect for '{}' // {}",
+                        thread_id,
                         *texpect.lock().await,
                         scopy.has_foo()
                     );
+
+                    // Ensure that we always perform at least one clear after a build. This guarantee holds only if
+                    // we check the stop flag here, after incrementing the clear counter.
+                    if tstop.load(Ordering::Relaxed) {
+                        break 'main;
+                    }
                 }
             }
             eprintln!("[{:>4}] done", thread_id);
@@ -205,14 +212,20 @@ async fn threaded() {
     }
 
     wg.wait().await;
+
+    while cleared.load(Ordering::SeqCst) < thread_count as i32 * 50 {
+        sleep(time::Duration::from_millis(10)).await;
+    }
+
     sleep(time::Duration::from_millis(500)).await;
     stop.store(true, Ordering::Relaxed);
     thandles.join_all().await;
     let clear_count = cleared.load(Ordering::SeqCst);
     let build_count = sync.bar_builds().await;
+    eprintln!("cleared {} times, built {} times", clear_count, build_count);
     assert!(
         clear_count >= build_count,
-        "there were no more builds than clears ({} vs. {})",
+        "there were less clears than builds ({} vs. {})",
         clear_count,
         build_count
     );

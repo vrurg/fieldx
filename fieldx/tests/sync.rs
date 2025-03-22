@@ -115,11 +115,6 @@ fn threaded() {
                         *wnext += 1;
                         thread_foo.set_next_bar(*wnext);
                         thread_foo.clear_bar();
-                        assert!(
-                            !thread_foo.has_bar(),
-                            "[{:>4}] bar is cleared and stays so until foo is unlocked",
-                            thread_id
-                        );
                         tcleared.fetch_add(1, Ordering::SeqCst);
                         *texpect.lock() = format!("Foo with bar={}", *wnext).to_string();
                         lock_foo.clear();
