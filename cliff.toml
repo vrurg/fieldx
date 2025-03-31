@@ -19,8 +19,8 @@
             {% if commit.breaking %}[**breaking**] {% endif %}\
             {{ commit.message | upper_first }}\
             {% for footer in commit.footers %}\
-                {% if footer.token | lower == "annotate" %}
-
+                {% set footer_token = footer.token | lower %}\
+                {% if footer_token == "annotate" or footer_token == "annotation" %}\n
                     {{ footer.value | indent(prefix="    ", first=true) }}
                 {% endif %}\
             {% endfor %} \
