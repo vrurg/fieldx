@@ -76,8 +76,8 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
     exclusives.insert(
         "visibility".to_string(),
         vec![
-            ("vis".to_string(), format_ident!("visibility"), quote![is_some]),
-            ("private".to_string(), format_ident!("private"), quote![is_some]),
+            ("vis".to_string(), format_ident!("visibility"), quote![is_set_bool()]),
+            ("private".to_string(), format_ident!("private"), quote![is_set_bool()]),
         ],
     );
 
@@ -94,11 +94,12 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
                 let ident = ident.clone();
 
                 let check_method = if let syn::Type::Path(ref tpath) = field.ty {
+                    let span = tpath.span();
                     if tpath.path.is_ident("Flag") {
-                        quote![is_present]
+                        quote_spanned![span=> is_present()]
                     }
                     else {
-                        quote![is_some]
+                        quote_spanned![span=> is_set_bool()]
                     }
                 }
                 else {
@@ -166,7 +167,7 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
         for (field_name, ident, check_method) in fields.iter() {
             checks.push(quote![
-                if self.#ident.#check_method() {
+                if self.#ident. #check_method {
                     set_params.push(#field_name);
                 }
             ]);

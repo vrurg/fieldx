@@ -55,27 +55,29 @@ pub struct FXAccessorHelper<const BOOL_ONLY: bool = false> {
     // Unfortunately, darling(flatten) over a FXAccessorMode field will break support for arguments that are implicitly
     // added by `fxhelper` attribute. Therefore we fall back to separate fields here.
     #[fxhelper(exclusive = "accessor mode")]
-    clone:  Flag,
+    clone:  Option<FXBool>,
     #[fxhelper(exclusive = "accessor mode")]
-    copy:   Flag,
+    copy:   Option<FXBool>,
     #[fxhelper(exclusive = "accessor mode")]
-    as_ref: Flag,
+    as_ref: Option<FXBool>,
 }
 
 impl<const BOOL_ONLY: bool> FXAccessorHelper<BOOL_ONLY> {
     pub fn mode(&self) -> Option<FXProp<FXAccessorMode>> {
-        Some(if self.clone.is_present() {
-            FXProp::new(FXAccessorMode::Clone, Some(self.clone.span()))
+        for mode in [
+            (self.clone.as_ref(), FXAccessorMode::Clone),
+            (self.copy.as_ref(), FXAccessorMode::Copy),
+            (self.as_ref.as_ref(), FXAccessorMode::AsRef),
+        ] {
+            if let Some(v) = mode.0 {
+                return Some(FXProp::new(
+                    if *v.is_set() { mode.1 } else { FXAccessorMode::None },
+                    v.orig_span(),
+                ));
+            }
         }
-        else if self.copy.is_present() {
-            FXProp::new(FXAccessorMode::Copy, Some(self.copy.span()))
-        }
-        else if self.as_ref.is_present() {
-            FXProp::new(FXAccessorMode::AsRef, Some(self.as_ref.span()))
-        }
-        else {
-            return None;
-        })
+
+        None
     }
 }
 

@@ -90,6 +90,9 @@ impl<H: FXTriggerHelper> FXBoolHelper for Option<H> {
 /// - For types that are optional unset means `None`.
 pub trait FXSetState {
     fn is_set(&self) -> FXProp<bool>;
+    fn is_set_bool(&self) -> bool {
+        *self.is_set().value()
+    }
 }
 
 impl<T> FXSetState for Option<T>

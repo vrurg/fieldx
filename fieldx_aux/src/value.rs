@@ -75,6 +75,11 @@ impl<T, const BOOL_ONLY: bool> FXSetState for FXValueArg<T, BOOL_ONLY> {
             FXProp::new(BOOL_ONLY || self.value.is_some(), None)
         }
     }
+
+    // Optimize by bypassing the `FXProp` wrapper.
+    fn is_set_bool(&self) -> bool {
+        self.off.is_present() || BOOL_ONLY || self.value.is_some()
+    }
 }
 
 impl<T, const BOOL_ONLY: bool> From<T> for FXValueArg<T, BOOL_ONLY> {
