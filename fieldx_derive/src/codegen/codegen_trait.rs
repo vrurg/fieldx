@@ -104,11 +104,11 @@ pub(crate) trait FXCodeGenContextual {
         &self,
         self_name: &NT,
         struct_init: &IT,
-        init: Option<syn::Ident>,
+        post_build_ident: Option<syn::Ident>,
     ) -> TokenStream {
         let ctx = self.ctx();
         let arg_props = ctx.arg_props();
-        let post_construct = if let Some(init) = init {
+        let post_construct = if let Some(init) = post_build_ident {
             let builder_has_error_type = arg_props.builder_has_error_type();
             let shortcut = if *builder_has_error_type {
                 quote_spanned![builder_has_error_type.final_span()=> ?]
@@ -135,9 +135,9 @@ pub(crate) trait FXCodeGenContextual {
                             #myself_field: me.clone(),
                             #struct_init
                         }
-                        #post_construct
                     }
                 )
+                #post_construct
             ]
         }
         else {
