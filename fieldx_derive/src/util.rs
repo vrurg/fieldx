@@ -74,7 +74,16 @@ macro_rules! dump_tt_struct {
 }
 
 #[cfg(not(debug_assertions))]
+#[allow(unused)]
 macro_rules! dump_tt {
+    ($tt:expr) => {
+        $tt
+    };
+}
+
+#[cfg(not(debug_assertions))]
+#[allow(unused)]
+macro_rules! dump_tt_struct {
     ($tt:expr) => {
         $tt
     };
