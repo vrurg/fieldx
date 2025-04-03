@@ -1,9 +1,8 @@
 #![cfg(feature = "sync")]
 use fieldx::fxstruct;
-use std::{
-    fmt::{Debug, Display},
-    marker::PhantomData,
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::marker::PhantomData;
 
 trait Newish {
     fn new() -> Self;

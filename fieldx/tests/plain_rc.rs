@@ -1,5 +1,6 @@
 use fieldx::fxstruct;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
+use std::rc::Weak;
 
 #[derive(Debug)]
 #[fxstruct(rc(vis(pub)))]

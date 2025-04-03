@@ -1,20 +1,37 @@
 pub(crate) mod props;
 
-use darling::{util::Flag, FromField};
+use darling::util::Flag;
+use darling::FromField;
+use fieldx_aux::validate_exclusives;
+use fieldx_aux::validate_no_macro_args;
+use fieldx_aux::FXAccessor;
+use fieldx_aux::FXAttributes;
+use fieldx_aux::FXBaseHelper;
+use fieldx_aux::FXBool;
+use fieldx_aux::FXBuilder;
+use fieldx_aux::FXDefault;
+use fieldx_aux::FXFallible;
+use fieldx_aux::FXHelper;
+use fieldx_aux::FXNestingAttr;
+use fieldx_aux::FXOrig;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXSerde;
-use fieldx_aux::{
-    validate_exclusives, validate_no_macro_args, FXAccessor, FXAttributes, FXBaseHelper, FXBool, FXBuilder, FXDefault,
-    FXFallible, FXHelper, FXNestingAttr, FXOrig, FXSetState, FXSetter, FXString, FXSynValue, FXSyncMode,
-    FXTriggerHelper,
-};
+use fieldx_aux::FXSetState;
+use fieldx_aux::FXSetter;
+use fieldx_aux::FXString;
+use fieldx_aux::FXSynValue;
+use fieldx_aux::FXSyncMode;
+use fieldx_aux::FXTriggerHelper;
 use getset::Getters;
 use once_cell::unsync::OnceCell;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
 pub(crate) use props::FXFieldProps;
-use quote::{quote_spanned, ToTokens};
+use quote::quote_spanned;
+use quote::ToTokens;
 use std::ops::Deref;
-use syn::{spanned::Spanned, Meta};
+use syn::spanned::Spanned;
+use syn::Meta;
 
 #[derive(Debug, FromField, Getters, Clone)]
 #[getset(get = "pub(crate)")]

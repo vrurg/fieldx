@@ -1,6 +1,7 @@
 //! Trait for objects that know their origins.
 use proc_macro2::Span;
-use syn::{self, spanned::Spanned};
+use syn::spanned::Spanned;
+use syn::{self};
 
 /// For types that "know" their origins.
 pub trait FXOrig<O>

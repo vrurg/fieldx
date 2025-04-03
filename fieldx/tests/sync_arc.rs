@@ -1,6 +1,8 @@
 #![cfg(feature = "sync")]
-use fieldx::{error::FieldXError, fxstruct};
-use std::sync::{Arc, Weak};
+use fieldx::error::FieldXError;
+use fieldx::fxstruct;
+use std::sync::Arc;
+use std::sync::Weak;
 
 #[fxstruct(sync, rc(vis(pub)), builder)]
 struct Bar {

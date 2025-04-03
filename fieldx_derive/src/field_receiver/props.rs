@@ -1,16 +1,23 @@
-use crate::{
-    helper::FXHelperKind,
-    util::{
-        common_prop_impl, doc_props, mode_async_prop, mode_plain_prop, mode_sync_prop, simple_bool_prop,
-        simple_type_prop,
-    },
-};
+use crate::helper::FXHelperKind;
+use crate::util::common_prop_impl;
+use crate::util::doc_props;
+use crate::util::mode_async_prop;
+use crate::util::mode_plain_prop;
+use crate::util::mode_sync_prop;
+use crate::util::simple_bool_prop;
+use crate::util::simple_type_prop;
+use fieldx_aux::FXAccessorMode;
+use fieldx_aux::FXAttributes;
+use fieldx_aux::FXBoolHelper;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXDefault;
-use fieldx_aux::{
-    FXAccessorMode, FXAttributes, FXBoolHelper, FXFallible, FXHelperTrait, FXNestingAttr, FXOrig, FXProp, FXSetState,
-    FXTriggerHelper,
-};
+use fieldx_aux::FXFallible;
+use fieldx_aux::FXHelperTrait;
+use fieldx_aux::FXNestingAttr;
+use fieldx_aux::FXOrig;
+use fieldx_aux::FXProp;
+use fieldx_aux::FXSetState;
+use fieldx_aux::FXTriggerHelper;
 use once_cell::unsync::OnceCell;
 
 use super::FXField;

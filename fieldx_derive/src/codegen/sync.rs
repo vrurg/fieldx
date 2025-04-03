@@ -1,16 +1,26 @@
 mod impl_async;
 mod impl_sync;
 
-use crate::codegen::{FXCodeGenContextual, FXCodeGenCtx, FXFieldCtx, FXHelperKind, FXInlining, FXValueRepr};
+use crate::codegen::FXCodeGenContextual;
+use crate::codegen::FXCodeGenCtx;
+use crate::codegen::FXFieldCtx;
+use crate::codegen::FXHelperKind;
+use crate::codegen::FXInlining;
+use crate::codegen::FXValueRepr;
 #[allow(unused)]
 use crate::util::dump_tt_struct;
 use fieldx_aux::FXPropBool;
-use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::format_ident;
+use quote::quote;
+use quote::quote_spanned;
+use quote::ToTokens;
 use std::rc::Rc;
 use syn::spanned::Spanned;
 
-use super::constructor::{r#fn::FXFnConstructor, FXConstructor};
+use super::constructor::r#fn::FXFnConstructor;
+use super::constructor::FXConstructor;
 
 pub(crate) trait FXSyncImplDetails {
     fn await_call(&self, span: Span) -> TokenStream;

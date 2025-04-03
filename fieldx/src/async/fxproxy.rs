@@ -1,15 +1,19 @@
-use crate::traits::{FXBuilderWrapper, FXStruct};
+use crate::traits::FXBuilderWrapper;
+use crate::traits::FXStruct;
 use async_trait::async_trait;
-use std::{
-    any,
-    cell::RefCell,
-    fmt,
-    fmt::{Debug, Formatter},
-    future::Future,
-    pin::Pin,
-    sync::atomic::{AtomicBool, Ordering},
-};
-use tokio::sync::{RwLock, RwLockMappedWriteGuard, RwLockReadGuard, RwLockWriteGuard};
+use std::any;
+use std::cell::RefCell;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
+use tokio::sync::RwLock;
+use tokio::sync::RwLockMappedWriteGuard;
+use tokio::sync::RwLockReadGuard;
+use tokio::sync::RwLockWriteGuard;
 
 type FXCallback<S, T> = Box<dyn Fn(&S) -> Pin<Box<dyn Future<Output = T> + Send + '_>> + Send + Sync>;
 

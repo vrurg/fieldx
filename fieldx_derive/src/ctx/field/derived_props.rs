@@ -1,12 +1,20 @@
+use fieldx_aux::FXAccessorMode;
+use fieldx_aux::FXAttributes;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXDefault;
-use fieldx_aux::{FXAccessorMode, FXAttributes, FXHelperTrait, FXProp, FXPropBool, FXTriggerHelper};
+use fieldx_aux::FXHelperTrait;
+use fieldx_aux::FXProp;
+use fieldx_aux::FXPropBool;
+use fieldx_aux::FXTriggerHelper;
 use fieldx_derive_support::fallback_prop;
 use once_cell::sync::OnceCell;
 use quote::format_ident;
 use std::rc::Rc;
 
-use crate::{ctx::FXCodeGenCtx, field_receiver::FXFieldProps, helper::FXHelperKind, util::args::FXArgProps};
+use crate::ctx::FXCodeGenCtx;
+use crate::field_receiver::FXFieldProps;
+use crate::helper::FXHelperKind;
+use crate::util::args::FXArgProps;
 
 macro_rules! helper_visibility_method {
     ( $( $helper:ident ),* $(,)? ) => {

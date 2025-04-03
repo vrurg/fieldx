@@ -1,7 +1,8 @@
 #![cfg(feature = "sync")]
 #![cfg(feature = "serde")]
 use fieldx::fxstruct;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json;
 
 #[derive(Default, Clone, Debug, PartialEq)]

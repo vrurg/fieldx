@@ -1,12 +1,13 @@
 #![cfg(feature = "sync")]
 use core::time;
-use crossbeam::{sync, thread};
+use crossbeam::sync;
+use crossbeam::thread;
 use num_cpus;
 use parking_lot::Mutex;
-use std::sync::{
-    atomic::{AtomicBool, AtomicI32, Ordering},
-    Arc,
-};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicI32;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 mod syncish;
 
 #[test]

@@ -1,25 +1,28 @@
 mod derived_props;
 
 use super::FXCodeGenCtx;
-use crate::{
-    codegen::{
-        constructor::{field::FXFieldConstructor, FXConstructor},
-        FXInlining,
-    },
-    field_receiver::{FXField, FXFieldProps},
-    helper::FXHelperKind,
-};
+use crate::codegen::constructor::field::FXFieldConstructor;
+use crate::codegen::constructor::FXConstructor;
+use crate::codegen::FXInlining;
+use crate::field_receiver::FXField;
+use crate::field_receiver::FXFieldProps;
+use crate::helper::FXHelperKind;
 use delegate::delegate;
 use derived_props::FieldCTXProps;
-use fieldx_aux::{FXAccessorMode, FXProp};
+use fieldx_aux::FXAccessorMode;
 #[cfg(feature = "serde")]
-use fieldx_aux::{FXAttributes, FXDefault};
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned, ToTokens};
-use std::{
-    cell::{OnceCell, RefCell},
-    rc::Rc,
-};
+use fieldx_aux::FXAttributes;
+#[cfg(feature = "serde")]
+use fieldx_aux::FXDefault;
+use fieldx_aux::FXProp;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::quote;
+use quote::quote_spanned;
+use quote::ToTokens;
+use std::cell::OnceCell;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub(crate) struct FXFieldCtx {

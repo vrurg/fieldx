@@ -1,11 +1,10 @@
 use cargo_toolchain::get_active_toolchain;
 use rustc_version::Version;
-use std::{
-    env,
-    fs::{self, DirEntry},
-    io,
-    path::PathBuf,
-};
+use std::env;
+use std::fs::DirEntry;
+use std::fs::{self};
+use std::io;
+use std::path::PathBuf;
 use trybuild;
 
 struct UncompEnv {

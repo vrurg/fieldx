@@ -1,7 +1,12 @@
 //! Argument that signals possibility of errors.
 use super::FromNestAttr;
-use crate::{FXProp, FXPropBool, FXSetState, FXSynValue, FXTriggerHelper};
-use darling::{util::Flag, FromMeta};
+use crate::FXProp;
+use crate::FXPropBool;
+use crate::FXSetState;
+use crate::FXSynValue;
+use crate::FXTriggerHelper;
+use darling::util::Flag;
+use darling::FromMeta;
 
 /// This argument can be used to mark, say, methods as returning a `Result` and specify what error type is expected.
 #[derive(Debug, Clone, FromMeta)]

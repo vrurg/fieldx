@@ -6,9 +6,13 @@ mod input_receiver;
 mod util;
 
 // use std::panic::{catch_unwind, set_hook};
-use crate::{input_receiver::FXInputReceiver, util::args::FXSArgs};
-use darling::{ast, FromDeriveInput, FromMeta};
-use syn::{parse_macro_input, DeriveInput};
+use crate::input_receiver::FXInputReceiver;
+use crate::util::args::FXSArgs;
+use darling::ast;
+use darling::FromDeriveInput;
+use darling::FromMeta;
+use syn::parse_macro_input;
+use syn::DeriveInput;
 
 // use rust_format::{Config, Edition, Formatter, RustFmt};
 // #[allow(dead_code)]

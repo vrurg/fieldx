@@ -1,11 +1,23 @@
-use crate::{
-    set_literals, FXAttributes, FXBool, FXBoolHelper, FXDefault, FXDoc, FXInto, FXNestingAttr, FXOrig, FXProp,
-    FXSetState, FXString, FXSynValue, FXTriggerHelper, FXTryFrom, FXTryInto, FromNestAttr,
-};
-use darling::{
-    util::{Flag, PathList},
-    FromMeta,
-};
+use crate::set_literals;
+use crate::FXAttributes;
+use crate::FXBool;
+use crate::FXBoolHelper;
+use crate::FXDefault;
+use crate::FXDoc;
+use crate::FXInto;
+use crate::FXNestingAttr;
+use crate::FXOrig;
+use crate::FXProp;
+use crate::FXSetState;
+use crate::FXString;
+use crate::FXSynValue;
+use crate::FXTriggerHelper;
+use crate::FXTryFrom;
+use crate::FXTryInto;
+use crate::FromNestAttr;
+use darling::util::Flag;
+use darling::util::PathList;
+use darling::FromMeta;
 use getset::Getters;
 use syn::Lit;
 

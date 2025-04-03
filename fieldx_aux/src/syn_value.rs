@@ -1,11 +1,20 @@
 //! Support for types that are not supported by [`darling`] but implement [`syn::parse::Parse`]
-use crate::{traits::FXSetState, FXProp};
+use crate::traits::FXSetState;
+use crate::FXProp;
 
-use super::{FXFrom, FromNestAttr};
-use darling::{ast::NestedMeta, FromMeta};
+use super::FXFrom;
+use super::FromNestAttr;
+use darling::ast::NestedMeta;
+use darling::FromMeta;
 use quote::ToTokens;
-use std::{borrow::Borrow, fmt::Debug, marker::PhantomData, ops::Deref};
-use syn::{parse::Parse, punctuated::Punctuated, spanned::Spanned, Meta};
+use std::borrow::Borrow;
+use std::fmt::Debug;
+use std::marker::PhantomData;
+use std::ops::Deref;
+use syn::parse::Parse;
+use syn::punctuated::Punctuated;
+use syn::spanned::Spanned;
+use syn::Meta;
 
 /// Argument that takes exactly one syntax element.
 ///

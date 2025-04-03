@@ -1,8 +1,13 @@
 use getset::Getters;
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned, ToTokens};
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::quote;
+use quote::quote_spanned;
+use quote::ToTokens;
 
-use super::{tokenstream_setter, FXConstructor, FXFnConstructor};
+use super::tokenstream_setter;
+use super::FXConstructor;
+use super::FXFnConstructor;
 
 #[derive(Debug, Getters)]
 #[getset(get = "pub(crate)")]

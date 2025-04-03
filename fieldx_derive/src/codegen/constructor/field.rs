@@ -1,6 +1,8 @@
 use getset::Getters;
-use proc_macro2::{Span, TokenStream};
-use quote::{quote_spanned, ToTokens};
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::quote_spanned;
+use quote::ToTokens;
 
 use super::FXConstructor;
 

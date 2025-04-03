@@ -1,9 +1,14 @@
 use fieldx_aux::FXProp;
-use getset::{Getters, Setters};
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned, ToTokens};
+use getset::Getters;
+use getset::Setters;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::quote;
+use quote::quote_spanned;
+use quote::ToTokens;
 
-use super::{tokenstream_setter, FXConstructor};
+use super::tokenstream_setter;
+use super::FXConstructor;
 
 #[derive(Debug, Getters, Setters)]
 #[getset(get = "pub(crate)")]

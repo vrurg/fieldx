@@ -2,15 +2,14 @@
 use core::time;
 use fieldx::fxstruct;
 use num_cpus;
-use std::sync::{
-    atomic::{AtomicBool, AtomicI32, Ordering},
-    Arc,
-};
-use tokio::{
-    sync::{Barrier, Mutex},
-    task::JoinSet,
-    time::sleep,
-};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicI32;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use tokio::sync::Barrier;
+use tokio::sync::Mutex;
+use tokio::task::JoinSet;
+use tokio::time::sleep;
 
 #[fxstruct(mode(async))]
 #[derive(Debug)]

@@ -1,6 +1,15 @@
 //! Implementation of accessor helper (`get` argument of `fxstruct`/`fieldx` attributes).
-use crate::{FXAttributes, FXBool, FXInto, FXOrig, FXProp, FXSetState, FXString, FXTriggerHelper, FromNestAttr};
-use darling::{util::Flag, FromMeta};
+use crate::FXAttributes;
+use crate::FXBool;
+use crate::FXInto;
+use crate::FXOrig;
+use crate::FXProp;
+use crate::FXSetState;
+use crate::FXString;
+use crate::FXTriggerHelper;
+use crate::FromNestAttr;
+use darling::util::Flag;
+use darling::FromMeta;
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
 use quote::ToTokens;

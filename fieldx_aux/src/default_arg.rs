@@ -1,11 +1,21 @@
 //! Default value.
 
-use crate::{FXOrig, FXProp, FXPropBool, FXSetState, FXTriggerHelper, FromNestAttr};
-use darling::{util::Flag, FromMeta};
+use crate::FXOrig;
+use crate::FXProp;
+use crate::FXPropBool;
+use crate::FXSetState;
+use crate::FXTriggerHelper;
+use crate::FromNestAttr;
+use darling::util::Flag;
+use darling::FromMeta;
 use getset::Getters;
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
 use quote::ToTokens;
-use syn::{parse2, spanned::Spanned, ExprCall, Meta};
+use syn::parse2;
+use syn::spanned::Spanned;
+use syn::ExprCall;
+use syn::Meta;
 
 /// Default value argument.
 ///

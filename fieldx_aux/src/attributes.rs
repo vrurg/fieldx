@@ -1,14 +1,15 @@
 //! `attributes*` family of arguments.
 
-use std::{borrow::Borrow, ops::Deref};
+use std::borrow::Borrow;
+use std::ops::Deref;
 
 use proc_macro2::TokenStream;
-use quote::{quote_spanned, ToTokens};
-use syn::{
-    parse::{Parse, ParseStream},
-    parse_quote_spanned,
-    spanned::Spanned,
-};
+use quote::quote_spanned;
+use quote::ToTokens;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::parse_quote_spanned;
+use syn::spanned::Spanned;
 
 /// Implementation of a single sub-argument of `attributes*(...)` family of arguments.
 ///

@@ -1,12 +1,18 @@
-use super::{
-    constructor::{
-        field::FXFieldConstructor, r#fn::FXFnConstructor, FXConstructor, FXImplConstructor, FXStructConstructor,
-    },
-    FXCodeGenContextual, FXFieldCtx,
-};
-use fieldx_aux::{FXOrig, FXProp};
-use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use super::constructor::field::FXFieldConstructor;
+use super::constructor::r#fn::FXFnConstructor;
+use super::constructor::FXConstructor;
+use super::constructor::FXImplConstructor;
+use super::constructor::FXStructConstructor;
+use super::FXCodeGenContextual;
+use super::FXFieldCtx;
+use fieldx_aux::FXOrig;
+use fieldx_aux::FXProp;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::format_ident;
+use quote::quote;
+use quote::quote_spanned;
+use quote::ToTokens;
 use syn::spanned::Spanned;
 
 fn serde_rename_attr(

@@ -1,7 +1,11 @@
-use super::{FXCodeGenSync, FXSyncImplDetails};
-use crate::{codegen::constructor::FXFnConstructor, ctx::FXFieldCtx};
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned};
+use super::FXCodeGenSync;
+use super::FXSyncImplDetails;
+use crate::codegen::constructor::FXFnConstructor;
+use crate::ctx::FXFieldCtx;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::quote;
+use quote::quote_spanned;
 
 pub(crate) struct FXSyncImplementor;
 

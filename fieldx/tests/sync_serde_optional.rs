@@ -1,6 +1,7 @@
 #![cfg(all(feature = "sync", feature = "serde"))]
 use fieldx::fxstruct;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json;
 
 #[fxstruct(sync, builder(attributes_impl(allow(dead_code))), serde(default))]

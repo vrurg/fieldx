@@ -1,5 +1,10 @@
-use std::{borrow::Borrow, fmt, fmt::Debug, ops::Deref};
-use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::borrow::Borrow;
+use std::fmt;
+use std::fmt::Debug;
+use std::ops::Deref;
+use tokio::sync::RwLock;
+use tokio::sync::RwLockReadGuard;
+use tokio::sync::RwLockWriteGuard;
 
 /// Lock-protected container
 ///

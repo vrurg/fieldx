@@ -1,5 +1,8 @@
 use parking_lot::RwLock;
-use std::{borrow::Borrow, fmt, fmt::Debug, ops::Deref};
+use std::borrow::Borrow;
+use std::fmt;
+use std::fmt::Debug;
+use std::ops::Deref;
 
 /// Lock-protected container
 ///

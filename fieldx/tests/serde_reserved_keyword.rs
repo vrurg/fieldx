@@ -1,7 +1,8 @@
 #![cfg(feature = "serde")]
 
 use fieldx::fxstruct;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 // get() and builder() literal values are used as prefixes thus shielding us from "type" used as method names.
 #[fxstruct(get("get_", vis(pub)), serde(default), builder)]

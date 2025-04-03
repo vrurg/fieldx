@@ -548,11 +548,15 @@ pub use once_cell::unsync::OnceCell;
 #[doc(inline)]
 pub use r#async::FXProxyAsync;
 #[doc(hidden)]
-pub use std::{
-    cell::{Ref, RefCell, RefMut},
-    fmt,
-    sync::atomic::Ordering,
-};
+pub use std::cell::Ref;
+#[doc(hidden)]
+pub use std::cell::RefCell;
+#[doc(hidden)]
+pub use std::cell::RefMut;
+#[doc(hidden)]
+pub use std::fmt;
+#[doc(hidden)]
+pub use std::sync::atomic::Ordering;
 #[cfg(feature = "sync")]
 #[doc(inline)]
 pub use sync::FXProxySync;

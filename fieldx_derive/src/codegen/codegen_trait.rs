@@ -1,15 +1,23 @@
-use super::{
-    constructor::r#fn::FXFnConstructor, FXCodeGenCtx, FXCodeGenPlain, FXCodeGenSync, FXFieldCtx, FXInlining,
-    FXValueRepr,
-};
-use crate::{
-    codegen::constructor::{FXConstructor, FXFieldConstructor},
-    helper::*,
-};
+use super::constructor::r#fn::FXFnConstructor;
+use super::FXCodeGenCtx;
+use super::FXCodeGenPlain;
+use super::FXCodeGenSync;
+use super::FXFieldCtx;
+use super::FXInlining;
+use super::FXValueRepr;
+use crate::codegen::constructor::FXConstructor;
+use crate::codegen::constructor::FXFieldConstructor;
+use crate::helper::*;
 use enum_dispatch::enum_dispatch;
-use fieldx_aux::{FXProp, FXPropBool};
-use proc_macro2::{Span, TokenStream, TokenTree};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use fieldx_aux::FXProp;
+use fieldx_aux::FXPropBool;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use proc_macro2::TokenTree;
+use quote::format_ident;
+use quote::quote;
+use quote::quote_spanned;
+use quote::ToTokens;
 use std::rc::Rc;
 use syn::spanned::Spanned;
 

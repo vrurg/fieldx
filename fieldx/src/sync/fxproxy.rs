@@ -1,13 +1,18 @@
-use crate::traits::{FXBuilderWrapper, FXStruct};
-use parking_lot::{
-    MappedRwLockReadGuard, MappedRwLockWriteGuard, RwLock, RwLockReadGuard, RwLockUpgradableReadGuard, RwLockWriteGuard,
-};
-use std::{
-    any,
-    cell::RefCell,
-    fmt::{self, Debug, Formatter},
-    sync::atomic::{AtomicBool, Ordering},
-};
+use crate::traits::FXBuilderWrapper;
+use crate::traits::FXStruct;
+use parking_lot::MappedRwLockReadGuard;
+use parking_lot::MappedRwLockWriteGuard;
+use parking_lot::RwLock;
+use parking_lot::RwLockReadGuard;
+use parking_lot::RwLockUpgradableReadGuard;
+use parking_lot::RwLockWriteGuard;
+use std::any;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::fmt::{self};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering;
 
 #[doc(hidden)]
 pub trait FXBuilderWrapperSync: FXBuilderWrapper {

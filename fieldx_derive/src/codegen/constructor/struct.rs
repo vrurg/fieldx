@@ -1,8 +1,15 @@
-use getset::{Getters, MutGetters, Setters};
-use proc_macro2::{Span, TokenStream};
-use quote::{quote_spanned, ToTokens};
+use getset::Getters;
+use getset::MutGetters;
+use getset::Setters;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::quote_spanned;
+use quote::ToTokens;
 
-use super::{field::FXFieldConstructor, tokenstream_setter, FXConstructor, FXImplConstructor};
+use super::field::FXFieldConstructor;
+use super::tokenstream_setter;
+use super::FXConstructor;
+use super::FXImplConstructor;
 
 #[derive(Debug, Getters, MutGetters, Setters)]
 #[getset(get = "pub(crate)")]

@@ -1,10 +1,9 @@
 #![deny(dead_code)]
 
 use fieldx::fxstruct;
-use std::{
-    fmt::{Debug, Display},
-    marker::PhantomData,
-};
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::marker::PhantomData;
 
 pub trait Newish {
     fn new() -> Self;

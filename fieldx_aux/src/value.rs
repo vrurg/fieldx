@@ -1,7 +1,14 @@
 //! Literal value arguments
 
-use crate::{traits::FXSetState, FXFrom, FXProp, FXSynValueArg, FXTriggerHelper, FXTryFrom, FromNestAttr};
-use darling::{util::Flag, FromMeta};
+use crate::traits::FXSetState;
+use crate::FXFrom;
+use crate::FXProp;
+use crate::FXSynValueArg;
+use crate::FXTriggerHelper;
+use crate::FXTryFrom;
+use crate::FromNestAttr;
+use darling::util::Flag;
+use darling::FromMeta;
 use syn::Lit;
 
 /// Arguments that take single literal value or can serve as explicit flag.

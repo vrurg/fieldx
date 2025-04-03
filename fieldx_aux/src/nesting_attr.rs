@@ -13,13 +13,21 @@
 //!
 //! Also, argument is allowed to be used in a form of plain keyword with no subarguments, like `get`.
 
-use crate::{with_origin::FXOrig, FXFrom, FXProp, FXSetState, FXTriggerHelper, FXTryFrom};
-use darling::{ast::NestedMeta, FromMeta};
+use crate::with_origin::FXOrig;
+use crate::FXFrom;
+use crate::FXProp;
+use crate::FXSetState;
+use crate::FXTriggerHelper;
+use crate::FXTryFrom;
+use darling::ast::NestedMeta;
+use darling::FromMeta;
 use getset::Getters;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
-use std::ops::{Deref, DerefMut};
-use syn::{Lit, Meta};
+use std::ops::Deref;
+use std::ops::DerefMut;
+use syn::Lit;
+use syn::Meta;
 
 /// This trait is for types that would like to be able to support nesting. See [module
 /// documentation](crate::nesting_attr) for description.

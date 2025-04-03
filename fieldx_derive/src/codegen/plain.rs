@@ -1,11 +1,19 @@
-use super::{
-    constructor::{r#fn::FXFnConstructor, FXConstructor},
-    FXAccessorMode, FXCodeGenContextual, FXCodeGenCtx, FXFieldCtx, FXHelperKind, FXValueRepr,
-};
+use super::constructor::r#fn::FXFnConstructor;
+use super::constructor::FXConstructor;
+use super::FXAccessorMode;
+use super::FXCodeGenContextual;
+use super::FXCodeGenCtx;
+use super::FXFieldCtx;
+use super::FXHelperKind;
+use super::FXValueRepr;
 use crate::codegen::FXInlining;
 use fieldx_aux::FXPropBool;
-use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::format_ident;
+use quote::quote;
+use quote::quote_spanned;
+use quote::ToTokens;
 use std::rc::Rc;
 use syn::spanned::Spanned;
 

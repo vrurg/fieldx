@@ -1,9 +1,19 @@
 //! Parameters of builder pattern and builder object.
-use crate::{
-    set_literals, FXAttributes, FXBool, FXDoc, FXOrig, FXProp, FXPunctuated, FXSetState, FXString, FXSynValue,
-    FXTriggerHelper, FXTryInto, FromNestAttr,
-};
-use darling::{util::Flag, FromMeta};
+use crate::set_literals;
+use crate::FXAttributes;
+use crate::FXBool;
+use crate::FXDoc;
+use crate::FXOrig;
+use crate::FXProp;
+use crate::FXPunctuated;
+use crate::FXSetState;
+use crate::FXString;
+use crate::FXSynValue;
+use crate::FXTriggerHelper;
+use crate::FXTryInto;
+use crate::FromNestAttr;
+use darling::util::Flag;
+use darling::FromMeta;
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
 use syn::Token;

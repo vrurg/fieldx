@@ -3,7 +3,8 @@ use std::ops::Deref;
 use darling::util::Flag;
 use proc_macro2::Span;
 
-use crate::{FXSpaned, FXTriggerHelper};
+use crate::FXSpaned;
+use crate::FXTriggerHelper;
 
 #[derive(Debug)]
 pub struct FXProp<T> {

@@ -1,5 +1,10 @@
 pub(crate) mod args;
-use fieldx_aux::{FXBool, FXOrig, FXProp, FXSynValue, FXSyncMode, FXTriggerHelper};
+use fieldx_aux::FXBool;
+use fieldx_aux::FXOrig;
+use fieldx_aux::FXProp;
+use fieldx_aux::FXSynValue;
+use fieldx_aux::FXSyncMode;
+use fieldx_aux::FXTriggerHelper;
 use proc_macro2::TokenStream;
 use quote::quote;
 

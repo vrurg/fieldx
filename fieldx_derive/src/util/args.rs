@@ -1,10 +1,22 @@
 pub(crate) mod props;
 
 use darling::FromMeta;
-use fieldx_aux::{
-    validate_exclusives, validate_no_macro_args, FXAccessor, FXAttributes, FXBool, FXBuilder, FXFallible, FXHelper,
-    FXHelperTrait, FXNestingAttr, FXOrig, FXSerde, FXSetState, FXSetter, FXSynValue, FXSyncMode,
-};
+use fieldx_aux::validate_exclusives;
+use fieldx_aux::validate_no_macro_args;
+use fieldx_aux::FXAccessor;
+use fieldx_aux::FXAttributes;
+use fieldx_aux::FXBool;
+use fieldx_aux::FXBuilder;
+use fieldx_aux::FXFallible;
+use fieldx_aux::FXHelper;
+use fieldx_aux::FXHelperTrait;
+use fieldx_aux::FXNestingAttr;
+use fieldx_aux::FXOrig;
+use fieldx_aux::FXSerde;
+use fieldx_aux::FXSetState;
+use fieldx_aux::FXSetter;
+use fieldx_aux::FXSynValue;
+use fieldx_aux::FXSyncMode;
 use getset::Getters;
 pub(crate) use props::FXArgProps;
 

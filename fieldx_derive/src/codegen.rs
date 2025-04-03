@@ -5,25 +5,32 @@ mod plain;
 mod serde;
 pub(crate) mod sync;
 
-use crate::{
-    ctx::{codegen::FXCodeGenCtx, field::FXFieldCtx},
-    field_receiver::FXField,
-    helper::*,
-    util::args::FXSArgs,
-    FXInputReceiver,
-};
+use crate::ctx::codegen::FXCodeGenCtx;
+use crate::ctx::field::FXFieldCtx;
+use crate::field_receiver::FXField;
+use crate::helper::*;
+use crate::util::args::FXSArgs;
+use crate::FXInputReceiver;
 pub(crate) use codegen_trait::FXCodeGenContextual;
 use codegen_trait::FXCodeGenerator;
-use constructor::{FXConstructor, FXFnConstructor, FXImplConstructor};
+use constructor::FXConstructor;
+use constructor::FXFnConstructor;
+use constructor::FXImplConstructor;
 use darling::FromField;
 use fieldx_aux::FXProp;
 pub(crate) use plain::FXCodeGenPlain;
-use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::format_ident;
+use quote::quote;
+use quote::quote_spanned;
+use quote::ToTokens;
 #[cfg(feature = "serde")]
 use serde::FXRewriteSerde;
-use std::{cell::OnceCell, rc::Rc};
-use syn::{parse_quote_spanned, spanned::Spanned};
+use std::cell::OnceCell;
+use std::rc::Rc;
+use syn::parse_quote_spanned;
+use syn::spanned::Spanned;
 pub(crate) use sync::FXCodeGenSync;
 
 #[allow(dead_code)]
