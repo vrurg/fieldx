@@ -1,6 +1,6 @@
 #[cfg(feature = "serde")]
 use fieldx_aux::FXDefault;
-use fieldx_aux::{FXAccessorMode, FXAttributes, FXHelperTrait, FXProp, FXPropBool};
+use fieldx_aux::{FXAccessorMode, FXAttributes, FXHelperTrait, FXProp, FXPropBool, FXTriggerHelper};
 use fieldx_derive_support::fallback_prop;
 use once_cell::sync::OnceCell;
 use quote::format_ident;
@@ -61,6 +61,9 @@ pub(crate) struct FieldCTXProps {
     // Builder helper specific properties
     builder_into:              OnceCell<FXProp<bool>>,
     builder_required:          OnceCell<FXProp<bool>>,
+    // If the field can obtain its value from sources other than the builder, or if it is optional, then calling its
+    // builder method is optional.
+    builder_method_optional:   OnceCell<FXProp<bool>>,
     // Clearer helper standard properties
     clearer:                   OnceCell<FXProp<bool>>,
     clearer_visibility:        OnceCell<syn::Visibility>,
@@ -188,6 +191,7 @@ impl FieldCTXProps {
             builder_ident: OnceCell::new(),
             builder_into: OnceCell::new(),
             builder_required: OnceCell::new(),
+            builder_method_optional: OnceCell::new(),
             clearer: OnceCell::new(),
             clearer_visibility: OnceCell::new(),
             clearer_ident: OnceCell::new(),
@@ -322,6 +326,34 @@ impl FieldCTXProps {
     pub(crate) fn builder_method_visibility(&self) -> &syn::Visibility {
         self.builder_method_visibility
             .get_or_init(|| self.helper_visibility(FXHelperKind::Builder))
+    }
+
+    pub(crate) fn builder_method_optional(&self) -> FXProp<bool> {
+        *self.builder_method_optional.get_or_init(|| {
+            let mut vreq = self.builder_required();
+
+            if !*vreq {
+                vreq = self.builder();
+                if *vreq {
+                    // Let's see if there is a source for the field value or it is optional.
+                    let vopt = self.optional().or(self.lazy());
+                    if *vopt {
+                        return vopt;
+                    }
+                    if let Some(default) = self.field_props().field().default_value() {
+                        // Use `is_true` here because for a default value, `is_set` indicates that it has an explicit value.
+                        // However, a plain `default` with no arguments simply means "we use ..Default::default()",
+                        // which also counts as an extra field value source.
+                        let vopt = default.is_true();
+                        if *vopt {
+                            return vopt;
+                        }
+                    }
+                }
+            }
+
+            vreq.not().respan(Some(*self.field_props().field().span()))
+        })
     }
 
     // A special case when the builder is forced by the field attribute.

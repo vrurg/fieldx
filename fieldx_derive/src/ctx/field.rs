@@ -59,6 +59,7 @@ impl FXFieldCtx {
             pub(crate) fn builder_required(&self) -> FXProp<bool>;
             pub(crate) fn builder_into(&self) -> FXProp<bool>;
             pub(crate) fn builder_method_visibility(&self) -> &syn::Visibility;
+            pub(crate) fn builder_method_optional(&self) -> FXProp<bool>;
             pub(crate) fn clearer(&self) -> FXProp<bool>;
             pub(crate) fn clearer_ident(&self) -> &syn::Ident;
             pub(crate) fn clearer_visibility(&self) -> &syn::Visibility;

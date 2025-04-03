@@ -25,7 +25,7 @@ struct Plain {
     )]
     baz: String,
 
-    #[fieldx(clearer, predicate, set, builder(attributes_fn(allow(dead_code))))]
+    #[fieldx(clearer, predicate, set)]
     fubar: f32,
 
     #[fieldx(lazy, clearer, default(Self::default_string()))]

@@ -1,3 +1,5 @@
+#![deny(dead_code)]
+
 use fieldx::fxstruct;
 use std::{
     fmt::{Debug, Display},

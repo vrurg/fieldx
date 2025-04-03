@@ -295,6 +295,12 @@ pub(crate) trait FXCodeGenContextual {
                 .set_ret_stmt(quote_spanned! {span=> self});
             mc.add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Builder, FXInlining::Always, span))?;
 
+            let method_optional = fctx.builder_method_optional();
+
+            if *method_optional {
+                mc.add_attribute_toks(quote_spanned![method_optional.final_span()=> #[allow(unused)]])?;
+            }
+
             Some(mc)
         }
         else {
@@ -322,7 +328,7 @@ pub(crate) trait FXCodeGenContextual {
     fn field_builder_value_required(&self, fctx: &FXFieldCtx) {
         let builder_required = fctx.builder_required();
         let builder = fctx.builder();
-        if *builder_required || (*builder && !(*fctx.lazy() || *fctx.optional() || fctx.has_default_value())) {
+        if !*fctx.builder_method_optional() {
             let field_ident = fctx.ident();
             let field_name = field_ident.to_string();
             let span = builder_required.or(builder).final_span();
