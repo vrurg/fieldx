@@ -8,7 +8,6 @@ use std::ops::Deref;
 ///
 /// This is a wrapper around [`RwLock`] sync primitive. It provides safe means of cloning the lock
 /// and the data it protects. No other additional functionality is provided.
-#[derive(Default)]
 pub struct FXRwLockSync<T>(RwLock<T>);
 
 impl<T> FXRwLockSync<T> {
@@ -79,5 +78,11 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+impl<T: Default> Default for FXRwLockSync<T> {
+    fn default() -> Self {
+        Self(RwLock::new(T::default()))
     }
 }
