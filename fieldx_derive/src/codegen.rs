@@ -445,8 +445,12 @@ impl<'a> FXRewriter<'a> {
             post_build_ident,
         );
 
+        let mut obj_ident = ctx.unique_ident_pfx("obj");
+        obj_ident.set_span(span);
+
         build_method.add_statement(quote_spanned! {span=> #( #builder_checkers );* });
-        build_method.set_ret_stmt(quote_spanned! {span=> Ok(#construction) });
+        build_method.add_statement(quote_spanned! {span=> let #obj_ident: #builder_return_type = #construction; });
+        build_method.set_ret_stmt(quote_spanned! {span=> Ok(#obj_ident) });
 
         let mut bsc = ctx.builder_struct_mut()?;
         let bic = bsc.struct_impl_mut();

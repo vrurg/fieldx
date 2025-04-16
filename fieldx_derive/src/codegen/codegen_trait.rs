@@ -119,7 +119,7 @@ pub(crate) trait FXCodeGenContextual {
         let post_construct = if let Some(init) = post_build_ident {
             let builder_has_error_type = arg_props.builder_has_error_type();
             let shortcut = if *builder_has_error_type {
-                quote_spanned![builder_has_error_type.final_span()=> ?]
+                quote_spanned![init.span()=> ?]
             }
             else {
                 quote![]

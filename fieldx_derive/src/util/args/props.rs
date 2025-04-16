@@ -24,6 +24,7 @@ use fieldx_aux::FXOrig;
 use fieldx_aux::FXProp;
 use fieldx_aux::FXPropBool;
 use fieldx_aux::FXSetState;
+use fieldx_aux::FXSpaned;
 use fieldx_aux::FXTriggerHelper;
 use once_cell::unsync::OnceCell;
 use quote::format_ident;
@@ -435,7 +436,7 @@ impl FXArgProps {
                             .and_then(|b| b.post_build())
                             .and_then(|pb| pb.value().cloned())
                             .unwrap_or_else(|| {
-                                let span = self.has_post_build().span();
+                                let span = self.has_post_build().fx_span();
                                 format_ident!("post_build", span = span)
                             }),
                     )
