@@ -1,6 +1,6 @@
 # Changelog
 
-## [unreleased]
+## [0.1.13] - 2025-04-18
 
 ### Features
 
