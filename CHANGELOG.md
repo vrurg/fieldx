@@ -1,10 +1,66 @@
 # Changelog
 
-## [0.1.12] - 2025-03-21
+## [unreleased]
+
+### Features
+
+- Allow accessor mode flags to take the `off` subargument
+
+    This allows to override struct-level defaults for `copy`,
+    `clone`, and `as_ref` flags.
+ 
+- Don't require `lock` field types to implement Default 
+- Introduce `new` helper and deprecate `no_new`
+
+    This also uncouples `new` from `default`, allowing for use of
+    the `Drop` trait with `fieldx` structs.
+ 
+
+### Bug Fixes
+
+- An old bug in the `sync` test 
+- `myself` method in post_build of ref-counted structs
+
+    Previously, `post_build` was invoked on reference-counted
+    objects before they were wrapped in `Rc` or `Arc`. This led to the
+    failure of the `myself` method because the weak reference to self
+    remained uninitialized.
+ 
+- Superfluous warning on unused builder methods
+
+    Mark field builder methods as `#[allow(unused)]` if
+    corresponding fields are optional or have alternative sources of values
+    (such as lazy initialization or default values).
+ 
+- Regression that broke non-debug build profiles 
+- Compiler error message location for post_build methods 
+
+### Documentation
+
+- Fix CHANGELOG template 
+- Document the `new` helper argument 
+
+### Testing
+
+- Remove laziness from attribute to make test working again
+
+    Builder methods of lazy fields are now marked with
+    `#[allow(unused)]` to avoid unused warnings.
+ 
+
+### ️ Miscellaneous Tasks
+
+- Don't include release commit message in changelog 
+
+## [v0.1.12] - 2025-03-21
 
 ### Bug Fixes
 
 - Missing `documentation` key in crates metadata 
+
+### ️ Miscellaneous Tasks
+
+- Release fieldx version 0.1.12 
 
 ## [v0.1.11] - 2025-03-21
 
@@ -24,7 +80,12 @@
 
 ### Bug Fixes
 
-- Clearer treating a field as a lock on `sync` structure 
+- Clearer treating a field as a lock on `sync` structure
+
+    This shouldn't happen without explicit `lock` being set.
+    This is a bug inherited from the times when `optional` on a `sync`
+    struct was implying the `lock` argument.
+ 
 - Incorrect hanlding of sync+optional by serialization 
 - Option<FXProp> span not updated from FXNestingAttr wrapper 
 - Recover lost functionality of prefixing builder setter methods
@@ -47,7 +108,12 @@
          used as `rename` argument of `#[serde()]` attribute.
     - ⚠️  `optional` is not implying `lock` for `sync` structs
          anymore. Explitcit `lock` argument may be required.
-- Major step towards constructor-based architecture 
+- Major step towards constructor-based architecture
+
+    No extra features added, just refactoring the codebase to
+    make it more maintainable and extensible. If no big bugs are found, then
+    this release could serve as a stabilization prior to the v0.2.0 release.
+ 
 
 ### Documentation
 
