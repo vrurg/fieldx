@@ -4,13 +4,13 @@ use fieldx::fxstruct;
 
 #[fxstruct(builder(post_build))]
 struct Foo {
-    #[fieldx(default(0), builder(attributes_fn(allow(dead_code))))]
+    #[fieldx(default(123), builder(attributes_fn(allow(dead_code))))]
     derive: u32,
 }
 
 impl Foo {
     fn post_build(mut self) -> Self {
-        assert_eq!(self.derive, 0, "initial value is 0");
+        assert_eq!(self.derive, 123, "initial value is 123");
         self.derive = 42;
         self
     }
@@ -19,13 +19,13 @@ impl Foo {
 // Make sure that post_build receives fully-initialized Self with working .myself() method.
 #[fxstruct(rc, builder(post_build))]
 struct Bar {
-    #[fieldx(inner_mut, get(copy), set, default(0), builder(attributes_fn(allow(dead_code))))]
+    #[fieldx(inner_mut, get(copy), set, default(123), builder(attributes_fn(allow(dead_code))))]
     derive: u32,
 }
 
 impl Bar {
     fn post_build(self: Rc<Self>) -> Rc<Self> {
-        assert_eq!(self.derive(), 0, "initial value is 0");
+        assert_eq!(self.derive(), 123, "initial value is 123");
         self.myself().expect("myself is not set").set_derive(12);
         self
     }

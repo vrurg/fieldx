@@ -37,6 +37,7 @@ pub(crate) struct FXSArgs {
     into:    Option<FXBool>,
 
     no_new:  Option<FXBool>,
+    new:     Option<FXHelper>,
     default: Option<FXBool>,
     // Produce reference counted object; i.e. Rc<Self> or Arc<Self>.
     rc:      Option<FXHelper>,

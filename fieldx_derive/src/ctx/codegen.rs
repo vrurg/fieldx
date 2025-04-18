@@ -16,7 +16,6 @@ use once_cell::unsync::OnceCell;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
-use quote::quote_spanned;
 use quote::ToTokens;
 use std::cell::Ref;
 use std::cell::RefCell;
@@ -28,9 +27,8 @@ use std::rc::Weak;
 pub(crate) struct FXCodeGenCtx {
     myself: Weak<Self>,
 
-    errors:       OnceCell<RefCell<darling::error::Accumulator>>,
-    tokens:       OnceCell<RefCell<TokenStream>>,
-    default_toks: RefCell<Vec<TokenStream>>,
+    errors: OnceCell<RefCell<darling::error::Accumulator>>,
+    tokens: OnceCell<RefCell<TokenStream>>,
 
     user_struct:    RefCell<FXStructConstructor>,
     builder_struct: OnceCell<RefCell<FXStructConstructor>>,
@@ -63,13 +61,13 @@ pub(crate) struct FXCodeGenCtx {
 
 impl FXCodeGenCtx {
     delegate! {
-            /// Delegate to the FXArgProps implementation.
-            to self.arg_props {
-    pub(crate) fn needs_default(&self) -> FXProp<bool>;
-    pub(crate) fn syncish(&self) -> FXProp<bool>;
-    pub(crate) fn needs_new(&self) -> FXProp<bool>;
-            }
+        /// Delegate to the FXArgProps implementation.
+        to self.arg_props {
+            pub(crate) fn needs_default(&self) -> FXProp<bool>;
+            pub(crate) fn syncish(&self) -> FXProp<bool>;
+            pub(crate) fn needs_new(&self) -> FXProp<bool>;
         }
+    }
 
     pub(crate) fn new(input: FXInputReceiver, args: args::FXSArgs) -> Rc<Self> {
         let input = Rc::new(input);
@@ -90,7 +88,6 @@ impl FXCodeGenCtx {
             builder_struct: OnceCell::new(),
 
             copyable_types: RefCell::new(Vec::new()),
-            default_toks: RefCell::new(Vec::new()),
             errors: OnceCell::new(),
             extra_fields: RefCell::new(Vec::new()),
             field_ctx_table: OnceCell::new(),
@@ -188,14 +185,6 @@ impl FXCodeGenCtx {
         self._errors().borrow_mut().push(err);
     }
 
-    // #[inline(always)]
-    // pub fn ok_or_else<T>(&self, outcome: darling::Result<T>, mapper: impl FnOnce() -> T) -> T {
-    //     outcome.unwrap_or_else(|err| {
-    //         self.push_error(err);
-    //         mapper()
-    //     })
-    // }
-
     #[inline(always)]
     pub(crate) fn ok_or_empty(&self, outcome: darling::Result<TokenStream>) -> TokenStream {
         outcome.unwrap_or_else(|err| {
@@ -220,11 +209,6 @@ impl FXCodeGenCtx {
     #[inline(always)]
     pub(crate) fn add_field_decl(&self, field: FXFieldConstructor) {
         self.user_struct.borrow_mut().add_field(field);
-    }
-
-    #[inline(always)]
-    pub(crate) fn add_defaults_decl(&self, defaults: TokenStream) {
-        self.default_toks.borrow_mut().push(defaults);
     }
 
     #[inline(always)]
@@ -273,16 +257,6 @@ impl FXCodeGenCtx {
         self._tokens().borrow_mut().extend(toks.to_token_stream());
     }
 
-    pub(crate) fn defaults_combined(&self) -> Option<TokenStream> {
-        let default_toks = &*self.default_toks.borrow();
-        if default_toks.is_empty() {
-            None
-        }
-        else {
-            Some(quote_spanned! [self.needs_default().final_span()=> #( #default_toks ),* ])
-        }
-    }
-
     #[inline]
     pub(crate) fn finalize(&self) -> TokenStream {
         if let Some(errors) = self.errors.get().map(|e| e.take()) {
@@ -318,49 +292,10 @@ impl FXCodeGenCtx {
             .get_or_init(|| format_ident!("__me", span = self.arg_props().serde().final_span()))
     }
 
-    // #[allow(dead_code)]
-    // #[inline]
-    // pub(crate) fn add_attr_from<ATTR: ToTokens>(&self, attr: ATTR) {
-    //     let Some(attr) = Attributizer::from(attr).into_inner()
-    //     else {
-    //         return;
-    //     };
-    //     self.extra_attrs.borrow_mut().push(attr);
-    // }
-
-    // #[allow(dead_code)]
-    // #[inline]
-    // pub(crate) fn add_attr(&self, attr: syn::Attribute) {
-    //     self.extra_attrs.borrow_mut().push(attr);
-    // }
-
     #[inline]
     pub(crate) fn add_extra_field(&self, field: FXField) {
         self.extra_fields.borrow_mut().push(field);
     }
-
-    // #[inline]
-    // pub(crate) fn all_attrs(&self) -> Vec<syn::Attribute> {
-    //     let mut attrs: Vec<syn::Attribute> = self
-    //         .extra_attrs
-    //         .borrow()
-    //         .iter()
-    //         .chain(self.input().attrs().iter())
-    //         .cloned()
-    //         .collect();
-    //     attrs.sort_by(|a, b| {
-    //         if a.path().is_ident("derive") && !b.path().is_ident("derive") {
-    //             std::cmp::Ordering::Less
-    //         }
-    //         else if !a.path().is_ident("derive") && b.path().is_ident("derive") {
-    //             std::cmp::Ordering::Greater
-    //         }
-    //         else {
-    //             std::cmp::Ordering::Equal
-    //         }
-    //     });
-    //     attrs
-    // }
 
     pub(crate) fn field_ctx_table(&self) -> &RefCell<HashMap<syn::Ident, Rc<FXFieldCtx>>> {
         self.field_ctx_table.get_or_init(|| {

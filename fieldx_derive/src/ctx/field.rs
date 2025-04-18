@@ -21,6 +21,7 @@ use quote::quote;
 use quote::quote_spanned;
 use quote::ToTokens;
 use std::cell::OnceCell;
+use std::cell::Ref;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -36,6 +37,7 @@ pub(crate) struct FXFieldCtx {
     default_fn_ident: OnceCell<darling::Result<syn::Ident>>,
     builder_checker:  RefCell<Option<TokenStream>>,
     props:            derived_props::FieldCTXProps,
+    default_expr:     RefCell<Option<TokenStream>>,
 }
 
 impl FXFieldCtx {
@@ -141,6 +143,7 @@ impl FXFieldCtx {
             #[cfg(feature = "serde")]
             default_fn_ident: OnceCell::new(),
             builder_checker: RefCell::new(None),
+            default_expr: RefCell::new(None),
         }
     }
 
@@ -178,6 +181,11 @@ impl FXFieldCtx {
     pub(crate) fn ident(&self) -> &syn::Ident {
         self.ident
             .get_or_init(|| self.field.ident().expect("No field ident found"))
+    }
+
+    #[inline(always)]
+    pub(crate) fn extra(&self) -> bool {
+        self.field.is_extra()
     }
 
     #[cfg(feature = "serde")]
@@ -242,5 +250,13 @@ impl FXFieldCtx {
             FXInlining::Inline => quote_spanned![span=> #[inline] #( #attrs )*],
             FXInlining::Always => quote_spanned![span=> #[inline(always)] #( #attrs )*],
         }
+    }
+
+    pub(crate) fn set_default_expr(&self, expr: TokenStream) {
+        *self.default_expr.borrow_mut() = Some(expr);
+    }
+
+    pub(crate) fn default_expr(&self) -> Ref<Option<TokenStream>> {
+        self.default_expr.borrow()
     }
 }

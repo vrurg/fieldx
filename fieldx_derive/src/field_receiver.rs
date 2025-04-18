@@ -95,10 +95,27 @@ pub(crate) struct FXFieldReceiver {
 
     #[darling(skip)]
     fieldx_attr_span: Option<Span>,
+
+    #[darling(skip)]
+    #[getset(skip)]
+    extra: bool,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct FXField(FXFieldReceiver);
+
+impl FXField {
+    #[inline]
+    pub(crate) fn extra(mut self) -> Self {
+        self.0.extra = true;
+        self
+    }
+
+    #[inline(always)]
+    pub(crate) fn is_extra(&self) -> bool {
+        self.0.extra
+    }
+}
 
 impl FromField for FXField {
     fn from_field(field: &syn::Field) -> darling::Result<Self> {

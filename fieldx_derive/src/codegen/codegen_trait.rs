@@ -265,8 +265,7 @@ pub(crate) trait FXCodeGenContextual {
             self.field_default_wrap(fctx)?
         };
         let ident = fctx.ident();
-        self.ctx()
-            .add_defaults_decl(quote_spanned! [ident.span()=> #ident: #def_tok ]);
+        fctx.set_default_expr(quote_spanned! [ident.span()=> #ident: #def_tok ]);
         Ok(())
     }
 

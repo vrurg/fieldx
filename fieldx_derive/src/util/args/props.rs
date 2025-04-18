@@ -29,6 +29,7 @@ use fieldx_aux::FXTriggerHelper;
 use once_cell::unsync::OnceCell;
 use quote::format_ident;
 use syn::spanned::Spanned;
+use syn::Token;
 
 use super::FXSArgs;
 
@@ -91,6 +92,10 @@ pub(crate) struct FXArgProps {
     rc:                             OnceCell<FXProp<bool>>,
     rc_visibility:                  OnceCell<Option<syn::Visibility>>,
     rc_doc:                         OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
+    // Constructor new properties
+    needs_new:                      OnceCell<FXProp<bool>>,
+    new_visibility:                 OnceCell<Option<syn::Visibility>>,
+    new_ident:                      OnceCell<Option<syn::Ident>>,
     // Other properties
     fallible:                       OnceCell<Option<FXProp<FXFallible>>>,
     inner_mut:                      OnceCell<Option<FXProp<bool>>>,
@@ -99,7 +104,6 @@ pub(crate) struct FXArgProps {
     mode_async:                     OnceCell<Option<FXProp<bool>>>,
     mode_plain:                     OnceCell<Option<FXProp<bool>>>,
     mode_sync:                      OnceCell<Option<FXProp<bool>>>,
-    needs_new:                      OnceCell<FXProp<bool>>,
     needs_default:                  OnceCell<FXProp<bool>>,
     optional:                       OnceCell<Option<FXProp<bool>>>,
     setter_into:                    OnceCell<Option<FXProp<bool>>>,
@@ -205,6 +209,8 @@ impl FXArgProps {
             mode_plain: OnceCell::new(),
             mode_sync: OnceCell::new(),
             needs_new: OnceCell::new(),
+            new_visibility: OnceCell::new(),
+            new_ident: OnceCell::new(),
             needs_default: OnceCell::new(),
             optional: OnceCell::new(),
             setter_into: OnceCell::new(),
@@ -279,7 +285,61 @@ impl FXArgProps {
     }
 
     pub(crate) fn needs_new(&self) -> FXProp<bool> {
-        *self.needs_new.get_or_init(|| self.source.no_new().is_true().not())
+        *self.needs_new.get_or_init(|| {
+            self.source
+                .new()
+                .as_ref()
+                .map_or_else(|| self.source.no_new().is_true().not(), |n| n.is_true())
+        })
+    }
+
+    pub(crate) fn new_visibility(&self) -> Option<&syn::Visibility> {
+        self.new_visibility
+            .get_or_init(|| {
+                let needs_new = self.needs_new();
+                if *needs_new {
+                    self.source
+                        .new()
+                        .as_ref()
+                        .and_then(|n| n.visibility().cloned())
+                        .or_else(|| Some(syn::Visibility::Public(Token![pub](needs_new.fx_span()))))
+                }
+                else {
+                    None
+                }
+            })
+            .as_ref()
+    }
+
+    // When the name of constructor method is not explicitly specified by the user then it is chosen based on the
+    // method visibility. `__fieldx_new` is used for private methods and `new` for public ones.
+    pub(crate) fn new_ident(&self) -> Option<&syn::Ident> {
+        self.new_ident
+            .get_or_init(|| {
+                if *self.needs_new() {
+                    let explicit_name = self.source.new().as_ref().and_then(|n| n.name());
+                    Some(explicit_name.map_or_else(
+                        || {
+                            let span = self.needs_new().fx_span();
+                            format_ident!(
+                                "{}",
+                                if self.new_visibility() == Some(&syn::Visibility::Inherited) {
+                                    "__fieldx_new"
+                                }
+                                else {
+                                    "new"
+                                },
+                                span = span
+                            )
+                        },
+                        |name| format_ident!("{}", name.value(), span = name.final_span()),
+                    ))
+                }
+                else {
+                    None
+                }
+            })
+            .as_ref()
     }
 
     pub(crate) fn builder_visibility(&self) -> Option<&syn::Visibility> {
@@ -388,12 +448,12 @@ impl FXArgProps {
         *self.needs_default.get_or_init(|| {
             self.source.default().as_ref().map_or_else(
                 || {
-                    let needs_new = self.needs_new();
-                    if *needs_new {
-                        return needs_new;
-                    }
-
                     let is_syncish = *self.syncish();
+
+                    #[cfg(feature = "serde")]
+                    if self.serde_default_value().is_some() {
+                        return FXProp::new(true, self.serde_default_value().orig_span());
+                    }
 
                     if let Some(prop) = self.codegen_ctx().all_field_ctx().iter().find_map(|fctx| {
                         let has_default = fctx.props().field_props().has_default();

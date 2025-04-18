@@ -172,7 +172,7 @@ impl<'a> FXRewriter<'a> {
             ];
 
             ctx.exec_or_record(|| {
-                let field = FXField::from_field(&field)?;
+                let field = FXField::from_field(&field)?.extra();
                 self.ctx().add_extra_field(field);
                 Ok(())
             });
@@ -251,32 +251,39 @@ impl<'a> FXRewriter<'a> {
 
     fn struct_extras(&'a self) {
         let ctx = self.ctx();
+        let arg_props = ctx.arg_props();
         let cgen = self.struct_codegen();
 
         self.myself_methods();
 
-        let needs_default = ctx.needs_default();
         let needs_new = ctx.needs_new();
 
-        if *needs_default {
-            let span = needs_default.final_span();
+        if *needs_new {
+            let span = needs_new.final_span();
             // Generate fn new()
-            let new_name = if *needs_new {
-                format_ident!("new", span = needs_new.final_span())
-            }
-            else {
-                format_ident!("__fieldx_new", span = span)
-            };
+            let new_name = arg_props.new_ident().expect("Constructor name not set");
 
-            let mut mc = FXFnConstructor::new_associated(new_name);
+            let mut mc = FXFnConstructor::new_associated(new_name.clone());
+            let defaults = ctx
+                .all_field_ctx()
+                .iter()
+                .filter_map(|fctx| {
+                    if !fctx.extra() {
+                        fctx.default_expr().clone()
+                    }
+                    else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
 
             ctx.ok_or_record(
                 mc.set_span(span)
                     .set_ret_type(cgen.maybe_ref_counted(&quote_spanned![span=> Self]))
-                    .set_vis(quote_spanned![span=> pub])
+                    .set_vis(arg_props.new_visibility())
                     .set_ret_stmt(cgen.maybe_ref_counted_create(
                         &quote_spanned![span=> Self],
-                        &quote_spanned![span=> ..Self::default()],
+                        &quote_spanned![span=> #( #defaults ),*],
                         None,
                     ))
                     .add_attribute_toks(quote_spanned! {span=> #[inline] }),
@@ -331,7 +338,13 @@ impl<'a> FXRewriter<'a> {
             return;
         }
 
-        if let Some(defaults) = ctx.defaults_combined() {
+        let defaults = ctx
+            .all_field_ctx()
+            .iter()
+            .map(|fctx| fctx.default_expr().clone())
+            .collect::<Vec<_>>();
+
+        if defaults.len() > 0 {
             let span = needs_default.final_span();
             let mut default_impl = FXImplConstructor::new(format_ident!("Default", span = span));
             let mut default_method = FXFnConstructor::new_associated(format_ident!("default", span = span));
@@ -344,7 +357,7 @@ impl<'a> FXRewriter<'a> {
             default_method
                 .set_span(span)
                 .set_ret_type(quote_spanned! {span=> Self})
-                .set_ret_stmt(quote_spanned! {span=> Self { #defaults }});
+                .set_ret_stmt(quote_spanned! {span=> Self { #( #defaults ),* }});
             default_impl.add_method(default_method);
             user_struct.add_trait_impl(default_impl);
         }

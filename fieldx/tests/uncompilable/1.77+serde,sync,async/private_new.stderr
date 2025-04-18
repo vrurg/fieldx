@@ -1,0 +1,17 @@
+error[E0624]: associated function `__fieldx_new` is private
+ --> tests/uncompilable/private_new.rs
+  |
+  |     #[fxstruct(new(private))]
+  |                --- private associated function defined here
+...
+  |     let foo = foo::Foo::__fieldx_new();
+  |                         ^^^^^^^^^^^^ private associated function
+
+error[E0624]: associated function `_new` is private
+ --> tests/uncompilable/private_new.rs
+  |
+  |     #[fxstruct(new("_new", private))]
+  |                --- private associated function defined here
+...
+  |     let bar = foo::Bar::_new();
+  |                         ^^^^ private associated function

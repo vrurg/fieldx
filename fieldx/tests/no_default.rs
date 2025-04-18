@@ -11,7 +11,7 @@ impl From<&str> for Bar {
     }
 }
 
-#[fxstruct(get(vis(pub)), builder, default(off))]
+#[fxstruct(get(vis(pub)), builder, new(off), default(off))]
 struct Plain {
     #[fieldx(set)]
     bar: Bar,
