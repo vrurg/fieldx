@@ -1,6 +1,12 @@
 # Changelog
 
-## [0.1.13] - 2025-04-18
+## [unreleased]
+
+### Bug Fixes
+
+- Fix a regression that broke compatibility with fieldx_plus crate 
+
+## [v0.1.13] - 2025-04-18
 
 ### Features
 
