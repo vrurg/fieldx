@@ -2,9 +2,9 @@ pub(crate) mod args;
 use fieldx_aux::FXBool;
 use fieldx_aux::FXOrig;
 use fieldx_aux::FXProp;
+use fieldx_aux::FXSetState;
 use fieldx_aux::FXSynValue;
 use fieldx_aux::FXSyncMode;
-use fieldx_aux::FXTriggerHelper;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -460,11 +460,11 @@ pub(crate) use TODO;
 #[allow(dead_code)]
 pub(crate) fn feature_required<T, O>(feature: &str, arg: &Option<T>) -> Option<darling::Error>
 where
-    T: FXTriggerHelper + FXOrig<O>,
+    T: FXSetState + FXOrig<O>,
     O: syn::spanned::Spanned,
 {
     if let Some(arg) = arg {
-        if *arg.is_true() {
+        if *arg.is_set() {
             return Some(
                 darling::Error::custom(format!("feature '{}' is required", feature)).with_span(&arg.final_span()),
             );

@@ -96,6 +96,7 @@ pub use crate::traits::*;
 pub use crate::value::FXValueArg;
 pub use crate::with_origin::FXOrig;
 use syn::ext::IdentExt;
+use value::FXEmpty;
 
 /// Concurrency mode
 ///
@@ -160,7 +161,7 @@ pub type FXSynTuple<T> = FXNestingAttr<FXSynTupleArg<T>, false>;
 /// String literal
 pub type FXString = FXNestingAttr<FXValueArg<String>>;
 /// Boolean literal
-pub type FXBool = FXNestingAttr<FXValueArg<(), true>>;
+pub type FXBool = FXNestingAttr<FXValueArg<FXEmpty, true>>;
 /// Accessor helper
 pub type FXAccessor<const BOOL_ONLY: bool = false> = FXNestingAttr<FXAccessorHelper<BOOL_ONLY>>;
 /// Setter helper

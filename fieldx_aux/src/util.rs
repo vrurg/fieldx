@@ -1,7 +1,7 @@
 /// Generate implementation of `set_literals` method for [`FromNestAttr`](crate::nesting_attr::FromNestAttr) trait.
 #[macro_export]
 macro_rules! set_literals {
-    ( $name:ident, $min:literal .. $($max:literal)? => $( $field:ident as $ty:path ),+ $( ; pre_validate => $pre_validate:ident )? ) => {
+    ( $name:ident, $min:literal .. $($max:literal)? => $( $field:ident ),+ $( ; pre_validate => $pre_validate:ident )? ) => {
         fn set_literals(#[allow(unused_mut)] mut self, literals: &Vec<::syn::Lit>) -> ::darling::Result<Self> {
             $( let _: () = self.$pre_validate(literals)?; )?
             #[allow(unused_comparisons)]
@@ -16,14 +16,15 @@ macro_rules! set_literals {
             let mut iter = literals.iter();
             $(
                 if let Some(lit) = iter.next() {
-                    self.$field = lit.clone().fx_try_into().map_err(|e| darling::Error::from(e).with_span(lit))?;
+                    self.$field =
+                        (stringify!($field), lit.clone()).fx_try_into().map_err(|e| darling::Error::from(e).with_span(lit))?;
                 }
             )+
             Ok(self)
         }
     };
-    ($name:ident, .. $max:tt => $( $field:ident as $ty:path ),+ $( ; pre_validate => $pre_validate:ident )? ) => {
-        set_literals! {$name, 0 .. $max => $( $field as $ty ),+ $( ; pre_validate => $pre_validate )?}
+    ($name:ident, .. $max:tt => $( $field:ident ),+ $( ; pre_validate => $pre_validate:ident )? ) => {
+        set_literals! {$name, 0 .. $max => $( $field ),+ $( ; pre_validate => $pre_validate )?}
     };
     ($name:ident $(, .. 0 )?) => {
         fn set_literals(#[allow(unused_mut)] mut self, _literals: &Vec<::syn::Lit>) -> ::darling::Result<Self> {

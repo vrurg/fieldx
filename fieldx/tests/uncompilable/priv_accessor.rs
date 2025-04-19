@@ -3,7 +3,7 @@ mod inner {
 
     #[fxstruct(get, vis(pub))]
     pub struct Foo {
-        #[fieldx]
+        #[fieldx(get(copy), default(0.0f32))]
         foo_rw: f32,
         #[fieldx(get(private), predicate(off))]
         foo:    u32,

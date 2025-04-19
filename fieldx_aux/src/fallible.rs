@@ -4,7 +4,6 @@ use crate::FXProp;
 use crate::FXPropBool;
 use crate::FXSetState;
 use crate::FXSynValue;
-use crate::FXTriggerHelper;
 use darling::util::Flag;
 use darling::FromMeta;
 
@@ -26,15 +25,6 @@ where
     /// Accessor for the error type.
     pub fn error_type(&self) -> Option<&T> {
         self.error_type.as_ref()
-    }
-}
-
-impl<T> FXTriggerHelper for FXFallible<T>
-where
-    T: FromMeta,
-{
-    fn is_true(&self) -> FXProp<bool> {
-        FXProp::from(self.off).not()
     }
 }
 

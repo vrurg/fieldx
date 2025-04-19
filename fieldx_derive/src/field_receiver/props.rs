@@ -17,7 +17,6 @@ use fieldx_aux::FXNestingAttr;
 use fieldx_aux::FXOrig;
 use fieldx_aux::FXProp;
 use fieldx_aux::FXSetState;
-use fieldx_aux::FXTriggerHelper;
 use once_cell::unsync::OnceCell;
 
 use super::FXField;
@@ -225,7 +224,7 @@ impl FXFieldProps {
                 .lock()
                 .as_ref()
                 .and_then(|l| {
-                    if *l.is_true() {
+                    if *l.is_set() {
                         Some(l.into())
                     }
                     else {
@@ -234,7 +233,7 @@ impl FXFieldProps {
                 })
                 .or_else(|| {
                     self.source.reader().as_ref().and_then(|r| {
-                        if *r.is_true() {
+                        if *r.is_set() {
                             Some(r.into())
                         }
                         else {
@@ -244,7 +243,7 @@ impl FXFieldProps {
                 })
                 .or_else(|| {
                     self.source.writer().as_ref().and_then(|w| {
-                        if *w.is_true() {
+                        if *w.is_set() {
                             Some(w.into())
                         }
                         else {
@@ -328,7 +327,7 @@ impl FXFieldProps {
             self.source
                 .default_value()
                 .as_ref()
-                .map_or_else(|| false.into(), |d| d.is_true())
+                .map_or_else(|| false.into(), |d| d.is_set())
         })
     }
 

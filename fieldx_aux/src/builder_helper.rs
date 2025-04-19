@@ -5,23 +5,25 @@ use crate::FXBool;
 use crate::FXDoc;
 use crate::FXOrig;
 use crate::FXProp;
+use crate::FXPropBool;
 use crate::FXPunctuated;
 use crate::FXSetState;
 use crate::FXString;
 use crate::FXSynValue;
-use crate::FXTriggerHelper;
 use crate::FXTryInto;
 use crate::FromNestAttr;
+
 use darling::util::Flag;
 use darling::FromMeta;
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
+use proc_macro2::TokenStream;
 use syn::Token;
 
 // TODO try to issue warnings with `diagnostics` for sub-arguments which are not supported at struct or field level.
 /// Implementation of builder argument.
-#[fxhelper(validate = Self::validate)]
-#[derive(Debug, Default, Getters)]
+#[fxhelper(validate = Self::validate, to_tokens)]
+#[derive(Debug, Default)]
 pub struct FXBuilderHelper<const STRUCT: bool = false> {
     #[getset(skip)]
     attributes:      Option<FXAttributes>,
@@ -112,13 +114,13 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
 
     /// The final error type.
     pub fn error_type(&self) -> Option<&syn::Path> {
-        self.error().as_ref().and_then(|ev| ev.items().first())
+        self.error().as_ref().and_then(|ev| ev.first())
     }
 
     /// The final error enum variant.
     #[inline]
     pub fn error_variant(&self) -> Option<&syn::Path> {
-        self.error().as_ref().and_then(|ev| ev.items().get(1))
+        self.error().as_ref().and_then(|ev| ev.get(1))
     }
 
     #[inline]
@@ -168,7 +170,7 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
 }
 
 impl<const STRUCT: bool> FromNestAttr for FXBuilderHelper<STRUCT> {
-    set_literals! {builder, ..1 => name as Lit::Str}
+    set_literals! {builder, ..1 => name}
 
     fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())

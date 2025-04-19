@@ -4,17 +4,17 @@ use crate::FXBool;
 use crate::FXBoolHelper;
 use crate::FXDefault;
 use crate::FXDoc;
-use crate::FXInto;
 use crate::FXNestingAttr;
 use crate::FXOrig;
 use crate::FXProp;
+use crate::FXPropBool;
 use crate::FXSetState;
 use crate::FXString;
 use crate::FXSynValue;
-use crate::FXTriggerHelper;
 use crate::FXTryFrom;
 use crate::FXTryInto;
 use crate::FromNestAttr;
+
 use darling::util::Flag;
 use darling::util::PathList;
 use darling::FromMeta;
@@ -43,8 +43,8 @@ impl FXTryFrom<syn::Lit> for FXSerdeRename {
     fn fx_try_from(value: syn::Lit) -> Result<Self, Self::Error> {
         match value {
             syn::Lit::Str(s) => Ok(Self {
-                serialize:   Some(s.clone().fx_into()),
-                deserialize: Some(s.fx_into()),
+                serialize:   ("serialize", s.clone()).fx_try_into()?,
+                deserialize: ("deserialize", s).fx_try_into()?,
             }),
             _ => Err(darling::Error::unexpected_lit_type(&value)),
         }
@@ -57,8 +57,8 @@ impl FXTryFrom<&syn::Lit> for FXSerdeRename {
     fn fx_try_from(value: &syn::Lit) -> Result<Self, Self::Error> {
         match value {
             syn::Lit::Str(s) => Ok(Self {
-                serialize:   Some(s.clone().fx_into()),
-                deserialize: Some(s.clone().fx_into()),
+                serialize:   ("serialize", s.clone()).fx_try_into()?,
+                deserialize: ("deserialize", s.clone()).fx_try_into()?,
             }),
             _ => Err(darling::Error::unexpected_lit_type(value)),
         }
@@ -105,28 +105,17 @@ pub struct FXSerdeHelper {
 }
 
 impl FromNestAttr for FXSerdeHelper {
-    set_literals! {serde, .. 1 => rename as Lit::Str}
+    set_literals! {serde, .. 1 => rename}
 
     fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())
     }
 }
 
-impl FXTriggerHelper for FXSerdeHelper {
-    fn is_true(&self) -> FXProp<bool> {
-        if self.off.is_present() {
-            FXProp::new(false, Some(self.off.span()))
-        }
-        else {
-            FXProp::new(true, None)
-        }
-    }
-}
-
 impl FXSetState for FXSerdeHelper {
     fn is_set(&self) -> FXProp<bool> {
         if self.off.is_present() {
-            FXProp::new(false, Some(self.off.span()))
+            FXProp::from(&self.off).not()
         }
         else {
             // If `is_serde` returns `None`, then it means that `serialize` and `deserialize` are not explicitly set.
@@ -150,7 +139,7 @@ impl FXSerdeHelper {
     pub fn needs_serialize(&self) -> Option<FXProp<bool>> {
         self.serialize.as_ref().map(|s| s.into()).or_else(|| {
             self.deserialize.as_ref().and_then(|d| {
-                if *d.is_true() {
+                if *d.is_set() {
                     Some(FXProp::new(false, d.orig_span()))
                 }
                 else {
@@ -166,14 +155,14 @@ impl FXSerdeHelper {
         self.deserialize.as_ref().map(|d| d.into()).or_else(|| {
             self.serialize
                 .as_ref()
-                .map(|s| FXProp::new(!*s.is_true(), s.orig_span()))
+                .map(|s| FXProp::new(!*s.is_set(), s.orig_span()))
         })
     }
 
     pub fn is_serde(&self) -> FXProp<Option<bool>> {
         // Consider as Some(true) if not `serde(off)` or any of `serialize` or `deserialize` is defined and not both are
         // `off`. I.e. since `serde(deserialize(off))` implies `serialize` being `on` then the outcome is `Some(true)`.
-        let is_true = self.is_true();
+        let is_true = FXProp::from(&self.off).not();
         if *is_true {
             let is_serialize: Option<FXProp<bool>> = self.serialize.as_ref().map(|s| s.into());
             let is_deserialize: Option<FXProp<bool>> = self.deserialize.as_ref().map(|d| d.into());
@@ -189,10 +178,6 @@ impl FXSerdeHelper {
             }
             else {
                 FXProp::new(Some(true), None)
-                // is_serialize
-                //     .or(is_deserialize)
-                //     .map(|is| FXProp::new(Some(*is), is.orig_span()))
-                //     .unwrap()
             }
         }
         else {
@@ -207,7 +192,7 @@ impl FXSerdeHelper {
 
     #[inline]
     pub fn has_default(&self) -> bool {
-        self.default_value.as_ref().map_or(false, |d| *d.is_true())
+        self.default_value.as_ref().map_or(false, |d| *d.is_set())
     }
 
     #[inline]

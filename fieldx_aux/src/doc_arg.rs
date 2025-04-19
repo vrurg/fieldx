@@ -2,6 +2,8 @@ use crate::FXProp;
 use crate::FXSetState;
 use crate::FromNestAttr;
 use darling::FromMeta;
+use quote::quote;
+use quote::ToTokens;
 
 /// Minimal helper declaration. For example, `fieldx` uses it for helpers like `reader` or `writer`.
 ///
@@ -21,6 +23,14 @@ impl FXDocArg {
     /// Shortcut to the `lines` parameter.
     pub fn lines(&self) -> FXProp<Vec<syn::LitStr>> {
         FXProp::new(self.lines.clone(), None)
+    }
+}
+impl ToTokens for FXDocArg {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        if !self.lines.is_empty() {
+            let lines = &self.lines;
+            tokens.extend(quote! { #(#lines),* });
+        }
     }
 }
 

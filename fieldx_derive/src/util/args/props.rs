@@ -25,7 +25,6 @@ use fieldx_aux::FXProp;
 use fieldx_aux::FXPropBool;
 use fieldx_aux::FXSetState;
 use fieldx_aux::FXSpaned;
-use fieldx_aux::FXTriggerHelper;
 use once_cell::unsync::OnceCell;
 use quote::format_ident;
 use syn::spanned::Spanned;
@@ -289,7 +288,7 @@ impl FXArgProps {
             self.source
                 .new()
                 .as_ref()
-                .map_or_else(|| self.source.no_new().is_true().not(), |n| n.is_true())
+                .map_or_else(|| self.source.no_new().is_true().not(), |n| n.is_set())
         })
     }
 
@@ -471,7 +470,7 @@ impl FXArgProps {
 
                     false.into()
                 },
-                |d| d.is_true(),
+                |d| d.is_set(),
             )
         })
     }
@@ -509,12 +508,9 @@ impl FXArgProps {
     }
 
     pub(crate) fn rc(&self) -> FXProp<bool> {
-        *self.rc.get_or_init(|| {
-            self.source
-                .rc()
-                .as_ref()
-                .map_or_else(|| false.into(), |rc| rc.is_true())
-        })
+        *self
+            .rc
+            .get_or_init(|| self.source.rc().as_ref().map_or_else(|| false.into(), |rc| rc.is_set()))
     }
 
     pub(crate) fn rc_visibility(&self) -> Option<&syn::Visibility> {

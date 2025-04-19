@@ -4,7 +4,6 @@ use crate::FXOrig;
 use crate::FXProp;
 use crate::FXPropBool;
 use crate::FXSetState;
-use crate::FXTriggerHelper;
 use crate::FromNestAttr;
 use darling::util::Flag;
 use darling::FromMeta;
@@ -128,18 +127,8 @@ impl FromMeta for FXDefault {
 }
 
 impl FXSetState for FXDefault {
+    #[inline]
     fn is_set(&self) -> FXProp<bool> {
-        if self.off.is_present() {
-            FXProp::new(false, self.orig_span())
-        }
-        else {
-            FXProp::new(self.value.is_some(), self.orig_span())
-        }
-    }
-}
-
-impl FXTriggerHelper for FXDefault {
-    fn is_true(&self) -> FXProp<bool> {
         FXProp::from(self.off).not()
     }
 }

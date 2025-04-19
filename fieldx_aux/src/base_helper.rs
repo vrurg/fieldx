@@ -5,15 +5,17 @@ use crate::FXAttributes;
 use crate::FXBool;
 use crate::FXOrig;
 use crate::FXProp;
+use crate::FXPropBool;
 use crate::FXSetState;
 use crate::FXString;
-use crate::FXTriggerHelper;
 use crate::FXTryInto;
 use crate::FromNestAttr;
+
 use darling::util::Flag;
 use darling::FromMeta;
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
+use proc_macro2::TokenStream;
 use syn::Lit;
 
 /// Minimal helper declaration. For example, `fieldx` uses it for helpers like `reader` or `writer`.
@@ -24,7 +26,7 @@ use syn::Lit;
 /// ```ignore
 ///     foo: FXNestingAttr<FXBaseHelper<true>>,
 /// ```
-#[fxhelper]
+#[fxhelper(to_tokens)]
 #[derive(Default, Debug)]
 pub struct FXBaseHelper<const BOOL_ONLY: bool = false> {}
 
@@ -38,7 +40,7 @@ impl<const BOOL_ONLY: bool> FXBaseHelper<BOOL_ONLY> {
 }
 
 impl<const BOOL_ONLY: bool> FromNestAttr for FXBaseHelper<BOOL_ONLY> {
-    set_literals! {helper, ..1usize => name as Lit::Str; pre_validate => allowed_literals}
+    set_literals! {helper, ..1usize => name; pre_validate => allowed_literals}
 
     fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
         Ok(Self::default())
@@ -47,13 +49,13 @@ impl<const BOOL_ONLY: bool> FromNestAttr for FXBaseHelper<BOOL_ONLY> {
 
 impl<const BOOL_ONLY: bool> From<FXBaseHelper<BOOL_ONLY>> for bool {
     fn from(value: FXBaseHelper<BOOL_ONLY>) -> Self {
-        *value.is_true()
+        *value.is_set()
     }
 }
 
 impl<const BOOL_ONLY: bool> From<&FXBaseHelper<BOOL_ONLY>> for bool {
     fn from(value: &FXBaseHelper<BOOL_ONLY>) -> Self {
-        *value.is_true()
+        *value.is_set()
     }
 }
 

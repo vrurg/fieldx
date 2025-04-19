@@ -1,6 +1,7 @@
 //! Support for types that are not supported by [`darling`] but implement [`syn::parse::Parse`]
 use crate::traits::FXSetState;
 use crate::FXProp;
+use crate::FXTryFrom;
 
 use super::FXFrom;
 use super::FromNestAttr;
@@ -124,16 +125,26 @@ where
         Self { value: Some(value) }
     }
 }
-impl<T, U, const AS_KEYWORD: bool> FXFrom<FXSynValueArg<T, AS_KEYWORD>> for Option<FXProp<U>>
+
+impl<T, const AS_KEYWORD: bool> FXTryFrom<T> for FXSynValueArg<T, AS_KEYWORD>
 where
-    U: From<T>,
-    T: Spanned,
+    T: Parse,
 {
-    fn fx_from(value: FXSynValueArg<T, AS_KEYWORD>) -> Self {
-        value.value.map(|v| {
-            let span = v.span();
-            FXProp::new(v.into(), Some(span))
-        })
+    type Error = darling::Error;
+
+    fn fx_try_from(value: T) -> Result<Self, Self::Error> {
+        Ok(Self { value: Some(value) })
+    }
+}
+
+impl<T, const AS_KEYWORD: bool> FXTryFrom<Option<T>> for FXSynValueArg<T, AS_KEYWORD>
+where
+    T: Parse,
+{
+    type Error = darling::Error;
+
+    fn fx_try_from(value: Option<T>) -> Result<Self, Self::Error> {
+        Ok(Self { value })
     }
 }
 
@@ -276,7 +287,7 @@ where
     T: Debug + Spanned + ToTokens + Parse,
     S: Debug + Spanned + ToTokens + Parse,
 {
-    items: Vec<T>,
+    items: syn::punctuated::Punctuated<T, S>,
     _p:    PhantomData<S>,
 }
 
@@ -285,13 +296,19 @@ where
     T: Debug + Spanned + ToTokens + Parse,
     S: Debug + Spanned + ToTokens + Parse,
 {
-    /// Accessor for the syntax objects list.
-    pub fn items(&self) -> &Vec<T> {
-        &self.items
-    }
-
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.items.iter()
+    }
+}
+
+impl<T, S, const MIN: i32, const MAX: i32> ToTokens for FXPunctuated<T, S, MIN, MAX>
+where
+    T: Debug + Spanned + ToTokens + Parse,
+    S: Debug + Spanned + ToTokens + Parse,
+{
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        self.items.to_tokens(tokens);
     }
 }
 
@@ -315,7 +332,7 @@ where
         }
 
         Ok(Self {
-            items: result.into_iter().collect(),
+            items: result.into_pairs().collect(),
             _p:    PhantomData::default(),
         })
     }
@@ -339,29 +356,29 @@ where
     T: Spanned + ToTokens + Parse + Debug,
     S: Spanned + ToTokens + Parse + Debug,
 {
-    type Target = Vec<T>;
+    type Target = Punctuated<T, S>;
 
     fn deref(&self) -> &Self::Target {
         &self.items
     }
 }
 
-impl<T, S, const MIN: i32, const MAX: i32> AsRef<Vec<T>> for FXPunctuated<T, S, MIN, MAX>
+impl<T, S, const MIN: i32, const MAX: i32> AsRef<Punctuated<T, S>> for FXPunctuated<T, S, MIN, MAX>
 where
     T: Spanned + ToTokens + Parse + Debug,
     S: Spanned + ToTokens + Parse + Debug,
 {
-    fn as_ref(&self) -> &Vec<T> {
+    fn as_ref(&self) -> &Punctuated<T, S> {
         &self.items
     }
 }
 
-impl<T, S, const MIN: i32, const MAX: i32> Borrow<Vec<T>> for FXPunctuated<T, S, MIN, MAX>
+impl<T, S, const MIN: i32, const MAX: i32> Borrow<Punctuated<T, S>> for FXPunctuated<T, S, MIN, MAX>
 where
     T: Spanned + ToTokens + Parse + Debug,
     S: Spanned + ToTokens + Parse + Debug,
 {
-    fn borrow(&self) -> &Vec<T> {
+    fn borrow(&self) -> &Punctuated<T, S> {
         &self.items
     }
 }

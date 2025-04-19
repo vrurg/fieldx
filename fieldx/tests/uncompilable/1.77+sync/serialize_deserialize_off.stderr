@@ -1,9 +1,3 @@
-error: feature 'serde' is required
- --> tests/uncompilable/serialize_deserialize_off.rs
-  |
-  | #[fxstruct(sync, serde(serialize(off), deserialize(off)))]
-  |                  ^^^^^
-
 error[E0422]: cannot find struct, variant or union type `__FooShadow` in this scope
  --> tests/uncompilable/serialize_deserialize_off.rs
   |

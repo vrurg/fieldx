@@ -3,8 +3,8 @@ use std::ops::Deref;
 use darling::util::Flag;
 use proc_macro2::Span;
 
+use crate::FXSetState;
 use crate::FXSpaned;
-use crate::FXTriggerHelper;
 
 #[derive(Debug)]
 pub struct FXProp<T> {
@@ -51,10 +51,10 @@ impl FXProp<bool> {
 
 impl<T> FXProp<T>
 where
-    T: FXTriggerHelper,
+    T: FXSetState,
 {
     pub fn or<'a>(&'a self, other: &'a FXProp<T>) -> &'a Self {
-        if *self.is_true() {
+        if *self.is_set() {
             self
         }
         else {
@@ -105,10 +105,10 @@ impl<T> Copy for FXProp<T> where T: Copy {}
 
 impl<T> From<FXProp<T>> for bool
 where
-    T: FXTriggerHelper,
+    T: FXSetState,
 {
     fn from(value: FXProp<T>) -> Self {
-        *value.is_true()
+        *value.is_set()
     }
 }
 
@@ -120,10 +120,10 @@ impl From<FXProp<bool>> for bool {
 
 impl<T> From<&FXProp<T>> for bool
 where
-    T: FXTriggerHelper,
+    T: FXSetState,
 {
     fn from(value: &FXProp<T>) -> Self {
-        *value.is_true()
+        *value.is_set()
     }
 }
 
@@ -300,28 +300,28 @@ impl From<bool> for FXProp<bool> {
 
 impl<T> From<&T> for FXProp<bool>
 where
-    T: FXTriggerHelper,
+    T: FXSetState,
 {
     fn from(value: &T) -> Self {
-        value.is_true()
+        value.is_set()
     }
 }
 
 impl<T> From<FXProp<T>> for FXProp<bool>
 where
-    T: FXTriggerHelper,
+    T: FXSetState,
 {
     fn from(value: FXProp<T>) -> Self {
-        value.is_true()
+        value.is_set()
     }
 }
 
 impl<T> From<&FXProp<T>> for FXProp<bool>
 where
-    T: FXTriggerHelper,
+    T: FXSetState,
 {
     fn from(value: &FXProp<T>) -> Self {
-        value.is_true()
+        value.is_set()
     }
 }
 

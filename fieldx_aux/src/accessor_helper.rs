@@ -1,17 +1,19 @@
 //! Implementation of accessor helper (`get` argument of `fxstruct`/`fieldx` attributes).
 use crate::FXAttributes;
 use crate::FXBool;
-use crate::FXInto;
 use crate::FXOrig;
 use crate::FXProp;
+use crate::FXPropBool;
 use crate::FXSetState;
 use crate::FXString;
-use crate::FXTriggerHelper;
+use crate::FXTryInto;
 use crate::FromNestAttr;
+
 use darling::util::Flag;
 use darling::FromMeta;
 use fieldx_derive_support::fxhelper;
 use getset::Getters;
+use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::Lit;
 
@@ -58,7 +60,7 @@ impl FXSetState for FXAccessorMode {
 }
 
 /// Implement support for accessor attribute argument.
-#[fxhelper]
+#[fxhelper(to_tokens)]
 #[derive(Default, Debug)]
 pub struct FXAccessorHelper<const BOOL_ONLY: bool = false> {
     // Unfortunately, darling(flatten) over a FXAccessorMode field will break support for arguments that are implicitly
@@ -104,8 +106,8 @@ impl<const BOOL_ONLY: bool> FromNestAttr for FXAccessorHelper<BOOL_ONLY> {
             return Err(darling::Error::custom("Too many literals"));
         }
         else if literals.len() == 1 {
-            if let Lit::Str(ref str) = literals[0] {
-                self.name = Some(str.value().fx_into());
+            if matches!(literals[0], Lit::Str(_)) {
+                self.name = ("name", literals[0].clone()).fx_try_into()?;
             }
             else {
                 let err =

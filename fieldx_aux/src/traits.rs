@@ -1,20 +1,27 @@
 use proc_macro2::Span;
+use quote::format_ident;
 use syn::spanned::Spanned;
 
 use crate::FXAttributes;
 use crate::FXDoc;
 use crate::FXProp;
 
-/// Trait for arguments with trigger behavior. For example, `fieldx` `get` which can be disabled by `off` subargument.
-pub trait FXTriggerHelper {
-    /// Trigger value
-    fn is_true(&self) -> FXProp<bool>;
-}
-
 /// Where it is not possible to use the standard `From`/`Into` traits due to conflicting implementations this crate is
 /// using `FXFrom`/`FXInto` instead.
 pub trait FXFrom<T> {
     fn fx_from(value: T) -> Self;
+}
+
+/// A common way to create a `syn::Path` from a string literal using an [`FXSpaned`] value.
+/// Helper for [`ToTokens`](https://docs.rs/quote/latest/quote/trait.ToTokens.html) implementations.
+impl<S> FXFrom<(&str, S)> for syn::Path
+where
+    S: FXSpaned,
+{
+    #[inline]
+    fn fx_from(value: (&str, S)) -> Self {
+        format_ident!("{}", value.0, span = value.1.fx_span()).into()
+    }
 }
 
 /// The counterpart of `FXFrom`.
@@ -61,7 +68,7 @@ pub trait FXBoolHelper {
 }
 
 /// Base functionality of helper types.
-pub trait FXHelperTrait: FXTriggerHelper {
+pub trait FXHelperTrait: FXSetState {
     /// Helper method name.
     fn name(&self) -> Option<FXProp<&str>>;
     /// For helper methods that are backed by additional types these are attributes to be applied to the types.
@@ -74,15 +81,15 @@ pub trait FXHelperTrait: FXTriggerHelper {
     fn doc(&self) -> Option<&FXDoc>;
 }
 
-impl<H: FXTriggerHelper> FXBoolHelper for Option<H> {
+impl<H: FXSetState> FXBoolHelper for Option<H> {
     #[inline]
     fn is_true(&self) -> FXProp<bool> {
-        self.as_ref().map_or(FXProp::new(false, None), |h| h.is_true())
+        self.as_ref().map_or(FXProp::new(false, None), |h| h.is_set())
     }
 
     #[inline]
     fn is_true_opt(&self) -> Option<FXProp<bool>> {
-        self.as_ref().map(|h| h.is_true())
+        self.as_ref().map(|h| h.is_set())
     }
 }
 

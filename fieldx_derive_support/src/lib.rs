@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use darling::ast;
+use darling::util::Flag;
 use darling::FromDeriveInput;
 use darling::FromField;
 use darling::FromMeta;
@@ -21,7 +22,8 @@ use syn::DeriveInput;
 
 #[derive(Debug, FromMeta, Clone)]
 struct FXHArgs {
-    validate: Option<syn::Path>,
+    validate:  Option<syn::Path>,
+    to_tokens: Flag,
 }
 
 #[derive(Debug, FromField, Clone)]
@@ -92,12 +94,22 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
         ],
     );
 
+    // List of token stream producers for ToTokens implementation
+    let mut metas = ["name", "attributes_fn", "visibility", "private", "doc"]
+        .iter()
+        .map(|s| format_ident!("{}", s))
+        .collect::<Vec<_>>();
+
     for field in fields.iter() {
         let mut custom_attrs = vec![];
         let field_alias = field.rename.as_ref().cloned();
 
         if let Some(ref alias) = field_alias {
             custom_attrs.push(quote![ #[darling(rename = #alias)] ]);
+        }
+
+        if let Some(ref field_ident) = field.ident {
+            metas.push(field_ident.clone());
         }
 
         if let Some(exclusive) = &field.exclusive {
@@ -212,6 +224,33 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
         quote![]
     };
 
+    let pound = syn::Token![#](Span::call_site());
+
+    let to_tokens_impl = if args.to_tokens.is_present() {
+        let span = args.to_tokens.span();
+        quote_spanned! {span=>
+            impl #impl_generics ::quote::ToTokens for #ident #ty_generics #where_clause {
+                fn to_tokens(&self, tokens: &mut TokenStream) {
+                    let mut parts = vec![];
+                    if self.off.is_present() {
+                        parts.push(::quote::quote! { off });
+                    }
+                    #(
+                        let meta_toks = self.#metas.to_token_stream();
+                        if !meta_toks.is_empty() {
+                            parts.push(meta_toks);
+                        }
+                    )*
+
+                    tokens.extend(::quote::quote! { #pound(#pound parts),* });
+                }
+            }
+        }
+    }
+    else {
+        quote! {}
+    };
+
     quote! [
         #[derive(FromMeta, Clone)]
         #( #attrs )*
@@ -234,24 +273,10 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
             #( #fields_tt ),*
         }
 
-        impl #impl_generics FXTriggerHelper for #ident #ty_generics #where_clause {
-            fn is_true(&self) -> FXProp<bool> {
-                let is_present = self.off.is_present();
-                FXProp::new(
-                    !is_present,
-                    if is_present { Some(self.off.span()) } else { None }
-                )
-            }
-        }
-
         impl #impl_generics FXSetState for #ident #ty_generics #where_clause {
+            #[inline]
             fn is_set(&self) -> FXProp<bool> {
-                if self.off.is_present() {
-                    FXProp::new(false, Some(self.off.span()))
-                }
-                else {
-                    FXProp::new(true, None)
-                }
+                FXProp::from(self.off).not()
             }
         }
 
@@ -273,7 +298,7 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
             #[inline]
             fn visibility(&self) -> Option<&syn::Visibility> {
-                if self.private.as_ref().map_or(false, |v| *v.is_true()) {
+                if self.private.as_ref().map_or(false, |v| *v.is_set()) {
                     return Some(&syn::Visibility::Inherited);
                 }
                 self.visibility.as_ref().map(|v| v.value())
@@ -299,6 +324,8 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
                 Ok(self)
             }
         }
+
+        #to_tokens_impl
     ]
     .into()
 }

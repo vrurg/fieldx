@@ -5,7 +5,7 @@ use fieldx_aux::FXDefault;
 use fieldx_aux::FXHelperTrait;
 use fieldx_aux::FXProp;
 use fieldx_aux::FXPropBool;
-use fieldx_aux::FXTriggerHelper;
+use fieldx_aux::FXSetState;
 use fieldx_derive_support::fallback_prop;
 use once_cell::sync::OnceCell;
 use quote::format_ident;
@@ -352,7 +352,7 @@ impl FieldCTXProps {
                         // Use `is_true` here because for a default value, `is_set` indicates that it has an explicit value.
                         // However, a plain `default` with no arguments simply means "we use ..Default::default()",
                         // which also counts as an extra field value source.
-                        let vopt = default.is_true();
+                        let vopt = default.is_set();
                         if *vopt {
                             return vopt;
                         }

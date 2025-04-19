@@ -2,27 +2,40 @@
 
 use crate::traits::FXSetState;
 use crate::FXFrom;
+use crate::FXOrig;
 use crate::FXProp;
 use crate::FXSynValueArg;
-use crate::FXTriggerHelper;
 use crate::FXTryFrom;
 use crate::FromNestAttr;
 use darling::util::Flag;
 use darling::FromMeta;
+use proc_macro2::Span;
+use quote::quote;
+use quote::quote_spanned;
+use quote::ToTokens;
 use syn::Lit;
 
-/// Arguments that take single literal value or can serve as explicit flag.
+#[derive(Debug, Clone, Copy)]
+pub struct FXEmpty;
+
+impl ToTokens for FXEmpty {
+    fn to_tokens(&self, _tokens: &mut proc_macro2::TokenStream) {}
+}
+
+/// Represents arguments that take a single literal value or serve as an explicit flag.
 ///
-/// If the `BOOL_ONLY` parameter is set to true then the argument can serve as a trigger only.
+/// When the `BOOL_ONLY` parameter is set to `true`, the argument serves only as a trigger.
 ///
-/// So, we either can see something like `pi(3.1415926)`, `pi`, `pi(off, 3.1415926)` or `pi(off)`. The advantage of the
-/// latter form is that, contrary to [`darling::util::Flag`], it is explicit making it visually clear what's going on.
-/// It is specially useful for debugging when one would just need to temporarily disable something.
+/// For example, you might see `pi(3.1415926)`, `pi`, `pi(off, 3.1415926)`, or `pi(off)`. The advantage of the latter
+/// form is that, unlike [`darling::util::Flag`], it is explicit, making it visually clear what’s happening.  This is
+/// especially useful for debugging when you need to temporarily disable something.
 #[derive(Debug, FromMeta, Clone)]
 pub struct FXValueArg<T, const BOOL_ONLY: bool = false> {
     off:   Flag,
     #[darling(skip)]
     value: Option<T>,
+    #[darling(skip)]
+    orig:  Option<syn::Lit>,
 }
 
 impl<T, const BOOL_ONLY: bool> FXValueArg<T, BOOL_ONLY> {
@@ -43,6 +56,7 @@ impl<T, const BOOL_ONLY: bool> FXValueArg<T, BOOL_ONLY> {
             Ok(Self {
                 off:   Flag::default(),
                 value: None,
+                orig:  None,
             })
         }
         else {
@@ -51,7 +65,7 @@ impl<T, const BOOL_ONLY: bool> FXValueArg<T, BOOL_ONLY> {
     }
 
     pub fn value(&self) -> Option<&T> {
-        if *self.is_true() {
+        if *self.is_set() {
             self.value.as_ref()
         }
         else {
@@ -60,14 +74,41 @@ impl<T, const BOOL_ONLY: bool> FXValueArg<T, BOOL_ONLY> {
     }
 }
 
-impl<T, const BOOL_ONLY: bool> FXTriggerHelper for FXValueArg<T, BOOL_ONLY> {
-    fn is_true(&self) -> FXProp<bool> {
+impl<T: ToTokens, const BOOL_ONLY: bool> FXValueArg<T, BOOL_ONLY> {
+    pub fn set_span(&mut self, span: Span) {
+        if let Some(ref mut orig) = self.orig {
+            orig.set_span(span);
+        }
+        else if self.value.is_some() {
+            let val = self.value.as_ref().unwrap();
+            self.orig = Some(
+                syn::parse2::<syn::ExprLit>(quote_spanned! {span=> #val })
+                    .expect("Failed to parse literal as syn::ExprLit")
+                    .lit,
+            );
+        }
+    }
+}
+
+impl<T: ToTokens, const BOOL_ONLY: bool> ToTokens for FXValueArg<T, BOOL_ONLY> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let mut parts = vec![];
         if self.off.is_present() {
-            FXProp::new(false, Some(self.off.span()))
+            parts.push(quote! { off });
         }
-        else {
-            true.into()
+        if let Some(ref orig) = self.orig {
+            parts.push(orig.to_token_stream());
         }
+        else if let Some(ref value) = self.value {
+            parts.push(quote! { #value });
+        }
+        tokens.extend(quote! { #(#parts),* });
+    }
+}
+
+impl<T, const BOOL_ONLY: bool> FXOrig<syn::Lit> for FXValueArg<T, BOOL_ONLY> {
+    fn orig(&self) -> Option<&syn::Lit> {
+        self.orig.as_ref()
     }
 }
 
@@ -94,11 +135,12 @@ impl<T, const BOOL_ONLY: bool> From<T> for FXValueArg<T, BOOL_ONLY> {
         Self {
             off:   Flag::default(),
             value: Some(value),
+            orig:  None,
         }
     }
 }
 
-impl FromNestAttr for FXValueArg<(), true> {
+impl FromNestAttr for FXValueArg<FXEmpty, true> {
     fn set_literals(self, literals: &Vec<Lit>) -> darling::Result<Self> {
         Self::validate_literals(literals)?;
         Ok(self)
@@ -114,6 +156,7 @@ impl<T> FromNestAttr for FXValueArg<FXSynValueArg<T>, false> {
         Ok(Self {
             off:   Flag::default(),
             value: None,
+            orig:  None,
         })
     }
 }
@@ -121,8 +164,9 @@ impl<T> FromNestAttr for FXValueArg<FXSynValueArg<T>, false> {
 impl<T, const BOOL_ONLY: bool> FXFrom<T> for FXValueArg<T, BOOL_ONLY> {
     fn fx_from(value: T) -> Self {
         Self {
-            value: Some(value),
             off:   Flag::default(),
+            value: Some(value),
+            orig:  None,
         }
     }
 }
@@ -130,8 +174,9 @@ impl<T, const BOOL_ONLY: bool> FXFrom<T> for FXValueArg<T, BOOL_ONLY> {
 impl<T, const BOOL_ONLY: bool> FXFrom<Option<T>> for FXValueArg<T, BOOL_ONLY> {
     fn fx_from(value: Option<T>) -> Self {
         Self {
-            value,
             off: Flag::default(),
+            value,
+            orig: None,
         }
     }
 }
@@ -139,8 +184,9 @@ impl<T, const BOOL_ONLY: bool> FXFrom<Option<T>> for FXValueArg<T, BOOL_ONLY> {
 impl FXFrom<syn::LitStr> for FXValueArg<String> {
     fn fx_from(value: syn::LitStr) -> Self {
         Self {
-            value: Some(value.value()),
             off:   Flag::default(),
+            value: Some(value.value()),
+            orig:  Some(value.clone().into()),
         }
     }
 }
@@ -149,11 +195,29 @@ impl FXTryFrom<syn::Lit> for FXValueArg<String> {
     type Error = darling::Error;
 
     fn fx_try_from(value: syn::Lit) -> Result<Self, Self::Error> {
-        if let syn::Lit::Str(lit) = value {
+        if let syn::Lit::Str(lit) = value.clone() {
             Ok(Self {
-                value: Some(lit.value()),
                 off:   Flag::from(false),
+                value: Some(lit.value()),
+                orig:  Some(value),
             })
+        }
+        else {
+            Err(darling::Error::unexpected_lit_type(&value))
+        }
+    }
+}
+
+impl FXTryFrom<syn::Lit> for Option<FXValueArg<String>> {
+    type Error = darling::Error;
+
+    fn fx_try_from(value: syn::Lit) -> Result<Self, Self::Error> {
+        if let syn::Lit::Str(lit) = value.clone() {
+            Ok(Some(FXValueArg {
+                off:   Flag::from(false),
+                value: Some(lit.value()),
+                orig:  Some(value),
+            }))
         }
         else {
             Err(darling::Error::unexpected_lit_type(&value))
@@ -170,6 +234,7 @@ macro_rules! from_nest_attr_num {
             fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
                 Self::validate_literals(literals)?;
                 if let $from(ref lit) = literals[0] {
+                    self.orig = Some(literals[0].clone());
                     self.value = Some(lit.base10_parse()?);
                 }
                 else {
@@ -194,6 +259,7 @@ macro_rules! from_nest_attr_val {
             fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
                 Self::validate_literals(literals)?;
                 if let $from(ref lit) = literals[0] {
+                    self.orig = Some(literals[0].clone());
                     self.value = Some(lit.value());
                 }
                 else {

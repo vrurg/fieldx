@@ -14,18 +14,21 @@
 //! Also, argument is allowed to be used in a form of plain keyword with no subarguments, like `get`.
 
 use crate::with_origin::FXOrig;
-use crate::FXFrom;
+use crate::FXInto;
 use crate::FXProp;
 use crate::FXSetState;
-use crate::FXTriggerHelper;
 use crate::FXTryFrom;
+
 use darling::ast::NestedMeta;
 use darling::FromMeta;
+use darling::ToTokens;
 use getset::Getters;
 use proc_macro2::TokenStream;
-use quote::ToTokens;
+use quote::quote;
+use quote::quote_spanned;
 use std::ops::Deref;
 use std::ops::DerefMut;
+use syn::spanned::Spanned;
 use syn::Lit;
 use syn::Meta;
 
@@ -75,16 +78,14 @@ where
     T: FromNestAttr<WITH_LITERALS>,
 {
     inner: T,
-    orig:  Option<Meta>,
+    /// The path can differ from that of the original meta. This can occur when an attribute or argument is assumed
+    /// based on the value of another attribute or argument. For example, the plain use of `fieldx` implies the `lazy`,
+    /// `clearer`, and `predicate` arguments, where the original meta is `fieldx` but the actual path is different.
+    path:  Option<syn::Path>,
+    orig:  Meta,
 }
 
 impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> FXNestingAttr<T, WITH_LITERALS> {
-    /// `orig` parameter is the syntax object from which we're constructing argument instance
-    #[inline]
-    pub fn new(inner: T, orig: Option<Meta>) -> Self {
-        Self { inner, orig }
-    }
-
     fn extract_literals(item: &Meta) -> darling::Result<Self> {
         let Meta::List(list) = item
         else {
@@ -98,8 +99,8 @@ impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> FXNestingAttr<T,
         let mut non_lit: Vec<NestedMeta> = vec![];
         let mut literals: Vec<Lit> = vec![];
 
-        for item in nlist {
-            match item {
+        for nested in nlist {
+            match nested {
                 NestedMeta::Meta(ref meta) => {
                     non_lit.push(NestedMeta::Meta(meta.clone()));
                 }
@@ -116,15 +117,27 @@ impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> FXNestingAttr<T,
 
         Ok(Self {
             inner: fattr,
-            orig:  Some(item.clone()),
+            path:  None,
+            orig:  item.clone(),
         })
+    }
+
+    fn from_path_tokens<P: Into<syn::Path>, TT: ToTokens>(path: P, tokens: TT) -> darling::Result<Self> {
+        let path = path.into();
+        let orig = syn::parse2::<syn::Meta>(quote_spanned! {tokens.span()=> #path(#tokens) })?;
+        Ok(Self::from_meta(&orig)?)
+    }
+
+    pub fn from_tokens<TT: ToTokens>(toks: TT) -> darling::Result<Self> {
+        let orig = syn::parse2::<syn::Meta>(quote_spanned! {toks.span()=> #toks })?;
+        Ok(Self::from_meta(&orig)?)
     }
 }
 
 impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> FXOrig<syn::Meta> for FXNestingAttr<T, WITH_LITERALS> {
     #[inline]
     fn orig(&self) -> Option<&syn::Meta> {
-        self.orig.as_ref()
+        Some(&self.orig)
     }
 }
 
@@ -138,17 +151,20 @@ impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> FromMeta for FXN
                 else {
                     Self {
                         inner: T::from_meta(item)?,
-                        orig:  Some(item.clone()),
+                        path:  None,
+                        orig:  item.clone(),
                     }
                 }
             }
             Meta::Path(ref path) => Self {
                 inner: T::for_keyword(path)?,
-                orig:  Some(item.clone()),
+                path:  None,
+                orig:  item.clone(),
             },
             _ => Self {
                 inner: T::from_meta(item)?,
-                orig:  Some(item.clone()),
+                path:  None,
+                orig:  item.clone(),
             },
         })
     }
@@ -192,75 +208,84 @@ impl<T: FromNestAttr<WITH_LITERALS> + ToTokens, const WITH_LITERALS: bool> ToTok
 {
     #[inline]
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.extend(self.inner.to_token_stream());
+        let inner_toks = self.inner.to_token_stream();
+        let path = self.path.as_ref().unwrap_or_else(|| self.orig.path());
+        tokens.extend(quote! { #path(#inner_toks) });
     }
 }
 
-impl<T, U, const WITH_LITERALS: bool> FXFrom<U> for FXNestingAttr<T, WITH_LITERALS>
+impl<T, P, U, const WITH_LITERALS: bool> FXTryFrom<(P, U)> for FXNestingAttr<T, WITH_LITERALS>
 where
-    T: FXFrom<U> + FromNestAttr<WITH_LITERALS>,
-{
-    #[inline]
-    fn fx_from(value: U) -> Self {
-        Self {
-            inner: T::fx_from(value),
-            orig:  None,
-        }
-    }
-}
-
-impl<T, U, const WITH_LITERALS: bool> FXFrom<U> for Option<FXNestingAttr<T, WITH_LITERALS>>
-where
-    T: FXFrom<U> + FromNestAttr<WITH_LITERALS>,
-{
-    #[inline]
-    fn fx_from(value: U) -> Self {
-        Some(FXNestingAttr {
-            inner: T::fx_from(value),
-            orig:  None,
-        })
-    }
-}
-
-impl<T, U, const WITH_LITERALS: bool> FXTryFrom<U> for FXNestingAttr<T, WITH_LITERALS>
-where
-    T: FXTryFrom<U, Error = darling::Error> + FromNestAttr<WITH_LITERALS>,
+    (P, U): FXInto<syn::Path>,
+    U: ToTokens + Clone,
+    T: FXTryFrom<U> + FromNestAttr<WITH_LITERALS>,
 {
     type Error = darling::Error;
 
     #[inline]
-    fn fx_try_from(value: U) -> Result<Self, Self::Error> {
-        Ok(Self {
-            inner: T::fx_try_from(value)?,
-            orig:  None,
-        })
+    fn fx_try_from(value: (P, U)) -> darling::Result<Self> {
+        let v1 = value.1.clone();
+        Ok(Self::from_path_tokens(value.fx_into(), v1)?)
     }
 }
 
-impl<T, U, const WITH_LITERALS: bool> FXTryFrom<U> for Option<FXNestingAttr<T, WITH_LITERALS>>
+impl<T, P, U, const WITH_LITERALS: bool> FXTryFrom<(P, U)> for Option<FXNestingAttr<T, WITH_LITERALS>>
 where
-    T: FXTryFrom<U, Error = darling::Error> + FromNestAttr<WITH_LITERALS>,
+    (P, U): FXInto<syn::Path>,
+    U: ToTokens + Clone,
+    T: FXTryFrom<U> + FromNestAttr<WITH_LITERALS>,
 {
     type Error = darling::Error;
 
     #[inline]
-    fn fx_try_from(value: U) -> Result<Self, Self::Error> {
-        Ok(Some(FXNestingAttr {
-            inner: T::fx_try_from(value)?,
-            orig:  None,
-        }))
+    fn fx_try_from(value: (P, U)) -> darling::Result<Self> {
+        let v1 = value.1.clone();
+        Ok(Some(FXNestingAttr::from_path_tokens(value.fx_into(), v1)?))
     }
 }
 
-impl<T, const WITH_LITERALS: bool> FXTriggerHelper for FXNestingAttr<T, WITH_LITERALS>
-where
-    T: FXTriggerHelper + FromNestAttr<WITH_LITERALS>,
-{
-    #[inline(always)]
-    fn is_true(&self) -> FXProp<bool> {
-        self.inner.is_true().respan(self.orig_span())
-    }
-}
+// impl<T, U, const WITH_LITERALS: bool> FXFrom<U> for Option<FXNestingAttr<T, WITH_LITERALS>>
+// where
+//     T: FXFrom<U> + FromNestAttr<WITH_LITERALS>,
+// {
+//     #[inline]
+//     fn fx_from(value: U) -> Self {
+//         Some(FXNestingAttr {
+//             inner: T::fx_from(value),
+//             orig:  None,
+//         })
+//     }
+// }
+
+// impl<T, U, const WITH_LITERALS: bool> FXTryFrom<U> for FXNestingAttr<T, WITH_LITERALS>
+// where
+//     T: FXTryFrom<U, Error = darling::Error> + FromNestAttr<WITH_LITERALS>,
+// {
+//     type Error = darling::Error;
+
+//     #[inline]
+//     fn fx_try_from(value: U) -> Result<Self, Self::Error> {
+//         Ok(Self {
+//             inner: T::fx_try_from(value)?,
+//             orig:  None,
+//         })
+//     }
+// }
+
+// impl<T, U, const WITH_LITERALS: bool> FXTryFrom<U> for Option<FXNestingAttr<T, WITH_LITERALS>>
+// where
+//     T: FXTryFrom<U, Error = darling::Error> + FromNestAttr<WITH_LITERALS>,
+// {
+//     type Error = darling::Error;
+
+//     #[inline]
+//     fn fx_try_from(value: U) -> Result<Self, Self::Error> {
+//         Ok(Some(FXNestingAttr {
+//             inner: T::fx_try_from(value)?,
+//             orig:  None,
+//         }))
+//     }
+// }
 
 impl<T, const WITH_LITERALS: bool> FXSetState for FXNestingAttr<T, WITH_LITERALS>
 where

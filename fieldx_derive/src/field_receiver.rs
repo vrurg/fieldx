@@ -2,11 +2,11 @@ pub(crate) mod props;
 
 use darling::util::Flag;
 use darling::FromField;
+use darling::FromMeta;
 use fieldx_aux::validate_exclusives;
 use fieldx_aux::validate_no_macro_args;
 use fieldx_aux::FXAccessor;
 use fieldx_aux::FXAttributes;
-use fieldx_aux::FXBaseHelper;
 use fieldx_aux::FXBool;
 use fieldx_aux::FXBuilder;
 use fieldx_aux::FXDefault;
@@ -21,7 +21,6 @@ use fieldx_aux::FXSetter;
 use fieldx_aux::FXString;
 use fieldx_aux::FXSynValue;
 use fieldx_aux::FXSyncMode;
-use fieldx_aux::FXTriggerHelper;
 use getset::Getters;
 use once_cell::unsync::OnceCell;
 use proc_macro2::Span;
@@ -236,19 +235,26 @@ impl FXFieldReceiver {
     #[inline]
     pub(crate) fn has_default_value(&self) -> bool {
         if let Some(ref dv) = self.default_value {
-            *dv.is_true()
+            *dv.is_set()
         }
         else {
             false
         }
     }
 
-    fn mark_implicitly(&mut self, orig: Meta) -> Result<(), &str> {
+    fn mark_implicitly(&mut self, orig: Meta) -> darling::Result<()> {
         match self.lazy {
             None => {
-                self.lazy = Some(FXNestingAttr::new(FXBaseHelper::from(true), Some(orig.clone())));
-                self.clearer = Some(FXNestingAttr::new(FXBaseHelper::from(true), Some(orig.clone())));
-                self.predicate = Some(FXNestingAttr::new(FXBaseHelper::from(true), Some(orig)));
+                // self.lazy = Some(FXNestingAttr::new(FXBaseHelper::from(true), Some(orig.clone())));
+                self.lazy = Some(FXNestingAttr::from_meta(&syn::parse2::<syn::Meta>(
+                    quote_spanned! {orig.span()=> lazy},
+                )?)?);
+                self.clearer = Some(FXNestingAttr::from_meta(&syn::parse2::<syn::Meta>(
+                    quote_spanned! {orig.span()=> clearer},
+                )?)?);
+                self.predicate = Some(FXNestingAttr::from_meta(&syn::parse2::<syn::Meta>(
+                    quote_spanned! {orig.span()=> predicate},
+                )?)?);
             }
             _ => (),
         };
