@@ -1,30 +1,31 @@
 #![doc(html_root_url = "https://docs.rs/fieldx_aux/")]
 //! # fieldx_aux
 //!
-//! Helper module for the [`fieldx`] crate and for any 3rd party crates, extending its functionality.
+//! Helper crate for [`fieldx`] and any third-party crates that extend its functionality.
 //!
-//! `fieldx` itself is heavily based on [`darling`] crate which simplifies development of proc-macros quite a lot. But
-//! it also imposes some constraints on attribute arguments syntax. This crate aims at overcoming these limitations and
-//! providing support for some kinds of attributes required to implement `fieldx`.
+//! `fieldx` is heavily based on the [`darling`] crate, which greatly simplifies proc-macro development,
+//! but also imposes some constraints on attribute argument syntax. This crate overcomes these limitations
+//! and provides support for attribute kinds required to implement `fieldx`.
 //!
-//! Here is a little break down of what is provided:
+//! Here is a brief breakdown of what is provided:
 //!
-//! - support for nested arguments, i.e. those that look like `arg1("value", trigger, subarg(...))`
-//! - support for some syntax elements that are not on the `darling` crate menu: `some_type(crate::types::Foo)`,
-//!   `error(crate::error::Error, crate::error::Error::SomeProblem("with details"))`[^tuple]
-//! - a set of types implementing standard `fieldx` arguments like helpers, or literal values, etc.
+//! - Support for nested arguments, i.e. those that look like `arg1("value", trigger, subarg(...))`.
+//! - Support for syntax elements not covered by the `darling` crate, such as
+//!   `some_type(crate::types::Foo)` and
+//!   `error(crate::error::Error, crate::error::Error::SomeProblem("with details"))`[^tuple].
+//! - A set of types implementing standard `fieldx` arguments like helpers or literal values.
 //!
-//! [^tuple]: Here, the first argument of `error()` — `Error` — is an enum; `SomeProblem` is a variant.
+//! [^tuple]: Here, the first argument of `error()`—`Error`—is an enum, and `SomeProblem` is one of its variants.
 //!
 //! # Usage
 //!
-//! Let's say we're implementing a field-level attribute `foo` using [`darling::FromField`] trait. And we want it to
-//! take these arguments:
+//! Imagine we are implementing a field-level attribute `foo` using the [`darling::FromField`] trait, and we want it to
+//! accept the following arguments:
 //!
-//! - `trigger` which would let turn some functionality on or off
-//! - `action` to specify a method with special meaning
-//! - `comment` with some text
-//! - `vis` to specify if field-related code must be public and if yes then what kind of `pub` we need
+//! - `trigger`: enables or disables certain functionality
+//! - `action`: specifies a method with special meaning
+//! - `comment`: accepts arbitrary text
+//! - `vis`: indicates whether field-related code should be public, and if so, which kind of `pub` modifier to use
 //!
 //! A field declaration may take the following form with the attribute:
 //!
@@ -38,13 +39,13 @@
 //!     bar: usize,
 //! ```
 //!
-//! For this we'd need the following declaration somewhere in our proc-macro implementation:
+//! For this, you'll need the following declaration somewhere in your proc-macro implementation:
 //!
 //! ```ignore
 //! #derive(FromField)
 //! #[darling(attributes(foo))]
 //! struct FooField {
-//!     // ... skipping some darling-default fields ...
+//!     // ... skipping some darling default fields ...
 //!
 //!     trigger: Option<FXBool>,
 //!     action: Option<FXHelper>,
@@ -53,7 +54,7 @@
 //! }
 //! ```
 //!
-//! That's all, this crate will take the burden of implementing the arguments from you!
+//! That's all; this crate will take care of implementing the arguments for you!
 //!
 //! [`fieldx`]: https://docs.rs/fieldx
 //! [`darling`]: https://docs.rs/darling
@@ -95,6 +96,8 @@ pub use crate::syn_value::FXSynValueArg;
 pub use crate::traits::*;
 pub use crate::value::FXValueArg;
 pub use crate::with_origin::FXOrig;
+
+pub use fieldx_derive_support::fxhelper;
 use syn::ext::IdentExt;
 use value::FXEmpty;
 

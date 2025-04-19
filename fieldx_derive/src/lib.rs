@@ -1,3 +1,9 @@
+#![doc(html_root_url = "https://docs.rs/fieldx_derive/")]
+//! # fieldx_derive
+//!
+//! The core of `fieldx` functionality. This crate provides a procedural macro that implements the code generation
+//! logic.
+
 mod codegen;
 mod ctx;
 mod field_receiver;
@@ -721,6 +727,7 @@ use syn::DeriveInput;
 /// Field level only argument:
 ///
 /// - **`required`** – this field must always get a value from the builder even if otherwise it'd be optional
+
 #[proc_macro_attribute]
 pub fn fxstruct(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let attr_args = match ast::NestedMeta::parse_meta_list(args.into()) {

@@ -96,7 +96,7 @@ exec cargo install cargo-readme
     script_runner = "@duckscript"
 
 [tasks.docs]
-    args        = ["doc", "--workspace", "--all-features", "--no-deps", "--exclude", "fieldx_derive_support"]
+    args        = ["doc", "--workspace", "--all-features", "--no-deps"]
     command     = "cargo"
     description = "Generate documentation"
 

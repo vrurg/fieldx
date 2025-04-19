@@ -1,3 +1,8 @@
+#![doc(html_root_url = "https://docs.rs/fieldx_derive_support/")]
+//! # fieldx_derive_support
+//!
+//! This crate provides automations to simplify development of the `fieldx_aux` and `fieldx_derive` crates.
+
 use std::collections::HashMap;
 
 use darling::ast;
@@ -48,6 +53,43 @@ struct FXHelperStruct {
     generics: syn::Generics,
 }
 
+/// This macro is used to generate helper structs. It adds the following fields to support related helper
+/// functionality:
+///
+/// - **`off`** - a [`Flag`] that indicates if the helper is disabled.
+/// - **`name`** - an optional name for the helper. Particular use depends on the helper semantics.
+/// - **`attributes_fn`** - list of attributes to apply to the routines, generated in support of the helper-specified functionality.
+/// - **`visibility`** - the visibility of the helper-generated syntax elements. It is user-facing as `vis` helper argument.
+/// - **`private`** - a shortcut for `vis()` with `syn::Visibility::Inherited` what usually means "private".
+/// - **`doc`** - provides a `doc` argument to add documentation to the helper.
+///
+/// The macro takes the following arguments:
+///
+/// - **`validate(<path>)`** - a function name to be called to validate the helper. It is expected to return `darling::Result<()>`.
+/// - **`to_tokens`** - if set then the helper will get auto-generated implementation of the `ToTokens` trait.
+///
+/// A field-level attribute of the same name `fxhelper` is provided with the following arguments:
+///
+/// - **`exclusive("exclusive group")`** - if two or more fields of the helper struct are mutually exclusive then then must
+///   be marked with the same group name. This will cause a compile-time error if more than one of them is set.
+/// - **`rename("alias")`** - an alias for the field. This is used to generate the user-facing argument name.
+///
+/// For example:
+///
+/// ```
+/// #[fxhelper(validate = Self::validate, to_tokens)]
+/// struct MyHelper {
+///     #[fxhelper(rename = "mutable", exclusive = "use mode")]
+///     is_mutable: Option<FXBool>,
+///     #[fxhelper(rename = "inner_mut", exclusive = "use mode")]
+///     is_inner_mut: Option<FXBool>,
+///
+///     #[fxhelper(exclusive = "fubar")]
+///     foo: Option<FXString>,
+///     #[fxhelper(exclusive = "fubar")]
+///     bar: Option<FXString>,
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let attr_args = match ast::NestedMeta::parse_meta_list(args.into()) {
