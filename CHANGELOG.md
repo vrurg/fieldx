@@ -1,6 +1,6 @@
 # Changelog
 
-## [unreleased]
+## [0.1.14] - 2025-04-19
 
 ### Bug Fixes
 
