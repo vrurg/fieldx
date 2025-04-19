@@ -11,7 +11,7 @@ use quote::ToTokens;
 #[derive(Debug, Default)]
 struct TestHelper {
     #[getset(get = "pub")]
-    val: Option<FXValue<String>>,
+    val: Option<FXString>,
 }
 
 impl FromNestAttr for TestHelper {
