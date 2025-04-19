@@ -76,7 +76,7 @@ struct FXHelperStruct {
 ///
 /// For example:
 ///
-/// ```
+/// ```ignore
 /// #[fxhelper(validate = Self::validate, to_tokens)]
 /// struct MyHelper {
 ///     #[fxhelper(rename = "mutable", exclusive = "use mode")]
