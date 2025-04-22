@@ -4,6 +4,7 @@ use super::FXCodeGenCtx;
 use crate::codegen::constructor::field::FXFieldConstructor;
 use crate::codegen::constructor::FXConstructor;
 use crate::codegen::FXInlining;
+use crate::codegen::FXToksMeta;
 use crate::field_receiver::FXField;
 use crate::field_receiver::FXFieldProps;
 use crate::helper::FXHelperKind;
@@ -27,17 +28,19 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub(crate) struct FXFieldCtx {
-    field:            FXField,
+    field:               FXField,
     #[allow(unused)]
-    codegen_ctx:      Rc<FXCodeGenCtx>,
-    constructor:      RefCell<Option<FXFieldConstructor>>,
-    ty_wrapped:       OnceCell<TokenStream>,
-    ident:            OnceCell<syn::Ident>,
+    codegen_ctx:         Rc<FXCodeGenCtx>,
+    constructor:         RefCell<Option<FXFieldConstructor>>,
+    ty_wrapped:          OnceCell<TokenStream>,
+    ident:               OnceCell<syn::Ident>,
     #[cfg(feature = "serde")]
-    default_fn_ident: OnceCell<darling::Result<syn::Ident>>,
-    builder_checker:  RefCell<Option<TokenStream>>,
-    props:            derived_props::FieldCTXProps,
-    default_expr:     RefCell<Option<TokenStream>>,
+    default_fn_ident:    OnceCell<darling::Result<syn::Ident>>,
+    builder_checker:     RefCell<Option<TokenStream>>,
+    props:               derived_props::FieldCTXProps,
+    default_expr:        RefCell<Option<FXToksMeta>>,
+    #[cfg(feature = "serde")]
+    shadow_default_expr: RefCell<Option<FXToksMeta>>,
 }
 
 impl FXFieldCtx {
@@ -144,6 +147,8 @@ impl FXFieldCtx {
             default_fn_ident: OnceCell::new(),
             builder_checker: RefCell::new(None),
             default_expr: RefCell::new(None),
+            #[cfg(feature = "serde")]
+            shadow_default_expr: RefCell::new(None),
         }
     }
 
@@ -189,7 +194,7 @@ impl FXFieldCtx {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn default_fn_ident<'s>(&'s self) -> darling::Result<&'s syn::Ident> {
+    pub(crate) fn default_fn_ident(&self) -> darling::Result<&syn::Ident> {
         self.default_fn_ident
             .get_or_init(|| {
                 let field_ident = self.ident();
@@ -252,11 +257,21 @@ impl FXFieldCtx {
         }
     }
 
-    pub(crate) fn set_default_expr(&self, expr: TokenStream) {
-        *self.default_expr.borrow_mut() = Some(expr);
+    pub(crate) fn set_default_expr<FT: Into<FXToksMeta>>(&self, expr: FT) {
+        *self.default_expr.borrow_mut() = Some(expr.into());
     }
 
-    pub(crate) fn default_expr(&self) -> Ref<Option<TokenStream>> {
+    pub(crate) fn default_expr(&self) -> Ref<Option<FXToksMeta>> {
         self.default_expr.borrow()
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn set_shadow_default_expr<FT: Into<FXToksMeta>>(&self, expr: FT) {
+        *self.shadow_default_expr.borrow_mut() = Some(expr.into());
+    }
+
+    #[cfg(feature = "serde")]
+    pub(crate) fn shadow_default_expr(&self) -> Ref<Option<FXToksMeta>> {
+        self.shadow_default_expr.borrow()
     }
 }

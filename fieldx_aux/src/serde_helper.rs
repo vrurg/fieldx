@@ -66,15 +66,15 @@ impl FXTryFrom<&syn::Lit> for FXSerdeRename {
 }
 
 impl FromNestAttr for FXSerdeRename {
-    fn set_literals(self, literals: &Vec<Lit>) -> darling::Result<Self> {
+    fn set_literals(self, literals: &[Lit]) -> darling::Result<Self> {
         if literals.len() > 1 {
             return Err(darling::Error::too_many_items(1));
         }
-        else if literals.len() == 0 {
+        else if literals.is_empty() {
             return Err(darling::Error::custom("Expected a single string literal argument"));
         }
 
-        Ok((&literals[0]).fx_try_into()?)
+        (&literals[0]).fx_try_into()
     }
 }
 
@@ -192,7 +192,7 @@ impl FXSerdeHelper {
 
     #[inline]
     pub fn has_default(&self) -> bool {
-        self.default_value.as_ref().map_or(false, |d| *d.is_set())
+        self.default_value.as_ref().is_some_and(|d| *d.is_set())
     }
 
     #[inline]

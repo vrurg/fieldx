@@ -3,7 +3,6 @@
 use fieldx::fxstruct;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json;
 
 #[fxstruct(sync, builder(into), serde(attributes(serde(deny_unknown_fields))))]
 #[derive(Clone, Debug)]
@@ -22,7 +21,7 @@ impl Foo {
 #[test]
 fn extra_field() {
     let json_src = r#"{"f2": "f2 json", "f3": "will cause 'oops!'"}"#;
-    let foo_de = serde_json::from_str::<Foo>(&json_src);
+    let foo_de = serde_json::from_str::<Foo>(json_src);
     assert!(
         foo_de.is_err(),
         "attribute `#[serde(deny_unknown_fields)]` is applied to the shadow"

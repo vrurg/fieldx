@@ -101,14 +101,14 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
     let args = match FXHArgs::from_list(&attr_args) {
         Ok(v) => v,
-        Err(e) => return darling::Error::from(e).write_errors().into(),
+        Err(e) => return e.write_errors().into(),
     };
 
     let incopy = input.clone();
     let input_ast = parse_macro_input!(incopy as DeriveInput);
     let fx = match FXHelperStruct::from_derive_input(&input_ast) {
         Ok(v) => v,
-        Err(e) => return darling::Error::from(e).write_errors().into(),
+        Err(e) => return e.write_errors().into(),
     };
 
     let FXHelperStruct {
@@ -173,7 +173,7 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
                         .into();
                 };
 
-                exclusives.entry(exclusive.clone()).or_insert(vec![]).push((
+                exclusives.entry(exclusive.clone()).or_default().push((
                     if let Some(alias) = field_alias {
                         alias
                     }
@@ -195,8 +195,7 @@ pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
     let attributes_method = if fields
         .iter()
-        .find(|f| (*f).ident.as_ref().map_or("".to_string(), |i| i.to_string()) == "attributes")
-        .is_some()
+        .any(|f| f.ident.as_ref().map_or("".to_string(), |i| i.to_string()) == "attributes")
     {
         quote![
             fn attributes(&self) -> Option<&FXAttributes> {

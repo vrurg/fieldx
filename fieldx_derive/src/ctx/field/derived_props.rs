@@ -309,12 +309,12 @@ impl FieldCTXProps {
                 .builder()
                 .or_else(|| {
                     let arg_props = self.arg_props();
-                    arg_props.builder().and_then(|b| {
+                    arg_props.builder().map(|b| {
                         if *b && !*arg_props.builder_opt_in() {
-                            Some(b)
+                            b
                         }
                         else {
-                            Some(b.not())
+                            b.not()
                         }
                     })
                 })

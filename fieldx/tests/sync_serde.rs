@@ -1,8 +1,8 @@
+#![allow(clippy::approx_constant)]
 #![cfg(all(feature = "serde", feature = "sync"))]
 use fieldx::fxstruct;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json;
 
 #[derive(Default, Clone, Debug, PartialEq)]
 struct Bar {
@@ -101,7 +101,7 @@ fn basics() {
     );
 
     let json_src = r#"{"baz":{"cnt":9876},"count":112233,"pi":3.141,"opt":null,"simple":-13.666,"sssimple":999.111,"modifiable":"from deserialize"}"#;
-    let foo_de = serde_json::from_str::<Foo>(&json_src).expect("Foo deserialization failure");
+    let foo_de = serde_json::from_str::<Foo>(json_src).expect("Foo deserialization failure");
 
     assert_eq!(*foo_de.modifiable(), "from deserialize".to_string());
     assert_eq!(
@@ -131,7 +131,7 @@ fn basics() {
     assert_eq!(foo_de.simple2, 999.111, "a renamed plain field – deserialized");
 
     let json_src = r#"{"baz":{"cnt":9876},"pi":3.141,"opt":31415926}"#;
-    let foo_de = serde_json::from_str::<Foo>(&json_src).expect("Foo deserialization failure");
+    let foo_de = serde_json::from_str::<Foo>(json_src).expect("Foo deserialization failure");
 
     // eprintln!("{:#?}", foo_de);
 

@@ -1,4 +1,5 @@
 #![cfg(all(feature = "sync", feature = "async"))]
+#![allow(clippy::approx_constant)]
 
 use fieldx::fxstruct;
 

@@ -27,8 +27,8 @@ mod foo {
         }
 
         fn build_real(&self) -> f32 {
-            let l: u16 = (*self.foo()).chars().count().try_into().expect("u32 value");
-            l.try_into().expect("f32 value")
+            let l: u16 = (*self.foo()).chars().count().try_into().expect("u16 value");
+            l.into()
         }
 
         fn build_lazy_default(&self) -> String {

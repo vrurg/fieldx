@@ -344,12 +344,9 @@ impl FXFieldProps {
 
     #[cfg(feature = "serde")]
     pub(crate) fn serde(&self) -> Option<FXProp<Option<bool>>> {
-        *self.serde.get_or_init(|| {
-            self.source
-                .serde
-                .as_ref()
-                .and_then(|s| Some(s.is_serde().respan(s.orig_span())))
-        })
+        *self
+            .serde
+            .get_or_init(|| self.source.serde.as_ref().map(|s| s.is_serde().respan(s.orig_span())))
     }
 
     #[cfg(feature = "serde")]

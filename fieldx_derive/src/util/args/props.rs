@@ -366,7 +366,7 @@ impl FXArgProps {
                 self.source.builder().as_ref().and_then(|b| {
                     b.prefix()
                         .as_ref()
-                        .and_then(|p| p.value().map(|v| syn::Ident::new(&v, p.final_span())))
+                        .and_then(|p| p.value().map(|v| syn::Ident::new(v, p.final_span())))
                 })
             })
             .as_ref()
@@ -462,6 +462,14 @@ impl FXArgProps {
                         let lazy = fctx.lazy();
                         if is_syncish && *lazy {
                             return Some(lazy);
+                        }
+                        #[cfg(feature = "serde")]
+                        {
+                            // If deserialization is in any way disabled for a field then it means we'll need to
+                            let no_deserialize = fctx.serde().not().or(fctx.deserialize().not());
+                            if *no_deserialize {
+                                return Some(no_deserialize);
+                            }
                         }
                         None
                     }) {

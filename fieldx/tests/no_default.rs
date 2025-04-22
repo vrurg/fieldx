@@ -26,12 +26,12 @@ struct Plain {
 impl Plain {
     fn new(bar: Bar) -> Self {
         Self {
-            bar: bar.into(),
-            b2:  (Bar {
+            bar,
+            b2: (Bar {
                 note: "from new".to_string(),
             })
             .into(),
-            b3:  Bar {
+            b3: Bar {
                 note: "b3 from new".to_string(),
             },
         }
@@ -45,7 +45,7 @@ impl Plain {
 }
 
 #[cfg(feature = "sync")]
-#[fxstruct(sync, get(vis(pub)), builder, no_new)]
+#[fxstruct(sync, get(vis(pub)), builder, new(off), default(off))]
 struct IsSync {
     #[fieldx(set)]
     bar: Bar,
@@ -58,8 +58,8 @@ struct IsSync {
 impl IsSync {
     fn new(bar: Bar) -> Self {
         Self {
-            bar: bar.into(),
-            b2:  Default::default(),
+            bar,
+            b2: Default::default(),
         }
     }
 }

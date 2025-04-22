@@ -2,7 +2,7 @@
 #[macro_export]
 macro_rules! set_literals {
     ( $name:ident, $min:literal .. $($max:literal)? => $( $field:ident ),+ $( ; pre_validate => $pre_validate:ident )? ) => {
-        fn set_literals(#[allow(unused_mut)] mut self, literals: &Vec<::syn::Lit>) -> ::darling::Result<Self> {
+        fn set_literals(#[allow(unused_mut)] mut self, literals: &[syn::Lit]) -> ::darling::Result<Self> {
             $( let _: () = self.$pre_validate(literals)?; )?
             #[allow(unused_comparisons)]
             if literals.len() < $min {

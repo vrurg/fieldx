@@ -15,7 +15,7 @@ impl Attributizer {
 
     #[inline]
     pub(crate) fn parse<T: ToTokens>(attrs: T) -> syn::Result<Self> {
-        Ok(syn::parse2(attrs.to_token_stream())?)
+        syn::parse2(attrs.to_token_stream())
     }
 }
 

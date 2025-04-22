@@ -91,7 +91,7 @@
 //!   `order` remains unchanged.
 //!
 //! - a partial implementation of `Foo` is added with helper and special methods and associated functions ([Field Or
-//! Method](#field_or_method) in this section)
+//!   Method](#field_or_method) in this section)
 //!
 //!   I.e. this is where accessor methods and `new` live.
 //!

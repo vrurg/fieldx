@@ -41,7 +41,7 @@ impl From<&FXDocArg> for Option<FXProp<Vec<syn::LitStr>>> {
 }
 
 impl FromNestAttr<true> for FXDocArg {
-    fn set_literals(mut self, literals: &Vec<syn::Lit>) -> darling::Result<Self> {
+    fn set_literals(mut self, literals: &[syn::Lit]) -> darling::Result<Self> {
         self.lines = literals
             .iter()
             .map(|lit| {

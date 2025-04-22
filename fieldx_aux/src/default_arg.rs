@@ -158,6 +158,7 @@ impl TryFrom<&FXDefault> for String {
                 return Ok(str.value());
             }
         }
+        #[allow(clippy::redundant_closure)]
         Err(darling::Error::custom("The default value must be a string")
             .with_span(&dv.orig.as_ref().map_or_else(|| Span::call_site(), |o| o.span())))
     }

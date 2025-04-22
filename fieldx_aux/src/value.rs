@@ -39,8 +39,8 @@ pub struct FXValueArg<T, const BOOL_ONLY: bool = false> {
 }
 
 impl<T, const BOOL_ONLY: bool> FXValueArg<T, BOOL_ONLY> {
-    fn validate_literals(literals: &Vec<Lit>) -> darling::Result<()> {
-        if literals.len() > 0 && BOOL_ONLY {
+    fn validate_literals(literals: &[Lit]) -> darling::Result<()> {
+        if !literals.is_empty() && BOOL_ONLY {
             Err(darling::Error::custom("No literal arguments are allowed here").with_span(&literals[0].span()))
         }
         else if literals.len() > 1 {
@@ -141,7 +141,7 @@ impl<T, const BOOL_ONLY: bool> From<T> for FXValueArg<T, BOOL_ONLY> {
 }
 
 impl FromNestAttr for FXValueArg<FXEmpty, true> {
-    fn set_literals(self, literals: &Vec<Lit>) -> darling::Result<Self> {
+    fn set_literals(self, literals: &[Lit]) -> darling::Result<Self> {
         Self::validate_literals(literals)?;
         Ok(self)
     }
@@ -231,7 +231,7 @@ macro_rules! from_nest_attr_num {
     };
     (@ $from:path => $ty:ty) => {
         impl $crate::FromNestAttr for FXValueArg<$ty, false> {
-            fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
+            fn set_literals(mut self, literals: &[Lit]) -> darling::Result<Self> {
                 Self::validate_literals(literals)?;
                 if let $from(ref lit) = literals[0] {
                     self.orig = Some(literals[0].clone());
@@ -256,7 +256,7 @@ macro_rules! from_nest_attr_val {
     };
     (@ $from:path => $ty:ty) => {
         impl $crate::FromNestAttr for FXValueArg<$ty, false> {
-            fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
+            fn set_literals(mut self, literals: &[Lit]) -> darling::Result<Self> {
                 Self::validate_literals(literals)?;
                 if let $from(ref lit) = literals[0] {
                     self.orig = Some(literals[0].clone());

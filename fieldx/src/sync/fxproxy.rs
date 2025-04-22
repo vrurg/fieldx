@@ -136,7 +136,7 @@ where
 
     /// Initialize the field without obtaining the lock by calling code. _Note_ though that internally the lock is still
     /// required.
-    pub fn lazy_init<'a>(&'a self, owner: &B::Owner) {
+    pub fn lazy_init(&self, owner: &B::Owner) {
         let _ = self.read_or_init(owner);
     }
 

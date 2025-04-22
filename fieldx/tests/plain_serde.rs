@@ -2,7 +2,6 @@
 use fieldx::fxstruct;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json;
 
 #[derive(Default, Clone, Debug, PartialEq)]
 struct Bar {
@@ -111,7 +110,7 @@ fn basics() {
     );
 
     let json_src = r#"{"baz":{"cnt":9876},"count":112233,"pi":3.141,"opt":null,"simple":-13.666,"sssimple":999.111,"modifiable":"from deserialize"}"#;
-    let foo_de = serde_json::from_str::<Foo>(&json_src).expect("Foo deserialization failure");
+    let foo_de = serde_json::from_str::<Foo>(json_src).expect("Foo deserialization failure");
 
     assert_eq!(
         foo_de.bar(),
@@ -130,7 +129,9 @@ fn basics() {
         13,
         "a lazy non-deserializable u32 field gets its default after deserialization"
     );
-    assert_eq!(foo_de.pi(), 3.141, "a lazy f64 field – deserialized");
+    #[allow(clippy::approx_constant)]
+    let expected = 3.141;
+    assert_eq!(foo_de.pi(), expected, "a lazy f64 field – deserialized");
     assert_eq!(
         foo_de.opt(),
         None,
@@ -141,7 +142,7 @@ fn basics() {
     assert_eq!(*foo_de.modifiable(), "from deserialize".to_string());
 
     let json_src = r#"{"baz":{"cnt":9876},"opt":31415926}"#;
-    let foo_de = serde_json::from_str::<Foo>(&json_src).expect("Foo deserialization failure");
+    let foo_de = serde_json::from_str::<Foo>(json_src).expect("Foo deserialization failure");
 
     // eprintln!("{:#?}", foo_de);
 

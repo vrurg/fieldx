@@ -82,6 +82,7 @@ impl FXStructConstructor {
 impl FXConstructor for FXStructConstructor {
     fn fx_to_tokens(&self) -> TokenStream {
         let vis = self.vis.as_ref();
+        #[allow(clippy::redundant_closure)]
         let span = self.span.unwrap_or_else(|| Span::call_site());
         let attributes = self.ordered_attrs();
         let ident = &self.ident;

@@ -10,6 +10,7 @@ use crate::ctx::field::FXFieldCtx;
 use crate::field_receiver::FXField;
 use crate::helper::*;
 use crate::util::args::FXSArgs;
+use crate::util::std_default_expr_toks;
 use crate::FXInputReceiver;
 pub(crate) use codegen_trait::FXCodeGenContextual;
 use codegen_trait::FXCodeGenerator;
@@ -86,6 +87,98 @@ impl<T> FXValueRepr<T> {
         }
     }
 }
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub(crate) enum FXValueFlag {
+    #[default]
+    None             = 0,
+    StdDefault       = 1,
+    UserDefault      = 2,
+    ContainerWrapped = 4,
+    RefCounted       = 8,
+}
+
+/// This is a container for values that can be passed through many transformations while retaining their value context,
+/// whether original or introduced by a transformation.
+#[derive(Debug, Clone)]
+pub(crate) struct FXValueMeta<T> {
+    pub(crate) value:      T,
+    pub(crate) flags:      u8,
+    pub(crate) attributes: Vec<TokenStream>,
+}
+
+impl<T> FXValueMeta<T> {
+    pub(crate) fn new(value: T, flag: FXValueFlag) -> Self {
+        let flags = flag as u8;
+        Self {
+            value,
+            flags,
+            attributes: Vec::new(),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn mark_as(mut self, flag: FXValueFlag) -> Self {
+        self.flags |= flag as u8;
+        self
+    }
+
+    #[inline]
+    pub(crate) fn has_flag(&self, flag: FXValueFlag) -> bool {
+        self.flags & (flag as u8) != 0
+    }
+
+    #[inline]
+    pub(crate) fn add_attribute<TT: ToTokens>(mut self, attribute: TT) -> Self {
+        self.attributes.push(attribute.to_token_stream());
+        self
+    }
+
+    #[inline]
+    pub(crate) fn replace(self, value: T) -> Self {
+        Self {
+            value,
+            flags: self.flags,
+            attributes: self.attributes,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn into_inner(self) -> T {
+        self.value
+    }
+}
+
+impl<T: IntoIterator> IntoIterator for FXValueMeta<T> {
+    type IntoIter = T::IntoIter;
+    type Item = T::Item;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
+    }
+}
+
+impl<T> From<T> for FXValueMeta<T> {
+    #[inline]
+    fn from(value: T) -> Self {
+        Self {
+            value,
+            flags: FXValueFlag::None as u8,
+            attributes: Vec::new(),
+        }
+    }
+}
+
+impl<T: ToTokens> ToTokens for FXValueMeta<T> {
+    #[inline]
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.value.to_tokens(tokens);
+    }
+}
+
+pub(crate) type FXToksMeta = FXValueMeta<TokenStream>;
 
 // Methods that are related to the current context if first place.
 
@@ -195,20 +288,18 @@ impl<'a> FXRewriter<'a> {
         let ctx = self.ctx();
         let is_active = !*fctx.skipped();
 
-        if is_active {
-            if *fctx.accessor() && fctx.accessor_mode().is_copy() {
-                ctx.add_for_copy_trait_check(&fctx);
-            }
+        if is_active && *fctx.accessor() && fctx.accessor_mode().is_copy() {
+            ctx.add_for_copy_trait_check(fctx);
         }
 
-        let codegen = self.field_codegen(&fctx)?;
-        codegen.field_default(&fctx)?;
+        let codegen = self.field_codegen(fctx)?;
+        codegen.field_default(fctx)?;
         if is_active {
-            codegen.field_methods(&fctx)?;
+            codegen.field_methods(fctx)?;
         }
 
         // Has to always be the last here as it may use attributes added by the previous methods.
-        codegen.field_decl(&fctx)?;
+        codegen.field_decl(fctx)?;
 
         Ok(())
     }
@@ -308,7 +399,7 @@ impl<'a> FXRewriter<'a> {
             ctx.ok_or_record(
                 myself_mc
                     .set_span(rc_span)
-                    .set_vis(arg_props.rc_visibility().clone())
+                    .set_vis(arg_props.rc_visibility())
                     .set_ret_type(quote_spanned![rc_span=> ::std::option::Option<#rc_type<Self>>])
                     .add_statement(quote_spanned![rc_span=> #weak_type::upgrade(&self.#myself_field)])
                     .add_attribute_toks(quote_spanned![rc_span=> #[allow(dead_code)] #[inline(always)]]),
@@ -318,7 +409,7 @@ impl<'a> FXRewriter<'a> {
             ctx.ok_or_record(
                 downgrade_mc
                     .set_span(rc_span)
-                    .set_vis(arg_props.rc_visibility().clone())
+                    .set_vis(arg_props.rc_visibility())
                     .set_ret_type(quote_spanned![rc_span=> #weak_type<Self>])
                     .add_statement(quote_spanned![rc_span=> #weak_type::clone(&self.#myself_field)])
                     .add_attribute_toks(quote_spanned![rc_span=> #[allow(dead_code)] #[inline(always)]]),
@@ -338,18 +429,32 @@ impl<'a> FXRewriter<'a> {
             return;
         }
 
-        let defaults = ctx
-            .all_field_ctx()
-            .iter()
-            .map(|fctx| fctx.default_expr().clone())
-            .collect::<Vec<_>>();
+        let span = needs_default.final_span();
+        let mut defaults = Vec::new();
+        let mut all_std = true;
+        let mut user_struct = ctx.user_struct_mut();
 
-        if defaults.len() > 0 {
-            let span = needs_default.final_span();
-            let mut default_impl = FXImplConstructor::new(format_ident!("Default", span = span));
+        for fctx in ctx.all_field_ctx() {
+            let default_expr = fctx
+                .default_expr()
+                .clone()
+                .unwrap_or_else(|| std_default_expr_toks(span));
+            // This is a standard default expression `Default::default()` when StdDefault is the only flag set.
+            all_std &= default_expr.flags == FXValueFlag::StdDefault as u8;
+            defaults.push(default_expr);
+        }
+
+        if all_std {
+            // If all field defaults are `Default::default()` then we derive the trait to make Clippy happy.
+            ctx.ok_or_record(user_struct.add_attribute_toks(quote_spanned! {span=> #[derive(Default)]}));
+            return;
+        }
+
+        if !defaults.is_empty() {
+            let ident_path: syn::Path = syn::parse2(quote_spanned! {span=> ::std::default::Default}).unwrap();
+            let mut default_impl = FXImplConstructor::new(ident_path);
             let mut default_method = FXFnConstructor::new_associated(format_ident!("default", span = span));
 
-            let mut user_struct = ctx.user_struct_mut();
             default_impl
                 .set_for_ident(user_struct.ident())
                 .set_from_generics(user_struct.generics().clone())
@@ -368,7 +473,7 @@ impl<'a> FXRewriter<'a> {
         Ok(ctx
             .builder_struct()?
             .field_idents()
-            .map(|ident| ctx.ident_field_ctx(&ident))
+            .map(|ident| ctx.ident_field_ctx(ident))
             .collect())
     }
 
@@ -462,7 +567,12 @@ impl<'a> FXRewriter<'a> {
         obj_ident.set_span(span);
 
         build_method.add_statement(quote_spanned! {span=> #( #builder_checkers );* });
-        build_method.add_statement(quote_spanned! {span=> let #obj_ident: #builder_return_type = #construction; });
+        // Some field setter expressions (the simpler ones) are semantically identical to unwrap_or. There is currently
+        // no efficient way to determine if an expression is simple. Therefore, we disable the manual_unwrap_or lint
+        // for the entire initialization.
+        build_method.add_statement(quote_spanned! {span=>
+            let #obj_ident: #builder_return_type = #construction;
+        });
         build_method.set_ret_stmt(quote_spanned! {span=> Ok(#obj_ident) });
 
         let mut bsc = ctx.builder_struct_mut()?;

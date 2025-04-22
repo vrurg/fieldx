@@ -1,3 +1,4 @@
+#![allow(clippy::approx_constant)]
 use fieldx::fxstruct;
 
 #[fxstruct]

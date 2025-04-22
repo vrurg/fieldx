@@ -284,7 +284,7 @@ use syn::DeriveInput;
 /// [Subarguments](#sub_args):
 ///
 /// - literal string defines builder's struct name. When omitted, the builder struct is named after the original struct
-/// by adding `Builder` suffix.
+///   by adding `Builder` suffix.
 /// - **`prefix`** – a literal string to be used as a prefix for builder setter methods
 /// - **`attributes`** (see the [section above](#attrs_family)) – builder struct attributes
 /// - **`attributes_impl`** - attributes of the struct implementation
@@ -727,7 +727,6 @@ use syn::DeriveInput;
 /// Field level only argument:
 ///
 /// - **`required`** – this field must always get a value from the builder even if otherwise it'd be optional
-
 #[proc_macro_attribute]
 pub fn fxstruct(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let attr_args = match ast::NestedMeta::parse_meta_list(args.into()) {
@@ -739,13 +738,13 @@ pub fn fxstruct(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
 
     let args = match FXSArgs::from_list(&attr_args) {
         Ok(v) => v,
-        Err(e) => return darling::Error::from(e).write_errors().into(),
+        Err(e) => return e.write_errors().into(),
     };
 
     let input_ast = parse_macro_input!(input as DeriveInput);
     let fx = match FXInputReceiver::from_derive_input(&input_ast) {
         Ok(v) => v,
-        Err(e) => return darling::Error::from(e).write_errors().into(),
+        Err(e) => return e.write_errors().into(),
     };
 
     codegen::FXRewriter::new(fx, args).rewrite().into()

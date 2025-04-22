@@ -6,6 +6,10 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
 use quote::ToTokens;
+use syn::spanned::Spanned;
+
+use crate::codegen::FXToksMeta;
+use crate::codegen::FXValueFlag;
 
 use super::tokenstream_setter;
 use super::FXConstructor;
@@ -175,16 +179,27 @@ impl FXFnConstructor {
     }
 
     pub(crate) fn span(&self) -> Span {
+        #[allow(clippy::redundant_closure)]
         self.span.unwrap_or_else(|| Span::call_site())
     }
 
-    pub(crate) fn self_maybe_rc(&mut self) -> Option<TokenStream> {
-        if self.self_rc_ident.is_some() {
-            self.self_rc_ident.clone()
-        }
-        else {
-            self.self_ident()
-        }
+    pub(crate) fn self_maybe_rc(&mut self) -> Option<FXToksMeta> {
+        self.self_rc_ident
+            .as_ref()
+            .map(|s_rc| FXToksMeta::new(s_rc.clone(), FXValueFlag::RefCounted))
+            .or_else(|| self.self_ident().map(FXToksMeta::from))
+    }
+
+    pub(crate) fn self_maybe_rc_as_ref(&mut self) -> Option<FXToksMeta> {
+        self.self_maybe_rc().map(|s| {
+            if s.flags != FXValueFlag::RefCounted as u8 {
+                s
+            }
+            else {
+                let self_toks = s.to_token_stream();
+                s.replace(quote_spanned! {self_toks.span()=> &#self_toks})
+            }
+        })
     }
 
     pub(crate) fn set_async(&mut self, is_async: FXProp<bool>) -> &mut Self {
@@ -256,17 +271,17 @@ impl FXConstructor for FXFnConstructor {
             });
         }
 
-        if self.params.len() > 0 {
+        if !self.params.is_empty() {
             params.extend(self.params.iter().cloned());
         }
 
         let mut generic_params = vec![];
 
-        if self.lifetimes.len() > 0 {
+        if !self.lifetimes.is_empty() {
             let lifetimes = &self.lifetimes;
             generic_params.push(quote_spanned![span=> #(#lifetimes),*]);
         }
-        if self.generics.len() > 0 {
+        if !self.generics.is_empty() {
             let generics = &self.generics;
             generic_params.push(quote_spanned![span=> #(#generics),*]);
         }

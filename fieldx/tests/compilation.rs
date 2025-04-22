@@ -4,8 +4,8 @@ use std::env;
 use std::fs::DirEntry;
 use std::fs::{self};
 use std::io;
+use std::path::Path;
 use std::path::PathBuf;
-use trybuild;
 
 struct UncompEnv {
     // .0 is a path of .stderr under the version subdir, .1 is the one used for testing
@@ -29,7 +29,8 @@ impl UncompEnv {
         me
     }
 
-    fn stringify_fname(entry: Result<DirEntry, io::Error>, from_dir: &PathBuf) -> String {
+    fn stringify_fname(entry: Result<DirEntry, io::Error>, from_dir: &Path) -> String {
+        #[allow(clippy::expect_fun_call)]
         entry
             .expect(&format!(
                 "Failed to fetch an entry from directory '{}'",
@@ -41,7 +42,7 @@ impl UncompEnv {
     }
 
     fn copy_ok(from: &PathBuf, to: &PathBuf) -> bool {
-        fs::copy(&from, &to).map_or_else(
+        fs::copy(from, to).map_or_else(
             |err| {
                 eprintln!("!!! Failed to copy '{}' to '{}': {}", from.display(), to.display(), err);
                 false
@@ -63,18 +64,19 @@ impl UncompEnv {
     fn collect_stderrs(&mut self) -> Result<(), io::Error> {
         let dest_dir = &self.base_dir;
         let from_dir = &self.outputs_dir;
+        let from_dir_display = from_dir.display();
 
         if !from_dir.exists() {
-            panic!("Outputs directory '{}' doesn't exists.", from_dir.display());
+            panic!("Outputs directory '{}' doesn't exists.", from_dir_display);
         }
 
         if !from_dir.is_dir() {
-            panic!("'{}' is not a directory", from_dir.display());
+            panic!("'{}' is not a directory", from_dir_display);
         }
 
-        for entry in std::fs::read_dir(&from_dir).expect(&format!("Failed to read '{}' directory", from_dir.display()))
-        {
-            let fname = Self::stringify_fname(entry, &from_dir);
+        #[allow(clippy::expect_fun_call)]
+        for entry in std::fs::read_dir(from_dir).expect(&format!("Failed to read '{}' directory", from_dir_display)) {
+            let fname = Self::stringify_fname(entry, from_dir);
 
             if fname.ends_with(".stderr") {
                 let dest_stderr = dest_dir.join(&fname);
@@ -100,7 +102,7 @@ impl UncompEnv {
 
             if Version::parse(&toolchain).is_err() {
                 // This is a case of named toolchain, use it as the group name
-                return toolchain.into();
+                return toolchain;
             }
         }
 
@@ -143,7 +145,7 @@ impl UncompEnv {
         #[cfg(feature = "diagnostics")]
         groups.push("diagnostics".into());
 
-        if groups.len() > 0 {
+        if !groups.is_empty() {
             format!("{}+{}", Self::version_group(), groups.join(","))
         }
         else {
@@ -151,7 +153,7 @@ impl UncompEnv {
         }
     }
 
-    fn outputs_dir(base_dir: &PathBuf) -> Result<PathBuf, io::Error> {
+    fn outputs_dir(base_dir: &Path) -> Result<PathBuf, io::Error> {
         let outputs_dir = base_dir.join(Self::outputs_subdir());
 
         if !outputs_dir.exists() {
@@ -163,6 +165,7 @@ impl UncompEnv {
 
     fn check_for_new(&self) -> Result<(), io::Error> {
         let test_dir = PathBuf::from(&self.base_dir);
+        #[allow(clippy::expect_fun_call)]
         for entry in std::fs::read_dir(&test_dir).expect(&format!("Failed to read '{}' directory", test_dir.display()))
         {
             let fname = Self::stringify_fname(entry, &test_dir);
@@ -183,13 +186,11 @@ impl UncompEnv {
 impl Drop for UncompEnv {
     fn drop(&mut self) {
         let mut with_failures = false;
-        let try_build = env::var("TRYBUILD").map_or(false, |v| v == "overwrite");
+        let try_build = env::var("TRYBUILD").is_ok_and(|v| v == "overwrite");
         for (ref ver_stderr, ref stderr) in self.stderrs.iter() {
             if try_build {
-                if try_build {
-                    eprintln!("* Updating {}", ver_stderr.display());
-                    with_failures = with_failures || !Self::copy_ok(stderr, ver_stderr);
-                }
+                eprintln!("* Updating {}", ver_stderr.display());
+                with_failures = with_failures || !Self::copy_ok(stderr, ver_stderr);
             }
 
             eprintln!("- Removing {}", stderr.display());
@@ -209,7 +210,7 @@ impl Drop for UncompEnv {
 
 #[test]
 fn failures() {
-    if std::env::var("__FIELDX_DEFAULT_TOOLCHAIN__").map_or(false, |v| v != "nightly")
+    if std::env::var("__FIELDX_DEFAULT_TOOLCHAIN__").is_ok_and(|v| v != "nightly")
         && std::env::var("__FIELDX_NO_UNCOMPILABLE__").map_or(true, |v| v.is_empty())
     {
         let test_env = UncompEnv::new("uncompilable");

@@ -15,11 +15,12 @@ where
     /// Span of the original syntax element.
     #[allow(dead_code)]
     fn orig_span(&self) -> Option<Span> {
-        self.orig().and_then(|o| Some(o.span()))
+        self.orig().map(|o| o.span())
     }
 
     /// If there is original syntax element then its span is returned. Otherwise call site is used.
     fn final_span(&self) -> Span {
+        #[allow(clippy::redundant_closure)]
         self.orig_span().unwrap_or_else(|| Span::call_site())
     }
 }
@@ -38,6 +39,7 @@ where
     }
 
     fn final_span(&self) -> Span {
+        #[allow(clippy::redundant_closure)]
         self.as_ref().map_or_else(|| Span::call_site(), |s| s.final_span())
     }
 }

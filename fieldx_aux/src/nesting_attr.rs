@@ -50,7 +50,7 @@ pub trait FromNestAttr<const WITH_LITERALS: bool = true>: FromMeta {
 
     /// Trait implementation must always override this method if `WITH_LITERALS` parameter is `true`. If it is `false`
     /// then the method produces a standard error "literals are not supported".
-    fn set_literals(self, literals: &Vec<Lit>) -> darling::Result<Self> {
+    fn set_literals(self, literals: &[Lit]) -> darling::Result<Self> {
         if WITH_LITERALS {
             Err(darling::Error::custom(format!(
                 "{} must implement set_literals() method",
@@ -64,7 +64,7 @@ pub trait FromNestAttr<const WITH_LITERALS: bool = true>: FromMeta {
     }
 
     /// Produce standard error when literal subarguments are used with argument not supporting them.
-    fn no_literals(&self, literals: &Vec<Lit>) -> darling::Result<Self> {
+    fn no_literals(&self, literals: &[Lit]) -> darling::Result<Self> {
         Err(darling::Error::custom("Literal values are not supported here").with_span(&literals[0]))
     }
 }
@@ -111,7 +111,7 @@ impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> FXNestingAttr<T,
         }
 
         let mut fattr = T::from_list(&non_lit)?;
-        if literals.len() > 0 {
+        if !literals.is_empty() {
             fattr = fattr.set_literals(&literals)?;
         }
 
@@ -125,12 +125,12 @@ impl<T: FromNestAttr<WITH_LITERALS>, const WITH_LITERALS: bool> FXNestingAttr<T,
     fn from_path_tokens<P: Into<syn::Path>, TT: ToTokens>(path: P, tokens: TT) -> darling::Result<Self> {
         let path = path.into();
         let orig = syn::parse2::<syn::Meta>(quote_spanned! {tokens.span()=> #path(#tokens) })?;
-        Ok(Self::from_meta(&orig)?)
+        Self::from_meta(&orig)
     }
 
     pub fn from_tokens<TT: ToTokens>(toks: TT) -> darling::Result<Self> {
         let orig = syn::parse2::<syn::Meta>(quote_spanned! {toks.span()=> #toks })?;
-        Ok(Self::from_meta(&orig)?)
+        Self::from_meta(&orig)
     }
 }
 
@@ -225,7 +225,7 @@ where
     #[inline]
     fn fx_try_from(value: (P, U)) -> darling::Result<Self> {
         let v1 = value.1.clone();
-        Ok(Self::from_path_tokens(value.fx_into(), v1)?)
+        Self::from_path_tokens(value.fx_into(), v1)
     }
 }
 
@@ -306,12 +306,7 @@ where
     fn from(value: FXNestingAttr<T, WITH_LITERALS>) -> Self {
         let orig_span = value.orig_span();
         let p: Self = value.inner.into();
-        if let Some(p) = p {
-            Some(p.respan(orig_span))
-        }
-        else {
-            None
-        }
+        p.map(|p| p.respan(orig_span))
     }
 }
 
@@ -323,12 +318,7 @@ where
     #[inline(always)]
     fn from(value: &FXNestingAttr<T, WITH_LITERALS>) -> Self {
         let p: Self = (&value.inner).into();
-        if let Some(p) = p {
-            Some(p.respan(value.orig_span()))
-        }
-        else {
-            None
-        }
+        p.map(|p| p.respan(value.orig_span()))
     }
 }
 

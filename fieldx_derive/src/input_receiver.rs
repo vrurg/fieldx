@@ -18,7 +18,7 @@ pub(crate) struct FXInputReceiver {
 
 impl FXInputReceiver {
     pub(crate) fn fields(&self) -> Vec<&FXField> {
-        self.data.as_ref().take_struct().map_or_else(|| vec![], |s| s.fields)
+        self.data.as_ref().take_struct().map_or(Vec::new(), |s| s.fields)
     }
 
     pub(crate) fn generic_param_idents(&self) -> Vec<TokenStream> {

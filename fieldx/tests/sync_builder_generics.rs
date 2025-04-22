@@ -43,7 +43,7 @@ where
             .count()
             .try_into()
             .expect("u16 value");
-        l.try_into().expect("f32 value")
+        l.into()
     }
 }
 

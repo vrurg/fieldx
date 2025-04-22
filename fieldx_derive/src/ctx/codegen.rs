@@ -16,6 +16,7 @@ use once_cell::unsync::OnceCell;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
+use quote::quote_spanned;
 use quote::ToTokens;
 use std::cell::Ref;
 use std::cell::RefCell;
@@ -38,12 +39,12 @@ pub(crate) struct FXCodeGenCtx {
 
     // #[cfg(feature = "serde")]
     // shadow_field_toks:   RefCell<Vec<TokenStream>>,
+    // #[cfg(feature = "serde")]
+    // shadow_default_toks: RefCell<Vec<TokenStream>>,
     #[cfg(feature = "serde")]
-    shadow_default_toks: RefCell<Vec<TokenStream>>,
+    shadow_var_ident: OnceCell<syn::Ident>,
     #[cfg(feature = "serde")]
-    shadow_var_ident:    OnceCell<syn::Ident>,
-    #[cfg(feature = "serde")]
-    me_var_ident:        OnceCell<syn::Ident>,
+    me_var_ident:     OnceCell<syn::Ident>,
 
     #[getset(get = "pub(crate)")]
     args: FXSArgs,
@@ -94,8 +95,8 @@ impl FXCodeGenCtx {
             tokens: OnceCell::new(),
             unique_id: RefCell::new(0),
 
-            #[cfg(feature = "serde")]
-            shadow_default_toks: RefCell::new(Vec::new()),
+            // #[cfg(feature = "serde")]
+            // shadow_default_toks: RefCell::new(Vec::new()),
             #[cfg(feature = "serde")]
             shadow_var_ident: OnceCell::new(),
             #[cfg(feature = "serde")]
@@ -133,7 +134,7 @@ impl FXCodeGenCtx {
     pub(crate) fn shadow_struct(&self) -> darling::Result<Ref<FXStructConstructor>> {
         let sstruct = self.shadow_struct.borrow();
         if sstruct.is_none() {
-            return Err(darling::Error::custom("Shadow struct is not set yet").into());
+            return Err(darling::Error::custom("Shadow struct is not set yet"));
         }
         Ok(Ref::map(sstruct, |s| s.as_ref().unwrap()))
     }
@@ -142,7 +143,7 @@ impl FXCodeGenCtx {
     pub(crate) fn shadow_struct_mut(&self) -> darling::Result<RefMut<FXStructConstructor>> {
         let sstruct = self.shadow_struct.borrow_mut();
         if sstruct.is_none() {
-            return Err(darling::Error::custom("Shadow struct is not set yet").into());
+            return Err(darling::Error::custom("Shadow struct is not set yet"));
         }
         Ok(RefMut::map(sstruct, |s| s.as_mut().unwrap()))
     }
@@ -174,11 +175,11 @@ impl FXCodeGenCtx {
     //     self.shadow_field_toks.borrow()
     // }
 
-    #[inline(always)]
-    #[cfg(feature = "serde")]
-    pub(crate) fn shadow_defaults(&self) -> std::cell::Ref<Vec<TokenStream>> {
-        self.shadow_default_toks.borrow()
-    }
+    // #[inline(always)]
+    // #[cfg(feature = "serde")]
+    // pub(crate) fn shadow_defaults(&self) -> std::cell::Ref<Vec<TokenStream>> {
+    //     self.shadow_default_toks.borrow()
+    // }
 
     #[inline(always)]
     pub(crate) fn push_error(&self, err: darling::Error) {
@@ -186,10 +187,10 @@ impl FXCodeGenCtx {
     }
 
     #[inline(always)]
-    pub(crate) fn ok_or_empty(&self, outcome: darling::Result<TokenStream>) -> TokenStream {
+    pub(crate) fn ok_or_empty<T: From<TokenStream>>(&self, outcome: darling::Result<T>) -> T {
         outcome.unwrap_or_else(|err| {
             self.push_error(err);
-            quote![]
+            quote![].into()
         })
     }
 
@@ -242,15 +243,15 @@ impl FXCodeGenCtx {
         self.copyable_types.borrow_mut().push(field_ctx.ty().clone());
     }
 
-    #[inline(always)]
-    #[cfg(feature = "serde")]
-    pub(crate) fn add_shadow_default_decl(&self, field: TokenStream) {
-        self.shadow_default_toks.borrow_mut().push(field);
-    }
+    // #[inline(always)]
+    // #[cfg(feature = "serde")]
+    // pub(crate) fn add_shadow_default_decl(&self, field: TokenStream) {
+    //     self.shadow_default_toks.borrow_mut().push(field);
+    // }
 
     #[inline(always)]
     pub(crate) fn input_ident(&self) -> &syn::Ident {
-        &self.input().ident()
+        self.input().ident()
     }
 
     pub(crate) fn tokens_extend<T: ToTokens>(&self, toks: T) {
@@ -263,7 +264,7 @@ impl FXCodeGenCtx {
             match errors.finish() {
                 Ok(_) => (),
                 Err(err) => {
-                    self.tokens_extend(TokenStream::from(darling::Error::from(err).write_errors()));
+                    self.tokens_extend(err.write_errors());
                 }
             };
         }
@@ -367,24 +368,27 @@ impl FXCodeGenCtx {
         let arg_props = self.arg_props();
         let prop = arg_props.builder_struct();
         if *prop {
-            Ok(self.builder_struct.get_or_init(|| {
-                let builder_struct = RefCell::new(FXStructConstructor::new(arg_props.builder_ident().clone()));
-                {
-                    let mut bs_mut = builder_struct.borrow_mut();
-                    bs_mut
-                        .set_vis(arg_props.builder_struct_visibility())
-                        .set_generics(self.input().generics().clone())
-                        .set_span(prop.final_span())
-                        .maybe_add_attributes(arg_props.builder_struct_attributes().map(|a| a.iter()))
-                        .struct_impl_mut()
-                        .maybe_add_attributes(arg_props.builder_struct_attributes_impl().map(|a| a.iter()));
-                }
+            Ok(self
+                .builder_struct
+                .get_or_try_init(|| -> darling::Result<RefCell<FXStructConstructor>> {
+                    let builder_struct = RefCell::new(FXStructConstructor::new(arg_props.builder_ident().clone()));
+                    {
+                        let mut bs_mut = builder_struct.borrow_mut();
+                        bs_mut
+                            .set_vis(arg_props.builder_struct_visibility())
+                            .set_generics(self.input().generics().clone())
+                            .set_span(prop.final_span())
+                            .add_attribute_toks(quote_spanned! {prop.final_span()=> #[derive(Default)]})?
+                            .maybe_add_attributes(arg_props.builder_struct_attributes().map(|a| a.iter()))
+                            .struct_impl_mut()
+                            .maybe_add_attributes(arg_props.builder_struct_attributes_impl().map(|a| a.iter()));
+                    }
 
-                builder_struct
-            }))
+                    Ok(builder_struct)
+                })?)
         }
         else {
-            Err(darling::Error::custom("Builder struct is not enabled").into())
+            Err(darling::Error::custom("Builder struct is not enabled"))
         }
     }
 

@@ -1,3 +1,4 @@
+#![allow(clippy::approx_constant)]
 use fieldx::fxstruct;
 
 #[fxstruct]
@@ -121,15 +122,7 @@ fn basic_nonlazy() {
 fn optional() {
     let mut non_sync = Plain::<Dummy>::new();
 
-    assert_eq!(
-        non_sync.maybe(),
-        &Some(Dummy::default()),
-        "an optional field gets initialized"
-    );
-    assert_eq!(
-        non_sync.clear_maybe(),
-        Some(Some(Dummy::default())),
-        "optional field clear"
-    );
+    assert_eq!(non_sync.maybe(), &Some(Dummy), "an optional field gets initialized");
+    assert_eq!(non_sync.clear_maybe(), Some(Some(Dummy)), "optional field clear");
     assert!(!non_sync.has_maybe(), "optional field is empty after clearing");
 }

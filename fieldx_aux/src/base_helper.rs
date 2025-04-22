@@ -31,7 +31,7 @@ use syn::Lit;
 pub struct FXBaseHelper<const BOOL_ONLY: bool = false> {}
 
 impl<const BOOL_ONLY: bool> FXBaseHelper<BOOL_ONLY> {
-    fn allowed_literals(&self, literals: &Vec<Lit>) -> darling::Result<()> {
+    fn allowed_literals(&self, literals: &[Lit]) -> darling::Result<()> {
         if BOOL_ONLY {
             return Err(self.no_literals(literals).unwrap_err());
         }

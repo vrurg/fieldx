@@ -1,6 +1,5 @@
 #![cfg(feature = "async")]
 use fieldx::r#async::FXRwLockAsync;
-use tokio;
 
 #[tokio::test]
 async fn rwlock() {

@@ -5,13 +5,14 @@ use fieldx_aux::FXProp;
 use fieldx_aux::FXSetState;
 use fieldx_aux::FXSynValue;
 use fieldx_aux::FXSyncMode;
+use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::quote;
 
 #[allow(dead_code)]
 // Used by serde generation.
 pub(crate) fn derive_toks(traits: &[TokenStream]) -> TokenStream {
-    if traits.len() > 0 {
+    if !traits.is_empty() {
         quote!(#[derive(#( #traits ),*)])
     }
     else {
@@ -436,10 +437,14 @@ pub(crate) use dump_tt_struct;
 #[allow(unused_imports)]
 pub(crate) use fxtrace;
 pub(crate) use helper_standard_methods;
+use quote::quote_spanned;
 pub(crate) use simple_bool_prop;
 pub(crate) use simple_type_prop;
 #[allow(unused_imports)]
 pub(crate) use TODO;
+
+use crate::codegen::FXToksMeta;
+use crate::codegen::FXValueFlag;
 // pub(crate) use self::helper_std_fields;
 
 // pub fn inspect_spans(tokens: TokenStream) {
@@ -495,4 +500,12 @@ pub(crate) fn mode_async_prop(
 
 pub(crate) fn mode_plain_prop(mode: &Option<FXSynValue<FXSyncMode>>) -> Option<FXProp<bool>> {
     mode.as_ref().map(|m| FXProp::new(m.is_plain(), m.orig_span()))
+}
+
+#[inline]
+pub(crate) fn std_default_expr_toks(span: Span) -> FXToksMeta {
+    FXToksMeta::new(
+        quote_spanned! {span=> ::std::default::Default::default()},
+        FXValueFlag::StdDefault,
+    )
 }

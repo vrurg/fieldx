@@ -1,7 +1,6 @@
 #![cfg(feature = "async")]
 use core::time;
 use fieldx::fxstruct;
-use num_cpus;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
@@ -37,12 +36,7 @@ impl Foo {
 
     async fn build_bar(&self) -> i32 {
         *self.bar_builds.lock().await += 1;
-        if let Some(nb) = *self.next_bar.lock().await {
-            nb
-        }
-        else {
-            42
-        }
+        self.next_bar.lock().await.unwrap_or(42)
     }
 
     async fn build_fubar(&self) -> String {

@@ -48,12 +48,7 @@ where
 
     fn build_bar(&self) -> i32 {
         *self.bar_builds.lock() += 1;
-        if let Some(nb) = *self.next_bar.lock() {
-            nb
-        }
-        else {
-            42
-        }
+        self.next_bar.lock().unwrap_or(42)
     }
 
     fn build_dummy(&self) -> T {

@@ -333,7 +333,7 @@ where
 
         Ok(Self {
             items: result.into_pairs().collect(),
-            _p:    PhantomData::default(),
+            _p:    PhantomData,
         })
     }
 }

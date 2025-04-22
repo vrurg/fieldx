@@ -1,3 +1,4 @@
+#![allow(clippy::approx_constant)]
 // With this `deny` we make sure that attributes_impl is actually applied.
 #![deny(dead_code)]
 use fieldx::fxstruct;

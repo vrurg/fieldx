@@ -2,7 +2,6 @@
 use core::time;
 use crossbeam::sync;
 use crossbeam::thread;
-use num_cpus;
 use parking_lot::Mutex;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicI32;

@@ -47,6 +47,7 @@ impl FXConstructor for FXFieldConstructor {
         let attributes = &self.attributes;
         let ident = &self.ident;
         let ty = &self.ty;
+        #[allow(clippy::redundant_closure)]
         let span = self.span.unwrap_or_else(|| Span::call_site());
 
         quote_spanned! {span=>

@@ -4,10 +4,13 @@ use super::FXCodeGenPlain;
 use super::FXCodeGenSync;
 use super::FXFieldCtx;
 use super::FXInlining;
+use super::FXToksMeta;
 use super::FXValueRepr;
 use crate::codegen::constructor::FXConstructor;
 use crate::codegen::constructor::FXFieldConstructor;
+use crate::codegen::FXValueFlag;
 use crate::helper::*;
+use crate::util::std_default_expr_toks;
 use enum_dispatch::enum_dispatch;
 use fieldx_aux::FXProp;
 use fieldx_aux::FXPropBool;
@@ -41,8 +44,8 @@ pub(crate) trait FXCodeGenContextual {
     fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
     fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
     fn field_lazy_builder_wrapper(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
-    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<TokenStream>) -> darling::Result<TokenStream>;
-    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<FXToksMeta>) -> darling::Result<FXToksMeta>;
+    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta>;
     fn field_lazy_initializer(
         &self,
         fctx: &FXFieldCtx,
@@ -50,10 +53,10 @@ pub(crate) trait FXCodeGenContextual {
     ) -> darling::Result<TokenStream>;
     #[cfg(feature = "serde")]
     // How to move field from shadow struct
-    fn field_from_shadow(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_from_shadow(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta>;
     #[cfg(feature = "serde")]
     // How to move field from the struct itself
-    fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
+    fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta>;
 
     // fn add_field_decl(&self, field: TokenStream);
     // fn add_defaults_decl(&self, defaults: TokenStream);
@@ -89,7 +92,7 @@ pub(crate) trait FXCodeGenContextual {
         let generic_idents = input.generic_param_idents();
         let span = input.generics().span();
 
-        if generic_idents.len() > 0 {
+        if !generic_idents.is_empty() {
             quote_spanned![span=> < #( #generic_idents ),* >]
         }
         else {
@@ -174,7 +177,7 @@ pub(crate) trait FXCodeGenContextual {
         constructor.set_vis(fctx.vis());
 
         if !*fctx.skipped() {
-            constructor.set_type(self.type_tokens(&fctx)?.clone());
+            constructor.set_type(self.type_tokens(fctx)?.clone());
         };
 
         self.ctx().add_field_decl(constructor);
@@ -227,15 +230,15 @@ pub(crate) trait FXCodeGenContextual {
 
             self.maybe_add_helper_method(self.field_accessor(fctx)?, FXHelperKind::Accessor, fctx)?;
             self.maybe_add_helper_method(self.field_accessor_mut(fctx)?, FXHelperKind::AccessorMut, fctx)?;
-            self.maybe_add_helper_method(self.field_reader(&fctx)?, FXHelperKind::Reader, fctx)?;
-            self.maybe_add_helper_method(self.field_writer(&fctx)?, FXHelperKind::Writer, fctx)?;
-            self.maybe_add_helper_method(self.field_setter(&fctx)?, FXHelperKind::Setter, fctx)?;
-            self.maybe_add_helper_method(self.field_clearer(&fctx)?, FXHelperKind::Clearer, fctx)?;
-            self.maybe_add_helper_method(self.field_predicate(&fctx)?, FXHelperKind::Predicate, fctx)?;
-            ctx.maybe_add_method(self.field_lazy_builder_wrapper(&fctx)?);
+            self.maybe_add_helper_method(self.field_reader(fctx)?, FXHelperKind::Reader, fctx)?;
+            self.maybe_add_helper_method(self.field_writer(fctx)?, FXHelperKind::Writer, fctx)?;
+            self.maybe_add_helper_method(self.field_setter(fctx)?, FXHelperKind::Setter, fctx)?;
+            self.maybe_add_helper_method(self.field_clearer(fctx)?, FXHelperKind::Clearer, fctx)?;
+            self.maybe_add_helper_method(self.field_predicate(fctx)?, FXHelperKind::Predicate, fctx)?;
+            ctx.maybe_add_method(self.field_lazy_builder_wrapper(fctx)?);
 
             if *ctx.arg_props().builder_struct() {
-                if let Some(mut bm) = self.field_builder(&fctx)? {
+                if let Some(mut bm) = self.field_builder(fctx)? {
                     // If the builder method for the field doesn't have its own doc, use the field's doc.
                     if let Some(literals) = fctx.props().field_props().builder_doc() {
                         bm.add_doc(literals)?;
@@ -245,7 +248,7 @@ pub(crate) trait FXCodeGenContextual {
                     }
                     ctx.add_builder_method(bm)?;
                 }
-                ctx.add_builder_field(self.field_builder_field(&fctx)?)?;
+                ctx.add_builder_field(self.field_builder_field(fctx)?)?;
             }
         }
 
@@ -254,30 +257,36 @@ pub(crate) trait FXCodeGenContextual {
 
     fn field_default(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
         let skipped = fctx.skipped();
-        let def_tok = if *skipped {
+        let def_expr = if *skipped {
             let span = skipped.final_span();
-            fctx.default_value().map_or_else(
-                || quote_spanned! {span=> ::std::default::Default::default() },
-                |dv| dv.to_token_stream(),
-            )
+            fctx.default_value()
+                .map_or_else(|| std_default_expr_toks(span), |dv| dv.to_token_stream().into())
         }
         else {
             self.field_default_wrap(fctx)?
         };
         let ident = fctx.ident();
-        fctx.set_default_expr(quote_spanned! [ident.span()=> #ident: #def_tok ]);
+        let attributes = def_expr.attributes.clone();
+        let def_toks = def_expr.to_token_stream();
+        fctx.set_default_expr(def_expr.replace(quote_spanned! [ident.span()=>
+            #( #attributes )*
+            #ident: #def_toks
+        ]));
         Ok(())
     }
 
-    fn field_default_value(&self, fctx: &FXFieldCtx) -> FXValueRepr<TokenStream> {
+    fn field_default_value(&self, fctx: &FXFieldCtx) -> FXValueRepr<FXToksMeta> {
         if let Some(default_value) = fctx.default_value() {
-            FXValueRepr::Versatile(default_value.to_token_stream())
+            FXValueRepr::Versatile(FXToksMeta::new(
+                default_value.to_token_stream(),
+                super::FXValueFlag::UserDefault,
+            ))
         }
         else if *fctx.lazy() || *fctx.optional() {
             FXValueRepr::None
         }
         else {
-            FXValueRepr::Exact(quote_spanned! [*fctx.span()=> ::std::default::Default::default() ])
+            FXValueRepr::Exact(std_default_expr_toks(*fctx.span()))
         }
     }
 
@@ -289,7 +298,7 @@ pub(crate) trait FXCodeGenContextual {
             builder_ident.set_span(span);
             let mut mc = FXFnConstructor::new(builder_ident);
             let ident = fctx.ident();
-            let (val_type, gen_params, into_tok) = self.into_toks(fctx, fctx.builder_into());
+            let (val_type, gen_params, into_tok) = self.to_toks(fctx, fctx.builder_into());
 
             mc.set_span(span)
                 .set_vis(fctx.builder_method_visibility())
@@ -370,7 +379,7 @@ pub(crate) trait FXCodeGenContextual {
         }
     }
 
-    fn field_builder_value_for_set(&self, fctx: &FXFieldCtx, field_ident: &syn::Ident, span: &Span) -> TokenStream {
+    fn field_builder_value_for_set(&self, fctx: &FXFieldCtx, field_ident: &syn::Ident, span: &Span) -> FXToksMeta {
         let ctx = self.ctx();
         let span = *span;
         let optional = fctx.optional();
@@ -381,20 +390,20 @@ pub(crate) trait FXCodeGenContextual {
                     ctx.push_error(e);
                     None
                 },
-                |tt| Some(tt),
+                Some,
             )
         }
         else if *optional && !*builder_required {
             self.field_value_wrap(
                 fctx,
-                FXValueRepr::Exact(quote_spanned![optional.final_span()=> ::std::option::Option::None]),
+                FXValueRepr::Exact(quote_spanned![optional.final_span()=> ::std::option::Option::None].into()),
             )
             .map_or_else(
                 |e| {
                     ctx.push_error(e);
                     None
                 },
-                |tt| Some(tt),
+                Some,
             )
         }
         else {
@@ -402,26 +411,45 @@ pub(crate) trait FXCodeGenContextual {
         };
 
         if let Some(alternative) = alternative {
-            let manual_wrapped = ctx.ok_or_empty(
-                self.field_value_wrap(fctx, FXValueRepr::Versatile(quote_spanned![span=>field_manual_value])),
-            );
-            quote_spanned![span=>
-                if let ::std::option::Option::Some(field_manual_value) = self.#field_ident.take() {
-                    #manual_wrapped
+            let mut field_manual_value = ctx.unique_ident_pfx("field_manual_value");
+            field_manual_value.set_span(span);
+            let manual_wrapped = ctx.ok_or_empty(self.field_value_wrap(
+                fctx,
+                FXValueRepr::Versatile(quote_spanned![span=> #field_manual_value].into()),
+            ));
+            let taker = quote_spanned! {span=> self.#field_ident.take()};
+
+            if manual_wrapped.has_flag(FXValueFlag::ContainerWrapped) {
+                if alternative.flags == FXValueFlag::StdDefault as u8 {
+                    quote_spanned! {span=> #taker.map_or_default(|#field_manual_value| #manual_wrapped) }.into()
                 }
                 else {
-                    #alternative
+                    FXToksMeta::from(quote_spanned! {span=>
+                        #taker.map_or_else(
+                            || #alternative,
+                            |#field_manual_value| #manual_wrapped
+                        )
+                    })
+                    // Clippy complains about `|| #alternative`, but this is acceptable here since we do not know what
+                    // the expression will evaluate to. It might be costly to compute if it is not necessary.
+                    .add_attribute(quote_spanned! {span=> #[allow(clippy::redundant_closure)]})
                 }
-            ]
+            }
+            else if alternative.has_flag(FXValueFlag::StdDefault) {
+                quote_spanned! {span=> #taker.unwrap_or_default() }.into()
+            }
+            else {
+                FXToksMeta::from(quote_spanned! {span=> #taker.unwrap_or_else(|| #alternative) })
+                    .add_attribute(quote_spanned! {span=> #[allow(clippy::redundant_closure)]})
+            }
         }
         else {
             // If no alternative init path provided then we just unwrap. It'd be either totally safe if builder checker
-            // is set for this field, or won't be ever run because of an earlier error in this method.
-            let value_wrapped = ctx.ok_or_empty(self.field_value_wrap(
+            // is set for this field, or won't be ever ran because of an earlier error in this method.
+            ctx.ok_or_empty(self.field_value_wrap(
                 fctx,
-                FXValueRepr::Versatile(quote_spanned![span=> self.#field_ident.take().unwrap()]),
-            ));
-            quote_spanned![span=> #value_wrapped ]
+                FXValueRepr::Versatile(quote_spanned![span=> self.#field_ident.take().unwrap()].into()),
+            ))
         }
     }
 
@@ -435,7 +463,7 @@ pub(crate) trait FXCodeGenContextual {
         for t in tokens.into_iter() {
             match t {
                 TokenTree::Ident(ref ident) => {
-                    if ident.to_string() == "Self" {
+                    if ident == "Self" {
                         fixed_tokens.extend(quote_spanned![span=> <#struct_ident #generics>]);
                     }
                     else {
@@ -455,7 +483,7 @@ pub(crate) trait FXCodeGenContextual {
     }
 
     // TokenStreams used to produce methods with Into support.
-    fn into_toks(
+    fn to_toks(
         &self,
         fctx: &FXFieldCtx,
         use_into: FXProp<bool>,
@@ -476,8 +504,12 @@ pub(crate) trait FXCodeGenContextual {
 
     fn simple_field_build_setter(&self, fctx: &FXFieldCtx, field_ident: &syn::Ident, span: &Span) -> TokenStream {
         let set_toks = self.field_builder_value_for_set(fctx, field_ident, span);
+        let attributes = &set_toks.attributes;
 
-        quote_spanned![*span=> #field_ident: #set_toks ]
+        quote_spanned![*span=>
+            #( #attributes )*
+            #field_ident: #set_toks
+        ]
     }
 
     fn maybe_ref_counted_self(&self, fctx: &FXFieldCtx, mc: &mut FXFnConstructor) -> darling::Result<()> {

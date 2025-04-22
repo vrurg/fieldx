@@ -97,7 +97,7 @@ impl<const BOOL_ONLY: bool> FromNestAttr for FXAccessorHelper<BOOL_ONLY> {
         Ok(Self::default())
     }
 
-    fn set_literals(mut self, literals: &Vec<Lit>) -> darling::Result<Self> {
+    fn set_literals(mut self, literals: &[Lit]) -> darling::Result<Self> {
         if BOOL_ONLY {
             return Err(darling::Error::custom("Literal values are not supported here").with_span(&literals[0]));
         }

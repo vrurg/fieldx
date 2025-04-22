@@ -2,7 +2,6 @@
 use fieldx::fxstruct;
 use serde::Deserialize;
 use serde::Serialize;
-use serde_json;
 
 #[fxstruct(sync, builder(attributes_impl(allow(dead_code))), serde(default))]
 #[derive(Clone, Debug)]

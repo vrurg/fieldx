@@ -148,19 +148,19 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
         if !STRUCT {
             if self.error.is_some() {
                 return Err(
-                    darling::Error::custom(format!("parameter 'error' is only supported at struct level"))
+                    darling::Error::custom("parameter 'error' is only supported at struct level".to_string())
                         .with_span(&self.error.final_span()),
                 );
             }
             if self.post_build.is_some() {
-                return Err(darling::Error::custom(format!(
-                    "parameter 'post_build' is only supported at struct level"
-                ))
+                return Err(darling::Error::custom(
+                    "parameter 'post_build' is only supported at struct level".to_string(),
+                )
                 .with_span(&self.post_build.final_span()));
             }
             if self.opt_in.is_some() {
                 return Err(
-                    darling::Error::custom(format!("parameter 'opt_in' is only supported at struct level"))
+                    darling::Error::custom("parameter 'opt_in' is only supported at struct level".to_string())
                         .with_span(&self.opt_in.final_span()),
                 );
             }

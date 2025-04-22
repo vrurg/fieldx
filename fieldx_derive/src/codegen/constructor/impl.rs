@@ -12,7 +12,7 @@ use super::FXFnConstructor;
 #[derive(Debug, Getters)]
 #[getset(get = "pub(crate)")]
 pub(crate) struct FXImplConstructor {
-    ident:          syn::Ident,
+    ident:          syn::Path,
     /// The struct for which this impl block is being generated. If defined then the ident field stands for the trait
     /// name.
     for_ident:      Option<TokenStream>,
@@ -28,17 +28,17 @@ pub(crate) struct FXImplConstructor {
 impl FXImplConstructor {
     tokenstream_setter! { impl_generics, trait_generics, generics, where_clause }
 
-    pub(crate) fn new(ident: syn::Ident) -> Self {
+    pub(crate) fn new<P: Into<syn::Path>>(ident: P) -> Self {
         Self {
-            ident,
-            for_ident: None,
-            attributes: Vec::new(),
-            impl_generics: None,
+            ident:          ident.into(),
+            for_ident:      None,
+            attributes:     Vec::new(),
+            impl_generics:  None,
             trait_generics: None,
-            generics: None,
-            where_clause: None,
-            methods: Vec::new(),
-            span: None,
+            generics:       None,
+            where_clause:   None,
+            methods:        Vec::new(),
+            span:           None,
         }
     }
 
@@ -77,6 +77,7 @@ impl FXImplConstructor {
 
 impl FXConstructor for FXImplConstructor {
     fn fx_to_tokens(&self) -> TokenStream {
+        #[allow(clippy::redundant_closure)]
         let span = self.span.unwrap_or_else(|| Span::call_site());
         let attributes = &self.attributes;
         let ident = &self.ident;

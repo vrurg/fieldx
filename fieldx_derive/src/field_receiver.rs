@@ -119,7 +119,7 @@ impl FXField {
 impl FromField for FXField {
     fn from_field(field: &syn::Field) -> darling::Result<Self> {
         let mut fxfield = FXFieldReceiver::from_field(field)?;
-        for attr in (&field.attrs).into_iter() {
+        for attr in field.attrs.iter() {
             // Intercept #[fieldx] form of the attribute and mark the field manually
             if attr.path().is_ident("fieldx") {
                 fxfield.set_attr_span(attr.span());
@@ -131,7 +131,7 @@ impl FromField for FXField {
                 }
             }
         }
-        if let Err(_) = fxfield.set_span((field as &dyn Spanned).span()) {
+        if fxfield.set_span((field as &dyn Spanned).span()).is_err() {
             let err = darling::Error::custom("Can't set span for a field receiver object: it's been set already!")
                 .with_span(field);
             #[cfg(feature = "diagnostics")]
@@ -243,20 +243,17 @@ impl FXFieldReceiver {
     }
 
     fn mark_implicitly(&mut self, orig: Meta) -> darling::Result<()> {
-        match self.lazy {
-            None => {
-                // self.lazy = Some(FXNestingAttr::new(FXBaseHelper::from(true), Some(orig.clone())));
-                self.lazy = Some(FXNestingAttr::from_meta(&syn::parse2::<syn::Meta>(
-                    quote_spanned! {orig.span()=> lazy},
-                )?)?);
-                self.clearer = Some(FXNestingAttr::from_meta(&syn::parse2::<syn::Meta>(
-                    quote_spanned! {orig.span()=> clearer},
-                )?)?);
-                self.predicate = Some(FXNestingAttr::from_meta(&syn::parse2::<syn::Meta>(
-                    quote_spanned! {orig.span()=> predicate},
-                )?)?);
-            }
-            _ => (),
+        if self.lazy.is_none() {
+            // self.lazy = Some(FXNestingAttr::new(FXBaseHelper::from(true), Some(orig.clone())));
+            self.lazy = Some(FXNestingAttr::from_meta(&syn::parse2::<syn::Meta>(
+                quote_spanned! {orig.span()=> lazy},
+            )?)?);
+            self.clearer = Some(FXNestingAttr::from_meta(&syn::parse2::<syn::Meta>(
+                quote_spanned! {orig.span()=> clearer},
+            )?)?);
+            self.predicate = Some(FXNestingAttr::from_meta(&syn::parse2::<syn::Meta>(
+                quote_spanned! {orig.span()=> predicate},
+            )?)?);
         };
         Ok(())
     }
@@ -273,6 +270,7 @@ impl FXFieldReceiver {
 
     #[inline]
     pub(crate) fn span(&self) -> &Span {
+        #[allow(clippy::redundant_closure)]
         self.span.get_or_init(|| Span::call_site())
     }
 }
