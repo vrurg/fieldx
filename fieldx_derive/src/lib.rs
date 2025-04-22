@@ -1,7 +1,7 @@
 #![doc(html_root_url = "https://docs.rs/fieldx_derive/")]
 //! # fieldx_derive
 //!
-//! The core of `fieldx` functionality. This crate provides a procedural macro that implements the code generation
+//! The core functionality of `fieldx`. This crate provides a procedural macro that implements code‐generation
 //! logic.
 
 mod codegen;
@@ -39,10 +39,10 @@ use syn::DeriveInput;
 /// <a id="attr_terminology"></a>
 /// # Terminology
 ///
-/// As it was mentioned above, the attributes accept arguments. I.e., for `#[fxstruct(sync, rc)]` words `sync` and `rc`
-/// are the arguments. In cases when an argument semantics can be regulated with additional parameters these are called
-/// _subarguments_ in this documentation. For example `off` in `#[fieldx(get(off))]` is a subargument of argument `get`.
-/// A subargument in some cases may also take subarguments of its own.
+/// As mentioned above, the attributes accept arguments, i.e., for `#[fxstruct(sync, rc)]`, the words `sync` and `rc`
+/// are the arguments. In cases where an argument’s semantics can be modified with additional parameters, these are
+/// called _sub‑arguments_ in this documentation. For example, `off` in `#[fieldx(get(off))]` is a sub‑argument of
+/// the `get` argument. A sub‑argument may also take its own sub‑arguments.
 ///
 /// Arguments and subarguments are classified depending on their syntax and functionality. Here is a list of their
 /// types:
@@ -216,8 +216,7 @@ use syn::DeriveInput;
 ///
 /// Declare a struct as async by default.
 ///
-/// *Note:* Since `async` is a keyword, the `syn` is not allowing to use it as-is, only with the `r#` prefix, according
-/// to Rust syntax.
+/// *Note:* Since `async` is a keyword, syn does not allow using it as-is; only the `r#` prefix is permitted according to Rust syntax.
 ///
 /// ## **`mode`**
 ///
@@ -419,7 +418,7 @@ use syn::DeriveInput;
 /// # }
 /// ```
 ///
-/// [^no_copy_for_mut]: What sense is in having a mutable copy if you own it already?
+/// [^no_copy_for_mut]: What sense is there in having a mutable copy if you already own it?
 ///
 /// ## **`set`**
 ///
