@@ -552,19 +552,25 @@ use syn::DeriveInput;
 /// * a string literal that has the same meaning as for
 ///   [the container-level `serde` attribute `default`](https://serde.rs/container-attrs.html#default--path)
 /// * a path to a symbol that is bound to an instance of our type: `my_crate::FOO_DEFAULT`
-/// * a call-like path that'd be used literally: `Self::serde_default()`
+/// * an expression that is valid for use within an attribute.
 ///
 /// The last option is preferable because `fieldx` will parse it and replace any found `Self` reference with the
-/// actual structure name making possible future renaming of it much easier.
+/// actual structure name. This would simplify structure renaming if it would ever becomes necessary.
 ///
-/// There is a potentially useful "trick" in how `default` works. Internally, whatever type is returned by the
-/// sub-argument it gets converted into the shadow type with trait [`Into`]. This allows you to use the original struct
-/// as the trait implementation is automatically generated for it. See this example from a test:
+/// Here is one possible example of using an expression:
 ///
 /// ```
 /// # use fieldx::fxstruct;
 /// # use serde::{Serialize, Deserialize};
-/// #[fxstruct(sync, get, serde(shadow_name("BazDup"), default(Self::serde_default())))]
+///
+/// #[fxstruct(
+///     sync, get,
+///     serde(
+///         shadow_name("BazDup"),
+///         // This will be replaced with `Baz::serde_default().into()` and used with the generated code.
+///         default( Self::serde_default().into() )
+///     )
+/// )]
 /// #[derive(Clone)]
 /// struct Baz {
 ///     #[fieldx(reader)]
