@@ -378,10 +378,13 @@ impl FXCodeGenCtx {
                             .set_vis(arg_props.builder_struct_visibility())
                             .set_generics(self.input().generics().clone())
                             .set_span(prop.final_span())
-                            .add_attribute_toks(quote_spanned! {prop.final_span()=> #[derive(Default)]})?
                             .maybe_add_attributes(arg_props.builder_struct_attributes().map(|a| a.iter()))
                             .struct_impl_mut()
                             .maybe_add_attributes(arg_props.builder_struct_attributes_impl().map(|a| a.iter()));
+
+                        if *arg_props.builder_default() {
+                            bs_mut.add_attribute_toks(quote_spanned! {prop.final_span()=> #[derive(Default)]})?;
+                        }
                     }
 
                     Ok(builder_struct)

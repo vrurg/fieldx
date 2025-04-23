@@ -172,6 +172,7 @@ impl FXArgProps {
             builder: OnceCell::new(),
             builder_doc: OnceCell::new(),
             builder_ident: OnceCell::new(),
+            builder_default: OnceCell::new(),
             builder_into: OnceCell::new(),
             builder_method_doc: OnceCell::new(),
             builder_opt_in: OnceCell::new(),
@@ -370,6 +371,15 @@ impl FXArgProps {
                 })
             })
             .as_ref()
+    }
+
+    pub(crate) fn builder_default(&self) -> FXProp<bool> {
+        *self.builder_default.get_or_init(|| {
+            self.source
+                .builder()
+                .as_ref()
+                .map_or(FXProp::new(false, None), |b| b.needs_default().respan(b.orig_span()))
+        })
     }
 
     pub(crate) fn builder_struct(&self) -> FXProp<bool> {

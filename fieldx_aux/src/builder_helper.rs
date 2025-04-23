@@ -30,6 +30,11 @@ pub struct FXBuilderHelper<const STRUCT: bool = false> {
     #[getset(skip)]
     attributes_impl: Option<FXAttributes>,
 
+    /// If true (default), the builder type will implement the `Default` trait.
+    #[darling(rename = "default")]
+    #[getset(skip)]
+    needs_default: Option<FXBool>,
+
     /// If set then builder setter methods must use the [`Into`] trait to coerce their arguments when possible.
     /// This should make both of the following allowed:
     ///
@@ -77,6 +82,12 @@ pub struct FXBuilderHelper<const STRUCT: bool = false> {
 }
 
 impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
+    pub fn needs_default(&self) -> FXProp<bool> {
+        self.needs_default
+            .as_ref()
+            .map_or_else(|| FXProp::new(true, None), |nd| nd.is_set())
+    }
+
     /// Shortcut to the `into` parameter.
     ///
     /// Since it makes sense at both struct and field level `Option` is returned to know exactly if it is set or not.
