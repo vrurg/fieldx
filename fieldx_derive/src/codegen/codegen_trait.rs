@@ -286,7 +286,13 @@ pub(crate) trait FXCodeGenContextual {
             FXValueRepr::None
         }
         else {
-            FXValueRepr::Exact(std_default_expr_toks(*fctx.span()))
+            let span = self
+                .ctx()
+                .arg_props()
+                .needs_default()
+                .orig_span()
+                .unwrap_or_else(|| *fctx.span());
+            FXValueRepr::Exact(std_default_expr_toks(span))
         }
     }
 

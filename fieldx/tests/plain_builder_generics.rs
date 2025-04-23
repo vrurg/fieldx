@@ -9,7 +9,7 @@ pub trait Newish {
     fn new() -> Self;
 }
 
-#[fxstruct(builder, into)]
+#[fxstruct(builder, into, new(off))]
 #[derive(Debug)]
 pub struct Plain<'a, 'b, T>
 where

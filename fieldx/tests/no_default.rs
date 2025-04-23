@@ -11,7 +11,7 @@ impl From<&str> for Bar {
     }
 }
 
-#[fxstruct(get(vis(pub)), builder, new(off), default(off))]
+#[fxstruct(get(vis(pub)), builder, new(off))]
 struct Plain {
     #[fieldx(set)]
     bar: Bar,
@@ -45,7 +45,7 @@ impl Plain {
 }
 
 #[cfg(feature = "sync")]
-#[fxstruct(sync, get(vis(pub)), builder, new(off), default(off))]
+#[fxstruct(sync, get(vis(pub)), builder, new(off))]
 struct IsSync {
     #[fieldx(set)]
     bar: Bar,

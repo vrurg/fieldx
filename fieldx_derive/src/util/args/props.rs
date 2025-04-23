@@ -52,6 +52,7 @@ pub(crate) struct FXArgProps {
     builder_visibility:             OnceCell<Option<syn::Visibility>>,
     builder_ident:                  OnceCell<syn::Ident>,
     // Builder helper extended properties
+    builder_default:                OnceCell<FXProp<bool>>,
     builder_doc:                    OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
     builder_into:                   OnceCell<Option<FXProp<bool>>>,
     builder_method_doc:             OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
@@ -464,6 +465,9 @@ impl FXArgProps {
                         return FXProp::new(true, self.serde_default_value().orig_span());
                     }
 
+                    #[cfg(feature = "serde")]
+                    let serde = *self.serde();
+
                     if let Some(prop) = self.codegen_ctx().all_field_ctx().iter().find_map(|fctx| {
                         let has_default = fctx.props().field_props().has_default();
                         if *has_default {
@@ -475,10 +479,13 @@ impl FXArgProps {
                         }
                         #[cfg(feature = "serde")]
                         {
-                            // If deserialization is in any way disabled for a field then it means we'll need to
-                            let no_deserialize = fctx.serde().not().or(fctx.deserialize().not());
-                            if *no_deserialize {
-                                return Some(no_deserialize);
+                            // If deserialization is disabled in any way for a field, we need to use its default when
+                            // serde is enabled.
+                            if serde {
+                                let no_deserialize = fctx.serde().not().or(fctx.deserialize().not());
+                                if *no_deserialize {
+                                    return Some(no_deserialize);
+                                }
                             }
                         }
                         None
@@ -486,7 +493,7 @@ impl FXArgProps {
                         return prop;
                     }
 
-                    false.into()
+                    FXProp::new(false, None)
                 },
                 |d| d.is_set(),
             )
