@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
 ![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
-# fieldx v0.1.14
+# fieldx v0.1.15
 
 ## FieldX
 
@@ -93,7 +93,7 @@ additions:
   `order` remains unchanged.
 
 - a partial implementation of `Foo` is added with helper and special methods and associated functions ([Field Or
-Method](#field_or_method) in this section)
+  Method](#field_or_method) in this section)
 
   I.e. this is where accessor methods and `new` live.
 

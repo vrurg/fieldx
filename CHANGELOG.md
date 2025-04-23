@@ -1,6 +1,24 @@
 # Changelog
 
-## [0.1.14] - 2025-04-19
+## [unreleased]
+
+### Features
+
+- Add support for explicit builder Default trait implementation
+
+    The builder type implements the Default trait by default.
+    If this behavior is undesired, use `builder(default(off))` instead.
+ 
+
+### Bug Fixes
+
+- Unrequested `Default` impl when `serde` feature is enabled 
+
+### Maintenance
+
+- Make clippy happy with its defaults 
+
+## [v0.1.14] - 2025-04-19
 
 ### Bug Fixes
 
