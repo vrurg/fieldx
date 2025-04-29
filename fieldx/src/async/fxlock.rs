@@ -3,8 +3,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::ops::Deref;
 use tokio::sync::RwLock;
-use tokio::sync::RwLockReadGuard;
-use tokio::sync::RwLockWriteGuard;
 
 /// Lock-protected container
 ///
@@ -21,16 +19,6 @@ impl<T> FXRwLockAsync<T> {
     /// Consumes the lock and returns the wrapped value.
     pub fn into_inner(self) -> T {
         self.0.into_inner()
-    }
-
-    /// Delegates to [`RwLock::read()`]
-    pub async fn read(&self) -> RwLockReadGuard<T> {
-        self.0.read().await
-    }
-
-    /// Delegates to [`RwLock::write()`]
-    pub async fn write(&self) -> RwLockWriteGuard<T> {
-        self.0.write().await
     }
 }
 
