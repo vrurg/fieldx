@@ -221,6 +221,12 @@ impl<T> FXSynTupleArg<T> {
     }
 }
 
+impl<T> FXSetState for FXSynTupleArg<T> {
+    fn is_set(&self) -> FXProp<bool> {
+        FXProp::new(true, None)
+    }
+}
+
 macro_rules! from_tuple {
     ( $( ( $( $ty:ident ),+ ) ),+ $(,)* ) => {
         $(
@@ -299,6 +305,16 @@ where
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.items.iter()
+    }
+}
+
+impl<T, S, const MIN: i32, const MAX: i32> FXSetState for FXPunctuated<T, S, MIN, MAX>
+where
+    T: Debug + Spanned + ToTokens + Parse,
+    S: Debug + Spanned + ToTokens + Parse,
+{
+    fn is_set(&self) -> FXProp<bool> {
+        FXProp::new(true, None)
     }
 }
 
