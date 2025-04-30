@@ -1,6 +1,30 @@
 # Changelog
 
-## [0.1.15] - 2025-04-23
+## [unreleased]
+
+### Features
+
+- Improve functionality of FXSynTuple
+
+    Allow it to take a wider range of Parse-implementing types.
+ 
+
+### Bug Fixes
+
+- Add missing FXSetState impl for FXSynTuple and FXPunctuated 
+- Silence clippy warnings about introduced type complexity 
+- Silence some more clippy lints 
+
+### Refactor
+
+- Remove redundant delegations 
+- Stop returning a reference by field receiver `span` method 
+
+### Testing
+
+- Complete unfinished tests 
+
+## [v0.1.15] - 2025-04-23
 
 ### Features
 
