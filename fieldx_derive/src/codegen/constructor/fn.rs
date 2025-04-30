@@ -310,6 +310,8 @@ impl FXConstructor for FXFnConstructor {
 
         quote_spanned! {span=>
             #( #attributes )*
+            #[allow(unknown_lints)]
+            #[allow(clippy::type_complexity)]
             #vis #async_decl fn #name #generic_params (#( #params ),*) #ret
             #where_clause
             {
