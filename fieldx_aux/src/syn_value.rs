@@ -240,7 +240,10 @@ macro_rules! from_tuple {
             where $ty1: syn::parse::Parse, $( $ty: syn::parse::Parse ),+
             {
                 fn from_meta(item: &Meta) -> darling::Result<Self> {
-                    Ok(syn::parse2(item.to_token_stream())?)
+                    Ok(match item {
+                        Meta::List(ref list) => syn::parse2(list.tokens.clone())?,
+                        _ => Err(darling::Error::unsupported_format("unsupported format"))?,
+                    })
                 }
             }
 
@@ -458,12 +461,15 @@ where
 
 #[cfg(test)]
 mod test {
+    use darling::ast;
+    use darling::FromMeta;
     use quote::quote;
     use quote::ToTokens;
 
     #[test]
     fn tuple() {
         use super::FXSynTupleArg;
+        use crate::FXSynTuple;
 
         let input = quote! {module::Foo, self.bar(), 42};
 
@@ -483,5 +489,16 @@ mod test {
         }
 
         assert_eq!(arg.to_token_stream().to_string(), input.to_string());
+
+        let input = quote! {foo(MyType, MyType::fun("something"), 3.1415926)};
+        let meta: ast::NestedMeta = syn::parse2::<ast::NestedMeta>(input.clone()).unwrap();
+        let arg = FXSynTuple::<(syn::Path, syn::Expr, syn::Lit)>::from_nested_meta(&meta).unwrap();
+        assert_eq!(arg.to_token_stream().to_string(), input.to_string());
+        assert_eq!(arg.0.to_token_stream().to_string(), quote! {MyType}.to_string());
+        assert_eq!(
+            arg.1.to_token_stream().to_string(),
+            quote! {MyType::fun("something")}.to_string()
+        );
+        assert_eq!(arg.2.to_token_stream().to_string(), quote! {3.1415926}.to_string());
     }
 }
