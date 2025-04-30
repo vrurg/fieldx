@@ -132,7 +132,7 @@ fn threaded() {
                         }
                     }
                 }
-                eprintln!("[{:>4}] done", thread_id);
+                eprintln!("[{thread_id:>4}] done");
             }));
         }
 
@@ -151,12 +151,10 @@ fn threaded() {
         // There is a chance for two or more consecutive clears to take place before a build is invoked.
         let clear_count = cleared.load(Ordering::SeqCst);
         let build_count = foo.bar_builds();
-        eprintln!("clears: {}, builds: {}", clear_count, build_count);
+        eprintln!("clears: {clear_count}, builds: {build_count}");
         assert!(
             clear_count >= build_count,
-            "there were less clears than builds ({} < {}) - this must not happen.",
-            clear_count,
-            build_count
+            "there were less clears than builds ({clear_count} < {build_count}) - this must not happen."
         );
     })
     .unwrap();

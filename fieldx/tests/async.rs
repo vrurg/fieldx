@@ -199,7 +199,7 @@ async fn threaded() {
                     }
                 }
             }
-            eprintln!("[{:>4}] done", thread_id);
+            eprintln!("[{thread_id:>4}] done");
             thread_id
         });
     }
@@ -215,11 +215,9 @@ async fn threaded() {
     thandles.join_all().await;
     let clear_count = cleared.load(Ordering::SeqCst);
     let build_count = sync.bar_builds().await;
-    eprintln!("cleared {} times, built {} times", clear_count, build_count);
+    eprintln!("cleared {clear_count} times, built {build_count} times");
     assert!(
         clear_count >= build_count,
-        "there were less clears than builds ({} vs. {})",
-        clear_count,
-        build_count
+        "there were less clears than builds ({clear_count} vs. {build_count})"
     );
 }

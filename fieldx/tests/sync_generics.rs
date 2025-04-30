@@ -123,7 +123,7 @@ fn threaded() {
                         eprintln!("Now should expect for '{}' // {}", *texpect.lock(), scopy.has_foo());
                     }
                 }
-                eprintln!("[{:>4}] done", thread_id);
+                eprintln!("[{thread_id:>4}] done");
             }));
         }
 
@@ -138,9 +138,7 @@ fn threaded() {
         let built = sync.bar_builds();
         assert!(
             cleared >= built,
-            "there were no more builds than clears ({} vs. {})",
-            built,
-            cleared
+            "there were no more builds than clears ({built} vs. {cleared})",
         );
     })
     .unwrap();

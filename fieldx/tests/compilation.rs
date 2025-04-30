@@ -17,7 +17,7 @@ struct UncompEnv {
 impl UncompEnv {
     fn new(subdir: &str) -> Self {
         let manifest_dir = env!("CARGO_MANIFEST_DIR").to_string();
-        let base_dir = PathBuf::from(format!("{}/tests/{}", manifest_dir, subdir));
+        let base_dir = PathBuf::from(format!("{manifest_dir}/tests/{subdir}"));
         let outputs_dir = Self::outputs_dir(&base_dir).unwrap();
         // stderrs.append(&mut Self::collect_stderrs(&outputs_dir));
         let mut me = Self {
@@ -44,7 +44,7 @@ impl UncompEnv {
     fn copy_ok(from: &PathBuf, to: &PathBuf) -> bool {
         fs::copy(from, to).map_or_else(
             |err| {
-                eprintln!("!!! Failed to copy '{}' to '{}': {}", from.display(), to.display(), err);
+                eprintln!("!!! Failed to copy '{}' to '{}': {err}", from.display(), to.display());
                 false
             },
             |_| true,
@@ -67,15 +67,15 @@ impl UncompEnv {
         let from_dir_display = from_dir.display();
 
         if !from_dir.exists() {
-            panic!("Outputs directory '{}' doesn't exists.", from_dir_display);
+            panic!("Outputs directory '{from_dir_display}' doesn't exists.");
         }
 
         if !from_dir.is_dir() {
-            panic!("'{}' is not a directory", from_dir_display);
+            panic!("'{from_dir_display}' is not a directory");
         }
 
         #[allow(clippy::expect_fun_call)]
-        for entry in std::fs::read_dir(from_dir).expect(&format!("Failed to read '{}' directory", from_dir_display)) {
+        for entry in std::fs::read_dir(from_dir).expect(&format!("Failed to read '{from_dir_display}' directory")) {
             let fname = Self::stringify_fname(entry, from_dir);
 
             if fname.ends_with(".stderr") {
