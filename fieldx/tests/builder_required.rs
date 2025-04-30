@@ -20,12 +20,28 @@ struct FooSync {
 #[test]
 fn plain() {
     let foo = FooPlain::builder().build();
-    println!("plain: {:?}", foo);
+    if let Err(e) = foo {
+        assert!(
+            matches!(e, fieldx::error::FieldXError::UninitializedField(f) if f == "v"),
+            "error is expected"
+        )
+    }
+    else {
+        panic!("error is expected");
+    }
 }
 
 #[cfg(feature = "sync")]
 #[test]
 fn sync() {
     let foo = FooSync::builder().build();
-    println!("sync: {:?}", foo);
+    if let Err(e) = foo {
+        assert!(
+            matches!(e, fieldx::error::FieldXError::UninitializedField(f) if f == "v"),
+            "error is expected"
+        )
+    }
+    else {
+        panic!("error is expected");
+    }
 }
