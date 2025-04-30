@@ -440,8 +440,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 default_value
                     .clone()
                     .expect(&format!(
-                        "Internal problem: expected default value for field {}",
-                        field_ident
+                        "Internal problem: expected default value for field {field_ident}"
                     ))
                     .into_inner(),
             );

@@ -588,7 +588,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
 
             if default_value.has_value() {
                 let shadow_ident = arg_props.serde_shadow_ident().cloned().unwrap();
-                let fn_ident = ctx.unique_ident_pfx(&format!("{}_default", shadow_ident));
+                let fn_ident = ctx.unique_ident_pfx(&format!("{shadow_ident}_default"));
                 let mut default_fn = FXFnConstructor::new_associated(fn_ident.clone());
                 let generics = ctx.input().generics().split_for_impl().1;
                 let default_span = default_value
@@ -604,7 +604,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                     // let default_str: String = (&**default_value).try_into()?;
                     let default_str: String = default_value.try_into()?;
                     let expr: syn::ExprPath = syn::parse_str(&default_str).map_err(|err| {
-                        darling::Error::custom(format!("Invalid default string: {}", err)).with_span(&span)
+                        darling::Error::custom(format!("Invalid default string: {err}")).with_span(&span)
                     })?;
                     quote_spanned![default_span=> #expr()]
                 }

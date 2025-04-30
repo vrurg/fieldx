@@ -126,7 +126,7 @@ impl FromField for FXField {
 
                 if attr.meta.require_path_only().is_ok() {
                     fxfield.mark_implicitly(attr.meta.clone()).map_err(|err| {
-                        darling::Error::custom(format!("Can't use bare word '{}'", err)).with_span(attr)
+                        darling::Error::custom(format!("Can't use bare word '{err}'")).with_span(attr)
                     })?;
                 }
             }
@@ -228,7 +228,7 @@ impl FXFieldReceiver {
 
     pub(crate) fn ident(&self) -> darling::Result<syn::Ident> {
         self.ident.clone().ok_or_else(|| {
-            darling::Error::custom("This is weird, but the field doesn't have an ident!").with_span(self.span())
+            darling::Error::custom("This is weird, but the field doesn't have an ident!").with_span(&self.span())
         })
     }
 

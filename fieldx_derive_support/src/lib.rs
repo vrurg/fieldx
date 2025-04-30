@@ -483,7 +483,7 @@ impl Parse for FallbackArg {
             let param = input.parse::<FallbackParam>()?;
             if *param_count.entry(param.idx()).or_insert(0) > 1 {
                 let kwd = FallbackParam::kwd_for_idx(param.idx());
-                return Err(syn::Error::new(param.span(), format!("Multiple `{}` parameters", kwd)));
+                return Err(syn::Error::new(param.span(), format!("Multiple `{kwd}` parameters")));
             }
             params.push(param);
         }

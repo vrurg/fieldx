@@ -471,7 +471,7 @@ where
     if let Some(arg) = arg {
         if *arg.is_set() {
             return Some(
-                darling::Error::custom(format!("feature '{}' is required", feature)).with_span(&arg.final_span()),
+                darling::Error::custom(format!("feature '{feature}' is required")).with_span(&arg.final_span()),
             );
         }
     }

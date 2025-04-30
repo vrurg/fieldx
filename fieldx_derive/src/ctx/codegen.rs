@@ -320,8 +320,7 @@ impl FXCodeGenCtx {
             .borrow()
             .get(field_ident)
             .ok_or(darling::Error::custom(format!(
-                "Field '{}' not found in context table",
-                field_ident
+                "Field '{field_ident}' not found in context table"
             )))?
             .clone())
     }

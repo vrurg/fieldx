@@ -202,7 +202,7 @@ impl FXFieldCtx {
                 let struct_ident = self.codegen_ctx.input_ident();
                 Ok(self
                     .codegen_ctx
-                    .unique_ident_pfx(&format!("__{}_{}_default", struct_ident, field_ident)))
+                    .unique_ident_pfx(&format!("__{struct_ident}_{field_ident}_default")))
             })
             .as_ref()
             .map_err(
