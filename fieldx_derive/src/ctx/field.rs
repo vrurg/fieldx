@@ -25,6 +25,7 @@ use std::cell::OnceCell;
 use std::cell::Ref;
 use std::cell::RefCell;
 use std::rc::Rc;
+use syn::spanned::Spanned;
 
 #[derive(Debug)]
 pub(crate) struct FXFieldCtx {
@@ -47,7 +48,7 @@ impl FXFieldCtx {
     delegate! {
         to self.field {
             pub(crate) fn has_default_value(&self) -> bool;
-            pub(crate) fn span(&self) -> &Span;
+            pub(crate) fn span(&self) -> Span;
             pub(crate) fn ty(&self) -> &syn::Type;
             pub(crate) fn vis(&self) -> &syn::Visibility;
         }
@@ -122,7 +123,7 @@ impl FXFieldCtx {
         let mut constructor = FXFieldConstructor::new(
             field.ident().expect("No field ident found").clone(),
             field.ty(),
-            *field.span(),
+            field.span(),
         );
         constructor.add_attributes(field.attrs().iter());
 

@@ -291,7 +291,7 @@ pub(crate) trait FXCodeGenContextual {
                 .arg_props()
                 .needs_default()
                 .orig_span()
-                .unwrap_or_else(|| *fctx.span());
+                .unwrap_or_else(|| fctx.span());
             FXValueRepr::Exact(std_default_expr_toks(span))
         }
     }
@@ -331,7 +331,7 @@ pub(crate) trait FXCodeGenContextual {
     }
 
     fn field_builder_field(&self, fctx: &FXFieldCtx) -> darling::Result<FXFieldConstructor> {
-        let span = *fctx.span();
+        let span = fctx.span();
         let ty = fctx.ty();
         let ty = quote_spanned! {span=> ::std::option::Option<#ty>};
         let mut fc = FXFieldConstructor::new(fctx.ident().clone(), ty, span);

@@ -360,7 +360,7 @@ impl FieldCTXProps {
                 }
             }
 
-            vreq.not().respan(Some(*self.field_props().field().span()))
+            vreq.not().respan(Some(self.field_props().field().span()))
         })
     }
 

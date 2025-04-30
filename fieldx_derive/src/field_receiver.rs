@@ -157,7 +157,7 @@ impl ToTokens for FXField {
         let FXFieldReceiver {
             ident, vis, ty, attrs, ..
         } = fxr;
-        tokens.extend(quote_spanned![*fxr.span()=> #( #attrs )* #vis #ident: #ty])
+        tokens.extend(quote_spanned![fxr.span()=> #( #attrs )* #vis #ident: #ty])
     }
 }
 
@@ -269,9 +269,9 @@ impl FXFieldReceiver {
     }
 
     #[inline]
-    pub(crate) fn span(&self) -> &Span {
+    pub(crate) fn span(&self) -> Span {
         #[allow(clippy::redundant_closure)]
-        self.span.get_or_init(|| Span::call_site())
+        *self.span.get_or_init(|| Span::call_site())
     }
 }
 
