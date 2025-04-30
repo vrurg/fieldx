@@ -5,8 +5,10 @@ use crate::FXTryFrom;
 
 use super::FXFrom;
 use super::FromNestAttr;
-use darling::ast::NestedMeta;
+
 use darling::FromMeta;
+use paste::paste;
+use quote::quote;
 use quote::ToTokens;
 use std::borrow::Borrow;
 use std::fmt::Debug;
@@ -228,27 +230,68 @@ impl<T> FXSetState for FXSynTupleArg<T> {
 }
 
 macro_rules! from_tuple {
-    ( $( ( $( $ty:ident ),+ ) ),+ $(,)* ) => {
+    ( $( ( $ty1:ident, $( $ty:ident ),+ ) ),+ $(,)* ) => {
         $(
-            impl< $( $ty, )+ > FromNestAttr<false> for FXSynTupleArg<( $( $ty ),+ )>
-            where $( $ty: syn::parse::Parse ),+
+            impl< $ty1, $( $ty, )+ > FromNestAttr<false> for FXSynTupleArg<( $ty1, $( $ty ),+ )>
+            where $ty1: syn::parse::Parse, $( $ty: syn::parse::Parse ),+
             {}
 
-            impl< $( $ty, )+ > FromMeta for FXSynTupleArg<( $( $ty ),+ )>
-            where $( $ty: syn::parse::Parse ),+
+            impl< $ty1, $( $ty, )+ > FromMeta for FXSynTupleArg<( $ty1, $( $ty ),+ )>
+            where $ty1: syn::parse::Parse, $( $ty: syn::parse::Parse ),+
             {
-                fn from_list(items: &[NestedMeta]) -> darling::Result<Self> {
-                    let expected = from_tuple!(@count $($ty),+);
-                    if items.len() > expected {
-                        return Err(darling::Error::too_many_items(expected));
+                fn from_meta(item: &Meta) -> darling::Result<Self> {
+                    Ok(syn::parse2(item.to_token_stream())?)
+                }
+            }
+
+            impl< $ty1, $( $ty, )+ > Parse for FXSynTupleArg<( $ty1, $( $ty ),+ )>
+            where $ty1: syn::parse::Parse, $( $ty: syn::parse::Parse ),+
+            {
+                fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+
+                    Ok(Self { value: (
+                        input.parse::<$ty1>()?,
+                        $( {
+                            input.parse::<syn::Token![,]>()?;
+                            input.parse::<$ty>()?
+                        }, )+
+                    ) })
+                }
+            }
+
+            impl< $ty1, $( $ty, )+ > ToTokens for FXSynTupleArg<( $ty1, $( $ty ),+ )>
+            where $ty1: ToTokens, $( $ty: ToTokens ),+
+            {
+                fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+                    paste! {
+                        let ( [<v_ $ty1:lower>], $( [<v_ $ty:lower >] ),+ ) = &self.value;
+                        tokens.extend(quote! {
+                            #[<v_ $ty1:lower>] $(, #[<v_ $ty:lower>])*
+                        });
                     }
-                    if items.len() < expected {
-                        return Err(darling::Error::too_few_items(expected));
-                    }
-                    let mut iter = items.into_iter();
-                    Ok(Self {
-                        value: ( $( syn::parse2::<$ty>(iter.next().to_token_stream())? ),+ )
-                    })
+                }
+            }
+
+            impl< $ty1, $( $ty, )+ > Deref for FXSynTupleArg<( $ty1, $( $ty ),+ )>
+            {
+                type Target = ( $ty1, $( $ty ),+ );
+
+                fn deref(&self) -> &Self::Target {
+                    &self.value
+                }
+            }
+
+            impl< $ty1, $( $ty, )+ > AsRef<( $ty1, $( $ty ),+ )> for FXSynTupleArg<( $ty1, $( $ty ),+ )>
+            {
+                fn as_ref(&self) -> &( $ty1, $( $ty ),+ ) {
+                    &self.value
+                }
+            }
+
+            impl< $ty1, $( $ty, )+ > Borrow<( $ty1, $( $ty ),+ )> for FXSynTupleArg<( $ty1, $( $ty ),+ )>
+            {
+                fn borrow(&self) -> &( $ty1, $( $ty ),+ ) {
+                    &self.value
                 }
             }
         )+
@@ -412,3 +455,33 @@ where
 //         }
 //     }
 // }
+
+#[cfg(test)]
+mod test {
+    use quote::quote;
+    use quote::ToTokens;
+
+    #[test]
+    fn tuple() {
+        use super::FXSynTupleArg;
+
+        let input = quote! {module::Foo, self.bar(), 42};
+
+        let arg = syn::parse2::<FXSynTupleArg<(syn::Path, syn::Expr, syn::Lit)>>(input.clone()).unwrap();
+
+        assert_eq!(arg.0.to_token_stream().to_string(), quote! {module::Foo}.to_string());
+        assert_eq!(arg.1.to_token_stream().to_string(), quote! {self.bar()}.to_string());
+        assert_eq!(arg.2.to_token_stream().to_string(), quote! {42}.to_string());
+
+        if let Err(e) =
+            syn::parse2::<FXSynTupleArg<(syn::Path, syn::Expr, syn::Lit)>>(quote! {module::Foo, self.bar(), v2})
+        {
+            assert!(e.to_string().contains("expected literal"));
+        }
+        else {
+            panic!("Expected error");
+        }
+
+        assert_eq!(arg.to_token_stream().to_string(), input.to_string());
+    }
+}
