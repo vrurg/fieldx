@@ -1,16 +1,14 @@
-use super::constructor::r#fn::FXFnConstructor;
-use super::constructor::FXConstructor;
-use super::FXAccessorMode;
-use super::FXCodeGenContextual;
-use super::FXCodeGenCtx;
-use super::FXFieldCtx;
-use super::FXHelperKind;
-use super::FXToksMeta;
-use super::FXValueFlag;
-use super::FXValueMeta;
-use super::FXValueRepr;
-use crate::codegen::FXInlining;
+use fieldx_aux::FXAccessorMode;
 use fieldx_aux::FXPropBool;
+use fieldx_core::codegen::constructor::FXConstructor;
+use fieldx_core::codegen::constructor::FXFnConstructor;
+use fieldx_core::ctx::FXCodeGenCtx;
+use fieldx_core::ctx::FXFieldCtx;
+use fieldx_core::types::helper::FXHelperKind;
+use fieldx_core::types::meta::FXToksMeta;
+use fieldx_core::types::meta::FXValueFlag;
+use fieldx_core::types::meta::FXValueMeta;
+use fieldx_core::types::FXInlining;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::format_ident;
@@ -19,6 +17,9 @@ use quote::quote_spanned;
 use quote::ToTokens;
 use std::rc::Rc;
 use syn::spanned::Spanned;
+
+use super::FXCodeGenContextual;
+use super::FXValueRepr;
 
 pub(crate) struct FXCodeGenPlain<'a> {
     #[allow(dead_code)]
@@ -218,11 +219,11 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                     self.inner_mut_return_type(
                         fctx,
                         &mut mc,
-                        self.fallible_return_type(fctx, quote_spanned! {span=> #ty})?,
+                        fctx.fallible_return_type(fctx, quote_spanned! {span=> #ty})?,
                     )
                 }
                 else {
-                    self.fallible_return_type(fctx, quote_spanned! {span=> #opt_ref #ty})?
+                    fctx.fallible_return_type(fctx, quote_spanned! {span=> #opt_ref #ty})?
                 };
                 mc.set_ret_type(ret_type);
                 mc.set_ret_stmt(fctx.fallible_ok_return(&quote_spanned! {span=> #deref #ret #shortcut #meth}));
@@ -299,11 +300,11 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                     self.inner_mut_return_type(
                         fctx,
                         &mut mc,
-                        self.fallible_return_type(fctx, quote_spanned! {span=> #ty})?,
+                        fctx.fallible_return_type(fctx, quote_spanned! {span=> #ty})?,
                     )
                 }
                 else {
-                    self.fallible_return_type(fctx, quote_spanned! {span=> &mut #ty})?
+                    fctx.fallible_return_type(fctx, quote_spanned! {span=> &mut #ty})?
                 };
                 mc.set_ret_type(ret_type);
                 mc.set_ret_stmt(quote_spanned! {span=> #return_stmt });

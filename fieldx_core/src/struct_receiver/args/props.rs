@@ -4,14 +4,14 @@ use std::rc::Weak;
 // #[cfg(feature = "diagnostics")]
 // use crate::helper::FXOrig;
 use crate::ctx::FXCodeGenCtx;
-use crate::helper::FXHelperKind;
+use crate::simple_bool_prop;
+use crate::simple_type_prop;
+use crate::types::helper::FXHelperKind;
 use crate::util::common_prop_impl;
 use crate::util::doc_props;
 use crate::util::mode_async_prop;
 use crate::util::mode_plain_prop;
 use crate::util::mode_sync_prop;
-use crate::util::simple_bool_prop;
-use crate::util::simple_type_prop;
 use fieldx_aux::FXAccessorMode;
 use fieldx_aux::FXAttributes;
 use fieldx_aux::FXBoolHelper;
@@ -19,7 +19,6 @@ use fieldx_aux::FXBoolHelper;
 use fieldx_aux::FXDefault;
 use fieldx_aux::FXFallible;
 use fieldx_aux::FXHelperTrait;
-use fieldx_aux::FXNestingAttr;
 use fieldx_aux::FXOrig;
 use fieldx_aux::FXProp;
 use fieldx_aux::FXPropBool;
@@ -30,11 +29,11 @@ use quote::format_ident;
 use syn::spanned::Spanned;
 use syn::Token;
 
-use super::FXSArgs;
+use super::FXStructArgs;
 
 #[derive(Debug)]
-pub(crate) struct FXArgProps {
-    source:      FXSArgs,
+pub struct FXStructArgProps {
+    source:      FXStructArgs,
     codegen_ctx: Weak<FXCodeGenCtx>,
 
     // Accessor helper standard properties
@@ -138,7 +137,7 @@ pub(crate) struct FXArgProps {
     serde_doc:                OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
 }
 
-impl FXArgProps {
+impl FXStructArgProps {
     simple_bool_prop! {builder}
 
     common_prop_impl! {
@@ -158,7 +157,7 @@ impl FXArgProps {
         fallible, FXFallible;
     }
 
-    pub(crate) fn new(args: FXSArgs, codegen_ctx: Weak<FXCodeGenCtx>) -> Self {
+    pub fn new(args: FXStructArgs, codegen_ctx: Weak<FXCodeGenCtx>) -> Self {
         Self {
             source: args,
             codegen_ctx,
@@ -250,12 +249,12 @@ impl FXArgProps {
         }
     }
 
-    pub(crate) fn codegen_ctx(&self) -> Rc<FXCodeGenCtx> {
+    pub fn codegen_ctx(&self) -> Rc<FXCodeGenCtx> {
         self.codegen_ctx.upgrade().expect("codegen context was dropped")
     }
 
     // Helper ident at the struct level defines helper method prefix.
-    pub(crate) fn helper_ident(&self, helper_kind: FXHelperKind) -> Option<&syn::Ident> {
+    pub fn helper_ident(&self, helper_kind: FXHelperKind) -> Option<&syn::Ident> {
         match helper_kind {
             FXHelperKind::Accessor => self.accessor_ident(),
             FXHelperKind::AccessorMut => self.accessor_mut_ident(),
@@ -269,7 +268,7 @@ impl FXArgProps {
         }
     }
 
-    pub(crate) fn visibility(&self) -> Option<&syn::Visibility> {
+    pub fn visibility(&self) -> Option<&syn::Visibility> {
         self.visibility
             .get_or_init(|| {
                 if *self.source.private.is_true() {
@@ -285,7 +284,7 @@ impl FXArgProps {
         let _ = self.builder_opt_in.set(value);
     }
 
-    pub(crate) fn needs_new(&self) -> FXProp<bool> {
+    pub fn needs_new(&self) -> FXProp<bool> {
         *self.needs_new.get_or_init(|| {
             self.source
                 .new()
@@ -294,7 +293,7 @@ impl FXArgProps {
         })
     }
 
-    pub(crate) fn new_visibility(&self) -> Option<&syn::Visibility> {
+    pub fn new_visibility(&self) -> Option<&syn::Visibility> {
         self.new_visibility
             .get_or_init(|| {
                 let needs_new = self.needs_new();
@@ -314,7 +313,7 @@ impl FXArgProps {
 
     // When the name of constructor method is not explicitly specified by the user then it is chosen based on the
     // method visibility. `__fieldx_new` is used for private methods and `new` for public ones.
-    pub(crate) fn new_ident(&self) -> Option<&syn::Ident> {
+    pub fn new_ident(&self) -> Option<&syn::Ident> {
         self.new_ident
             .get_or_init(|| {
                 if *self.needs_new() {
@@ -343,17 +342,17 @@ impl FXArgProps {
             .as_ref()
     }
 
-    pub(crate) fn builder_visibility(&self) -> Option<&syn::Visibility> {
+    pub fn builder_visibility(&self) -> Option<&syn::Visibility> {
         self.builder_visibility
             .get_or_init(|| self.visibility_of(&self.source.builder))
             .as_ref()
     }
 
-    pub(crate) fn builder_attributes_fn(&self) -> Option<&FXAttributes> {
+    pub fn builder_attributes_fn(&self) -> Option<&FXAttributes> {
         self.source.builder.as_ref().and_then(|h| h.attributes_fn())
     }
 
-    pub(crate) fn builder_opt_in(&self) -> FXProp<bool> {
+    pub fn builder_opt_in(&self) -> FXProp<bool> {
         *self.builder_opt_in.get_or_init(|| {
             self.source
                 .builder()
@@ -362,7 +361,7 @@ impl FXArgProps {
         })
     }
 
-    pub(crate) fn builder_prefix(&self) -> Option<&syn::Ident> {
+    pub fn builder_prefix(&self) -> Option<&syn::Ident> {
         self.builder_prefix
             .get_or_init(|| {
                 self.source.builder().as_ref().and_then(|b| {
@@ -374,7 +373,7 @@ impl FXArgProps {
             .as_ref()
     }
 
-    pub(crate) fn builder_default(&self) -> FXProp<bool> {
+    pub fn builder_default(&self) -> FXProp<bool> {
         *self.builder_default.get_or_init(|| {
             self.source
                 .builder()
@@ -383,7 +382,7 @@ impl FXArgProps {
         })
     }
 
-    pub(crate) fn builder_struct(&self) -> FXProp<bool> {
+    pub fn builder_struct(&self) -> FXProp<bool> {
         *self.builder_struct.get_or_init(|| {
             self.builder().unwrap_or_else(|| -> FXProp<bool> {
                 for fctx in self.codegen_ctx().all_field_ctx() {
@@ -398,7 +397,7 @@ impl FXArgProps {
         })
     }
 
-    pub(crate) fn builder_struct_visibility(&self) -> &syn::Visibility {
+    pub fn builder_struct_visibility(&self) -> &syn::Visibility {
         self.builder_struct_visibility.get_or_init(|| {
             self.source
                 .builder()
@@ -409,7 +408,7 @@ impl FXArgProps {
         })
     }
 
-    pub(crate) fn builder_struct_attributes(&self) -> Option<&FXAttributes> {
+    pub fn builder_struct_attributes(&self) -> Option<&FXAttributes> {
         self.builder_struct_attributes
             .get_or_init(|| {
                 self.source
@@ -422,7 +421,7 @@ impl FXArgProps {
             .as_ref()
     }
 
-    pub(crate) fn builder_struct_attributes_impl(&self) -> Option<&FXAttributes> {
+    pub fn builder_struct_attributes_impl(&self) -> Option<&FXAttributes> {
         self.builder_struct_attributes_impl
             .get_or_init(|| {
                 self.source
@@ -437,7 +436,7 @@ impl FXArgProps {
 
     // Try to infer which mode applies to the struct. If it is explicitly declared as "sync" or "async", there is no
     // ambiguity.  Otherwise, check if any field explicitly requests sync mode.
-    pub(crate) fn syncish(&self) -> FXProp<bool> {
+    pub fn syncish(&self) -> FXProp<bool> {
         *self.syncish.get_or_init(|| {
             self.mode_sync().unwrap_or_else(|| {
                 for fctx in self.codegen_ctx().all_field_ctx() {
@@ -454,7 +453,7 @@ impl FXArgProps {
         })
     }
 
-    pub(crate) fn needs_default(&self) -> FXProp<bool> {
+    pub fn needs_default(&self) -> FXProp<bool> {
         *self.needs_default.get_or_init(|| {
             self.source.default().as_ref().map_or_else(
                 || {
@@ -500,7 +499,7 @@ impl FXArgProps {
         })
     }
 
-    pub(crate) fn has_post_build(&self) -> FXProp<bool> {
+    pub fn has_post_build(&self) -> FXProp<bool> {
         *self.has_post_build.get_or_init(|| {
             self.source.builder().as_ref().map_or_else(
                 || FXProp::new(false, None),
@@ -509,7 +508,7 @@ impl FXArgProps {
         })
     }
 
-    pub(crate) fn post_build_ident(&self) -> Option<&syn::Ident> {
+    pub fn post_build_ident(&self) -> Option<&syn::Ident> {
         self.post_build_ident
             .get_or_init(|| {
                 if *self.has_post_build() {
@@ -532,19 +531,19 @@ impl FXArgProps {
             .as_ref()
     }
 
-    pub(crate) fn rc(&self) -> FXProp<bool> {
+    pub fn rc(&self) -> FXProp<bool> {
         *self
             .rc
             .get_or_init(|| self.source.rc().as_ref().map_or_else(|| false.into(), |rc| rc.is_set()))
     }
 
-    pub(crate) fn rc_visibility(&self) -> Option<&syn::Visibility> {
+    pub fn rc_visibility(&self) -> Option<&syn::Visibility> {
         self.rc_visibility
             .get_or_init(|| self.source.rc().as_ref().and_then(|rc| rc.visibility()).cloned())
             .as_ref()
     }
 
-    pub(crate) fn myself_name(&self) -> Option<&syn::Ident> {
+    pub fn myself_name(&self) -> Option<&syn::Ident> {
         self.myself_name
             .get_or_init(|| {
                 self.source.rc().as_ref().map(|rc| {
@@ -557,7 +556,7 @@ impl FXArgProps {
             .as_ref()
     }
 
-    pub(crate) fn myself_downgrade_name(&self) -> Option<&syn::Ident> {
+    pub fn myself_downgrade_name(&self) -> Option<&syn::Ident> {
         self.myself_downgrade_name
             .get_or_init(|| {
                 self.myself_name()
@@ -566,7 +565,7 @@ impl FXArgProps {
             .as_ref()
     }
 
-    pub(crate) fn myself_field_ident(&self) -> Option<&syn::Ident> {
+    pub fn myself_field_ident(&self) -> Option<&syn::Ident> {
         self.myself_field_ident
             .get_or_init(|| {
                 self.myself_name()
@@ -575,13 +574,13 @@ impl FXArgProps {
             .as_ref()
     }
 
-    pub(crate) fn builder_error_type(&self) -> Option<&syn::Path> {
+    pub fn builder_error_type(&self) -> Option<&syn::Path> {
         self.builder_error_type
             .get_or_init(|| self.source.builder().as_ref().and_then(|b| b.error_type().cloned()))
             .as_ref()
     }
 
-    pub(crate) fn builder_has_error_type(&self) -> FXProp<bool> {
+    pub fn builder_has_error_type(&self) -> FXProp<bool> {
         *self.builder_has_error_type.get_or_init(|| {
             self.source
                 .builder()
@@ -591,13 +590,13 @@ impl FXArgProps {
         })
     }
 
-    pub(crate) fn builder_error_variant(&self) -> Option<&syn::Path> {
+    pub fn builder_error_variant(&self) -> Option<&syn::Path> {
         self.builder_error_variant
             .get_or_init(|| self.source.builder().as_ref().and_then(|b| b.error_variant().cloned()))
             .as_ref()
     }
 
-    pub(crate) fn builder_ident(&self) -> &syn::Ident {
+    pub fn builder_ident(&self) -> &syn::Ident {
         self.builder_ident.get_or_init(|| {
             self.source
                 .builder()
@@ -615,7 +614,7 @@ impl FXArgProps {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn serde(&self) -> FXProp<bool> {
+    pub fn serde(&self) -> FXProp<bool> {
         *self.serde.get_or_init(|| {
             self.source.serde.as_ref().map_or_else(
                 || FXProp::new(false, None),
@@ -631,7 +630,7 @@ impl FXArgProps {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn serialize(&self) -> Option<FXProp<bool>> {
+    pub fn serialize(&self) -> Option<FXProp<bool>> {
         *self.serialize.get_or_init(|| {
             self.source
                 .serde()
@@ -651,7 +650,7 @@ impl FXArgProps {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn deserialize(&self) -> Option<FXProp<bool>> {
+    pub fn deserialize(&self) -> Option<FXProp<bool>> {
         *self.deserialize.get_or_init(|| {
             self.source
                 .serde()
@@ -671,17 +670,17 @@ impl FXArgProps {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn needs_serialize(&self) -> FXProp<bool> {
+    pub fn needs_serialize(&self) -> FXProp<bool> {
         self.serialize().unwrap_or_else(|| self.serde())
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn needs_deserialize(&self) -> FXProp<bool> {
+    pub fn needs_deserialize(&self) -> FXProp<bool> {
         self.deserialize().unwrap_or_else(|| self.serde())
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn serde_shadow_ident(&self) -> Option<&syn::Ident> {
+    pub fn serde_shadow_ident(&self) -> Option<&syn::Ident> {
         self.serde_shadow_ident
             .get_or_init(|| {
                 if *self.serde() {
@@ -707,14 +706,14 @@ impl FXArgProps {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn serde_visibility(&self) -> Option<&syn::Visibility> {
+    pub fn serde_visibility(&self) -> Option<&syn::Visibility> {
         self.serde_visibility
             .get_or_init(|| self.source.serde().as_ref().and_then(|s| s.visibility()).cloned())
             .as_ref()
     }
 
     #[allow(dead_code)]
-    pub(crate) fn base_name(&self) -> Option<syn::Ident> {
+    pub fn base_name(&self) -> Option<syn::Ident> {
         Some(self.codegen_ctx().input().ident().clone())
     }
 }

@@ -1,4 +1,4 @@
-pub(crate) mod props;
+pub mod props;
 
 use darling::util::Flag;
 use darling::FromField;
@@ -25,7 +25,6 @@ use getset::Getters;
 use once_cell::unsync::OnceCell;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
-pub(crate) use props::FXFieldProps;
 use quote::quote_spanned;
 use quote::ToTokens;
 use std::ops::Deref;
@@ -33,9 +32,9 @@ use syn::spanned::Spanned;
 use syn::Meta;
 
 #[derive(Debug, FromField, Getters, Clone)]
-#[getset(get = "pub(crate)")]
+#[getset(get = "pub")]
 #[darling(attributes(fieldx), forward_attrs)]
-pub(crate) struct FXFieldReceiver {
+pub struct FXFieldReceiver {
     #[getset(skip)]
     ident: Option<syn::Ident>,
     vis:   syn::Visibility,
@@ -101,17 +100,17 @@ pub(crate) struct FXFieldReceiver {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct FXField(FXFieldReceiver);
+pub struct FXField(FXFieldReceiver);
 
 impl FXField {
     #[inline]
-    pub(crate) fn extra(mut self) -> Self {
+    pub fn extra(mut self) -> Self {
         self.0.extra = true;
         self
     }
 
     #[inline(always)]
-    pub(crate) fn is_extra(&self) -> bool {
+    pub fn is_extra(&self) -> bool {
         self.0.extra
     }
 }
@@ -174,7 +173,7 @@ impl FXFieldReceiver {
     // FXFieldCtx.
     // needs_helper! {accessor, accessor_mut, builder, clearer, setter, predicate, reader, writer}
 
-    pub(crate) fn validate(&self) -> darling::Result<()> {
+    pub fn validate(&self) -> darling::Result<()> {
         let mut acc = darling::Error::accumulator();
 
         if let Err(err) = self.validate_exclusives() {
@@ -226,14 +225,14 @@ impl FXFieldReceiver {
         Ok(())
     }
 
-    pub(crate) fn ident(&self) -> darling::Result<syn::Ident> {
+    pub fn ident(&self) -> darling::Result<syn::Ident> {
         self.ident.clone().ok_or_else(|| {
             darling::Error::custom("This is weird, but the field doesn't have an ident!").with_span(&self.span())
         })
     }
 
     #[inline]
-    pub(crate) fn has_default_value(&self) -> bool {
+    pub fn has_default_value(&self) -> bool {
         if let Some(ref dv) = self.default_value {
             *dv.is_set()
         }
@@ -259,17 +258,17 @@ impl FXFieldReceiver {
     }
 
     #[inline]
-    pub(crate) fn set_span(&mut self, span: Span) -> Result<(), Span> {
+    pub fn set_span(&mut self, span: Span) -> Result<(), Span> {
         self.span.set(span)
     }
 
     #[inline]
-    pub(crate) fn set_attr_span(&mut self, span: Span) {
+    pub fn set_attr_span(&mut self, span: Span) {
         self.fieldx_attr_span = Some(span);
     }
 
     #[inline]
-    pub(crate) fn span(&self) -> Span {
+    pub fn span(&self) -> Span {
         #[allow(clippy::redundant_closure)]
         *self.span.get_or_init(|| Span::call_site())
     }

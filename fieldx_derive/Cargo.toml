@@ -16,9 +16,9 @@
 
 [dependencies]
     darling               = { workspace = true, features = ["suggestions"] }
-    delegate              = { workspace = true }
     enum_dispatch         = { workspace = true }
     fieldx_aux            = { workspace = true }
+    fieldx_core           = { workspace = true }
     fieldx_derive_support = { workspace = true }
     getset                = { workspace = true }
     once_cell             = { workspace = true }
@@ -39,8 +39,8 @@
     proc-macro = true
 
 [features]
-    async       = []
+    async       = ["fieldx_core/async"]
     diagnostics = ["darling/diagnostics"]
-    serde       = ["dep:serde", "fieldx_aux/serde"]
-    sync        = []
-    tracing     = []
+    serde       = ["dep:serde", "fieldx_aux/serde", "fieldx_core/serde"]
+    sync        = ["fieldx_core/sync"]
+    tracing     = ["fieldx_core/tracing"]

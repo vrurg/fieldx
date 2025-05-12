@@ -1,16 +1,16 @@
 use crate::util::std_default_expr_toks;
 
-use super::constructor::field::FXFieldConstructor;
-use super::constructor::r#fn::FXFnConstructor;
-use super::constructor::FXConstructor;
-use super::constructor::FXImplConstructor;
-use super::constructor::FXStructConstructor;
 use super::FXCodeGenContextual;
-use super::FXFieldCtx;
-use super::FXToksMeta;
-use super::FXValueFlag;
 use fieldx_aux::FXOrig;
 use fieldx_aux::FXProp;
+use fieldx_core::codegen::constructor::FXConstructor;
+use fieldx_core::codegen::constructor::FXFieldConstructor;
+use fieldx_core::codegen::constructor::FXFnConstructor;
+use fieldx_core::codegen::constructor::FXImplConstructor;
+use fieldx_core::codegen::constructor::FXStructConstructor;
+use fieldx_core::ctx::FXFieldCtx;
+use fieldx_core::types::meta::FXToksMeta;
+use fieldx_core::types::meta::FXValueFlag;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::format_ident;

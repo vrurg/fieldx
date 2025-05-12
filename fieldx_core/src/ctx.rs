@@ -1,7 +1,8 @@
-pub(crate) mod codegen;
-pub(crate) mod field;
-pub(crate) use codegen::FXCodeGenCtx;
-pub(crate) use field::FXFieldCtx;
+pub mod codegen;
+pub mod field;
+
+pub use codegen::FXCodeGenCtx;
+pub use field::FXFieldCtx;
 
 use quote::ToTokens;
 

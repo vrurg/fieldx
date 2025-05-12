@@ -1,4 +1,4 @@
-pub(crate) mod props;
+pub mod props;
 
 use darling::FromMeta;
 use fieldx_aux::validate_exclusives;
@@ -18,12 +18,11 @@ use fieldx_aux::FXSetter;
 use fieldx_aux::FXSynValue;
 use fieldx_aux::FXSyncMode;
 use getset::Getters;
-pub(crate) use props::FXArgProps;
 
 #[derive(Debug, FromMeta, Clone, Getters, Default)]
 #[darling(and_then = Self::validate)]
-#[getset(get = "pub(crate)")]
-pub(crate) struct FXSArgs {
+#[getset(get = "pub")]
+pub struct FXStructArgs {
     #[getset(skip)]
     mode:       Option<FXSynValue<FXSyncMode>>,
     #[getset(skip)]
@@ -63,9 +62,9 @@ pub(crate) struct FXSArgs {
     #[darling(rename = "vis")]
     visibility:   Option<FXSynValue<syn::Visibility>>,
     private:      Option<FXBool>,
-    #[getset(get = "pub(crate) with_prefix")]
+    #[getset(get = "pub with_prefix")]
     clone:        Option<FXBool>,
-    #[getset(get = "pub(crate) with_prefix")]
+    #[getset(get = "pub with_prefix")]
     copy:         Option<FXBool>,
     lock:         Option<FXBool>,
     inner_mut:    Option<FXBool>,
@@ -74,7 +73,7 @@ pub(crate) struct FXSArgs {
     // serde:        Option<fieldx_aux::syn_value::FXPunctuated<syn::Meta, syn::Token![,]>>,
 }
 
-impl FXSArgs {
+impl FXStructArgs {
     validate_exclusives!(
         "accessor mode": copy; clone;
         "concurrency mode": mode_sync as "sync", mode_async as "r#async"; mode;
@@ -84,7 +83,7 @@ impl FXSArgs {
     );
 
     #[inline]
-    pub(crate) fn validate(self) -> Result<Self, darling::Error> {
+    pub fn validate(self) -> Result<Self, darling::Error> {
         let mut acc = darling::Error::accumulator();
 
         if let Err(err) = self.validate_exclusives() {

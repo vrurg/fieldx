@@ -5,18 +5,14 @@
 //! logic.
 
 mod codegen;
-mod ctx;
-mod field_receiver;
-mod helper;
-mod input_receiver;
 mod util;
 
 // use std::panic::{catch_unwind, set_hook};
-use crate::input_receiver::FXInputReceiver;
-use crate::util::args::FXSArgs;
 use darling::ast;
 use darling::FromDeriveInput;
 use darling::FromMeta;
+use fieldx_core::struct_receiver::args::FXStructArgs;
+use fieldx_core::struct_receiver::FXStructReceiver;
 use syn::parse_macro_input;
 use syn::DeriveInput;
 
@@ -741,13 +737,13 @@ pub fn fxstruct(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -
         }
     };
 
-    let args = match FXSArgs::from_list(&attr_args) {
+    let args = match FXStructArgs::from_list(&attr_args) {
         Ok(v) => v,
         Err(e) => return e.write_errors().into(),
     };
 
     let input_ast = parse_macro_input!(input as DeriveInput);
-    let fx = match FXInputReceiver::from_derive_input(&input_ast) {
+    let fx = match FXStructReceiver::from_derive_input(&input_ast) {
         Ok(v) => v,
         Err(e) => return e.write_errors().into(),
     };

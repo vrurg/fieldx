@@ -10,8 +10,8 @@ use super::FXConstructor;
 use super::FXFnConstructor;
 
 #[derive(Debug, Getters)]
-#[getset(get = "pub(crate)")]
-pub(crate) struct FXImplConstructor {
+#[getset(get = "pub")]
+pub struct FXImplConstructor {
     ident:          syn::Path,
     /// The struct for which this impl block is being generated. If defined then the ident field stands for the trait
     /// name.
@@ -28,7 +28,7 @@ pub(crate) struct FXImplConstructor {
 impl FXImplConstructor {
     tokenstream_setter! { impl_generics, trait_generics, generics, where_clause }
 
-    pub(crate) fn new<P: Into<syn::Path>>(ident: P) -> Self {
+    pub fn new<P: Into<syn::Path>>(ident: P) -> Self {
         Self {
             ident:          ident.into(),
             for_ident:      None,
@@ -42,7 +42,7 @@ impl FXImplConstructor {
         }
     }
 
-    pub(crate) fn set_from_generics(&mut self, generics: Option<syn::Generics>) -> &mut Self {
+    pub fn set_from_generics(&mut self, generics: Option<syn::Generics>) -> &mut Self {
         if let Some(generics) = generics {
             let (impl_generics, generics, where_clause) = self.split_generics(Some(&generics));
             self.generics = Some(generics);
@@ -57,19 +57,19 @@ impl FXImplConstructor {
         self
     }
 
-    pub(crate) fn set_from_span(&mut self, span: Option<Span>) -> &mut Self {
+    pub fn set_from_span(&mut self, span: Option<Span>) -> &mut Self {
         if span.is_some() {
             self.span = span;
         }
         self
     }
 
-    pub(crate) fn set_for_ident<T: ToTokens>(&mut self, for_ident: T) -> &mut Self {
+    pub fn set_for_ident<T: ToTokens>(&mut self, for_ident: T) -> &mut Self {
         self.for_ident = Some(for_ident.to_token_stream());
         self
     }
 
-    pub(crate) fn add_method(&mut self, method: FXFnConstructor) -> &mut Self {
+    pub fn add_method(&mut self, method: FXFnConstructor) -> &mut Self {
         self.methods.push(method);
         self
     }

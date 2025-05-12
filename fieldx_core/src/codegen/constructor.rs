@@ -1,24 +1,24 @@
-pub(crate) mod field;
-pub(crate) mod r#fn;
-pub(crate) mod r#impl;
-pub(crate) mod r#struct;
+pub mod field;
+pub mod r#fn;
+pub mod r#impl;
+pub mod r#struct;
 
-pub(crate) use field::*;
 use fieldx_aux::FXProp;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
 use quote::ToTokens;
-pub(crate) use r#fn::*;
-pub(crate) use r#impl::*;
-pub(crate) use r#struct::*;
+
+pub use field::*;
+pub use r#fn::*;
+pub use r#impl::*;
+pub use r#struct::*;
 
 macro_rules! tokenstream_setter {
     ( $($name:ident),+ $(,)? ) => {
         $(
             ::paste::paste! {
-                #[allow(dead_code)]
-pub(crate) fn [<set_ $name>]<T: ToTokens>(&mut self, value: T) -> &mut Self {
+                pub fn [<set_ $name>]<T: ToTokens>(&mut self, value: T) -> &mut Self {
                     let tt = value.to_token_stream();
                     self.$name = if tt.is_empty() {
                         None
@@ -37,7 +37,7 @@ pub(crate) use tokenstream_setter;
 
 use crate::ctx::Attributizer;
 
-pub(crate) trait FXConstructor {
+pub trait FXConstructor {
     fn fx_to_tokens(&self) -> TokenStream;
     fn set_span(&mut self, span: proc_macro2::Span) -> &mut Self;
     fn add_attribute(&mut self, attribute: syn::Attribute) -> &mut Self;

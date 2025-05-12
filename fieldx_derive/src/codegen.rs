@@ -1,24 +1,22 @@
 pub(crate) mod codegen_trait;
-pub(crate) mod constructor;
 mod plain;
 #[cfg(feature = "serde")]
 mod serde;
 pub(crate) mod sync;
 
-use crate::ctx::codegen::FXCodeGenCtx;
-use crate::ctx::field::FXFieldCtx;
-use crate::field_receiver::FXField;
-use crate::helper::*;
-use crate::util::args::FXSArgs;
-use crate::util::std_default_expr_toks;
-use crate::FXInputReceiver;
 pub(crate) use codegen_trait::FXCodeGenContextual;
 use codegen_trait::FXCodeGenerator;
-use constructor::FXConstructor;
-use constructor::FXFnConstructor;
-use constructor::FXImplConstructor;
 use darling::FromField;
 use fieldx_aux::FXProp;
+use fieldx_core::codegen::constructor::FXConstructor;
+use fieldx_core::codegen::constructor::FXFnConstructor;
+use fieldx_core::codegen::constructor::FXImplConstructor;
+use fieldx_core::ctx::FXCodeGenCtx;
+use fieldx_core::ctx::FXFieldCtx;
+use fieldx_core::field_receiver::FXField;
+use fieldx_core::struct_receiver::args::FXStructArgs;
+use fieldx_core::struct_receiver::FXStructReceiver;
+use fieldx_core::types::meta::FXValueFlag;
 pub(crate) use plain::FXCodeGenPlain;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
@@ -34,12 +32,7 @@ use syn::parse_quote_spanned;
 use syn::spanned::Spanned;
 pub(crate) use sync::FXCodeGenSync;
 
-#[allow(dead_code)]
-pub(crate) enum FXInlining {
-    Default,
-    Inline,
-    Always,
-}
+use crate::util::std_default_expr_toks;
 
 #[derive(PartialEq, Clone, Debug)]
 pub(crate) enum FXValueRepr<T> {
@@ -88,98 +81,6 @@ impl<T> FXValueRepr<T> {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[repr(u8)]
-pub(crate) enum FXValueFlag {
-    #[default]
-    None             = 0,
-    StdDefault       = 1,
-    UserDefault      = 2,
-    ContainerWrapped = 4,
-    RefCounted       = 8,
-}
-
-/// This is a container for values that can be passed through many transformations while retaining their value context,
-/// whether original or introduced by a transformation.
-#[derive(Debug, Clone)]
-pub(crate) struct FXValueMeta<T> {
-    pub(crate) value:      T,
-    pub(crate) flags:      u8,
-    pub(crate) attributes: Vec<TokenStream>,
-}
-
-impl<T> FXValueMeta<T> {
-    pub(crate) fn new(value: T, flag: FXValueFlag) -> Self {
-        let flags = flag as u8;
-        Self {
-            value,
-            flags,
-            attributes: Vec::new(),
-        }
-    }
-
-    #[inline]
-    pub(crate) fn mark_as(mut self, flag: FXValueFlag) -> Self {
-        self.flags |= flag as u8;
-        self
-    }
-
-    #[inline]
-    pub(crate) fn has_flag(&self, flag: FXValueFlag) -> bool {
-        self.flags & (flag as u8) != 0
-    }
-
-    #[inline]
-    pub(crate) fn add_attribute<TT: ToTokens>(mut self, attribute: TT) -> Self {
-        self.attributes.push(attribute.to_token_stream());
-        self
-    }
-
-    #[inline]
-    pub(crate) fn replace(self, value: T) -> Self {
-        Self {
-            value,
-            flags: self.flags,
-            attributes: self.attributes,
-        }
-    }
-
-    #[inline]
-    pub(crate) fn into_inner(self) -> T {
-        self.value
-    }
-}
-
-impl<T: IntoIterator> IntoIterator for FXValueMeta<T> {
-    type IntoIter = T::IntoIter;
-    type Item = T::Item;
-
-    #[inline]
-    fn into_iter(self) -> Self::IntoIter {
-        self.value.into_iter()
-    }
-}
-
-impl<T> From<T> for FXValueMeta<T> {
-    #[inline]
-    fn from(value: T) -> Self {
-        Self {
-            value,
-            flags: FXValueFlag::None as u8,
-            attributes: Vec::new(),
-        }
-    }
-}
-
-impl<T: ToTokens> ToTokens for FXValueMeta<T> {
-    #[inline]
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.value.to_tokens(tokens);
-    }
-}
-
-pub(crate) type FXToksMeta = FXValueMeta<TokenStream>;
-
 // Methods that are related to the current context if first place.
 
 pub(crate) struct FXRewriter<'a> {
@@ -189,7 +90,7 @@ pub(crate) struct FXRewriter<'a> {
 }
 
 impl<'a> FXRewriter<'a> {
-    pub(crate) fn new(input: FXInputReceiver, args: FXSArgs) -> Self {
+    pub(crate) fn new(input: FXStructReceiver, args: FXStructArgs) -> Self {
         let ctx = FXCodeGenCtx::new(input, args);
 
         Self {

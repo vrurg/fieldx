@@ -7,8 +7,8 @@ use quote::ToTokens;
 use super::FXConstructor;
 
 #[derive(Debug, Getters)]
-#[getset(get = "pub(crate)")]
-pub(crate) struct FXFieldConstructor {
+#[getset(get = "pub")]
+pub struct FXFieldConstructor {
     ident:      syn::Ident,
     ty:         TokenStream,
     vis:        Option<TokenStream>,
@@ -18,7 +18,7 @@ pub(crate) struct FXFieldConstructor {
 
 impl FXFieldConstructor {
     #[inline]
-    pub(crate) fn new<T: ToTokens>(ident: syn::Ident, ty: T, span: Span) -> Self {
+    pub fn new<T: ToTokens>(ident: syn::Ident, ty: T, span: Span) -> Self {
         Self {
             ident,
             ty: ty.to_token_stream(),
@@ -29,13 +29,13 @@ impl FXFieldConstructor {
     }
 
     #[inline]
-    pub(crate) fn set_vis<T: ToTokens>(&mut self, vis: T) -> &mut Self {
+    pub fn set_vis<T: ToTokens>(&mut self, vis: T) -> &mut Self {
         self.vis = Some(vis.to_token_stream());
         self
     }
 
     #[inline]
-    pub(crate) fn set_type<T: ToTokens>(&mut self, ty: T) -> &mut Self {
+    pub fn set_type<T: ToTokens>(&mut self, ty: T) -> &mut Self {
         self.ty = ty.to_token_stream();
         self
     }

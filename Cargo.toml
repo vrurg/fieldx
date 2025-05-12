@@ -11,7 +11,7 @@
     rust-version  = "1.77"
 
 [workspace]
-    members  = ["fieldx", "fieldx_aux", "fieldx_derive", "fieldx_derive_support"]
+    members  = ["fieldx", "fieldx_aux", "fieldx_derive", "fieldx_core", "fieldx_derive_support"]
     resolver = "2"
 
 [workspace.dependencies]
@@ -23,6 +23,7 @@
     enum_dispatch         = "0.3"
     fieldx                = { version = "0.1.17-beta.1", path = "fieldx" }
     fieldx_aux            = { version = "0.1.17-beta.1", path = "fieldx_aux" }
+    fieldx_core           = { version = "0.1.17-beta.1", path = "fieldx_core" }
     fieldx_derive         = { version = "0.1.17-beta.1", path = "fieldx_derive" }
     fieldx_derive_support = { version = "0.1.17-beta.1", path = "fieldx_derive_support" }
     getset                = "0.1"
@@ -44,6 +45,7 @@
 [patch.crates-io]
     fieldx                = { path = "fieldx" }
     fieldx_aux            = { path = "fieldx_aux" }
+    fieldx_core           = { path = "fieldx_core" }
     fieldx_derive         = { path = "fieldx_derive" }
     fieldx_derive_support = { path = "fieldx_derive_support" }
 

@@ -1,19 +1,15 @@
-use super::constructor::r#fn::FXFnConstructor;
-use super::FXCodeGenCtx;
-use super::FXCodeGenPlain;
-use super::FXCodeGenSync;
-use super::FXFieldCtx;
-use super::FXInlining;
-use super::FXToksMeta;
-use super::FXValueRepr;
-use crate::codegen::constructor::FXConstructor;
-use crate::codegen::constructor::FXFieldConstructor;
-use crate::codegen::FXValueFlag;
-use crate::helper::*;
-use crate::util::std_default_expr_toks;
 use enum_dispatch::enum_dispatch;
 use fieldx_aux::FXProp;
 use fieldx_aux::FXPropBool;
+use fieldx_core::codegen::constructor::FXConstructor;
+use fieldx_core::codegen::constructor::FXFieldConstructor;
+use fieldx_core::codegen::constructor::FXFnConstructor;
+use fieldx_core::ctx::FXCodeGenCtx;
+use fieldx_core::ctx::FXFieldCtx;
+use fieldx_core::types::helper::FXHelperKind;
+use fieldx_core::types::meta::FXToksMeta;
+use fieldx_core::types::meta::FXValueFlag;
+use fieldx_core::types::FXInlining;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use proc_macro2::TokenTree;
@@ -23,6 +19,12 @@ use quote::quote_spanned;
 use quote::ToTokens;
 use std::rc::Rc;
 use syn::spanned::Spanned;
+
+use crate::util::std_default_expr_toks;
+
+use super::FXCodeGenPlain;
+use super::FXCodeGenSync;
+use super::FXValueRepr;
 
 #[enum_dispatch]
 pub(crate) enum FXCodeGenerator<'a> {
@@ -87,18 +89,18 @@ pub(crate) trait FXCodeGenContextual {
     // fn builders_combined(&self) -> TokenStream;
     // fn struct_fields(&self) -> Ref<Vec<TokenStream>>;
 
-    fn generic_params(&self) -> TokenStream {
-        let input = self.ctx().input();
-        let generic_idents = input.generic_param_idents();
-        let span = input.generics().span();
+    // fn generic_params(&self) -> TokenStream {
+    //     let input = self.ctx().input();
+    //     let generic_idents = input.generic_param_idents();
+    //     let span = input.generics().span();
 
-        if !generic_idents.is_empty() {
-            quote_spanned![span=> < #( #generic_idents ),* >]
-        }
-        else {
-            quote![]
-        }
-    }
+    //     if !generic_idents.is_empty() {
+    //         quote_spanned![span=> < #( #generic_idents ),* >]
+    //     }
+    //     else {
+    //         quote![]
+    //     }
+    // }
 
     fn maybe_ref_counted<TT: ToTokens>(&self, ty: &TT) -> TokenStream {
         let ref_counted = self.ctx().arg_props().rc();
@@ -545,20 +547,5 @@ pub(crate) trait FXCodeGenContextual {
         let builder_ident = ctx.input_ident();
         let generic_params = ctx.struct_generic_params();
         quote![#builder_ident #generic_params]
-    }
-
-    fn fallible_return_type<TT>(&self, fctx: &FXFieldCtx, ty: TT) -> darling::Result<TokenStream>
-    where
-        TT: ToTokens,
-    {
-        let ty = ty.to_token_stream();
-        let fallible = fctx.fallible();
-        Ok(if *fallible {
-            let error_type = fctx.fallible_error();
-            quote_spanned! {fallible.final_span()=> ::std::result::Result<#ty, #error_type>}
-        }
-        else {
-            ty.to_token_stream()
-        })
     }
 }

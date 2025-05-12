@@ -1,15 +1,15 @@
-mod impl_async;
-mod impl_sync;
-
-use crate::codegen::FXCodeGenContextual;
-use crate::codegen::FXCodeGenCtx;
-use crate::codegen::FXFieldCtx;
-use crate::codegen::FXHelperKind;
-use crate::codegen::FXInlining;
-use crate::codegen::FXValueRepr;
-#[allow(unused)]
-use crate::util::dump_tt_struct;
 use fieldx_aux::FXPropBool;
+use fieldx_core::codegen::constructor::FXConstructor;
+use fieldx_core::codegen::constructor::FXFnConstructor;
+use fieldx_core::ctx::FXCodeGenCtx;
+use fieldx_core::ctx::FXFieldCtx;
+use fieldx_core::types::helper::FXHelperKind;
+use fieldx_core::types::impl_details::impl_async;
+use fieldx_core::types::impl_details::impl_sync;
+use fieldx_core::types::impl_details::FXSyncImplDetails;
+use fieldx_core::types::meta::FXToksMeta;
+use fieldx_core::types::meta::FXValueFlag;
+use fieldx_core::types::FXInlining;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::format_ident;
@@ -19,29 +19,8 @@ use quote::ToTokens;
 use std::rc::Rc;
 use syn::spanned::Spanned;
 
-use super::constructor::r#fn::FXFnConstructor;
-use super::constructor::FXConstructor;
-use super::FXToksMeta;
-use super::FXValueFlag;
-
-pub(crate) trait FXSyncImplDetails {
-    fn await_call(&self, span: Span) -> TokenStream;
-    fn field_proxy_type(&self, span: Span) -> TokenStream;
-    fn fx_mapped_write_guard(&self, span: Span) -> TokenStream;
-    fn fx_fallible_builder_wrapper(&self, span: Span) -> TokenStream;
-    fn fx_infallible_builder_wrapper(&self, span: Span) -> TokenStream;
-    fn lazy_builder(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> TokenStream;
-    fn lazy_wrapper_fn(
-        &self,
-        codegen: &FXCodeGenSync,
-        fctx: &FXFieldCtx,
-    ) -> Result<Option<FXFnConstructor>, darling::Error>;
-    fn rwlock(&self, span: Span) -> TokenStream;
-    fn rwlock_mapped_read_guard(&self, span: Span) -> TokenStream;
-    fn rwlock_mapped_write_guard(&self, span: Span) -> TokenStream;
-    fn rwlock_read_guard(&self, span: Span) -> TokenStream;
-    fn rwlock_write_guard(&self, span: Span) -> TokenStream;
-}
+use super::FXCodeGenContextual;
+use super::FXValueRepr;
 
 pub(crate) struct FXCodeGenSync<'a> {
     codegen:    &'a crate::codegen::FXRewriter<'a>,
@@ -121,7 +100,7 @@ impl<'a> FXCodeGenSync<'a> {
                 )?;
 
             mc.set_self_lifetime(lifetime.clone());
-            mc.set_ret_type(self.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard<#lifetime, #ty> })?);
+            mc.set_ret_type(fctx.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard<#lifetime, #ty> })?);
             mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method(#self_rc)#await_call});
         }
         else if *optional {
@@ -164,20 +143,13 @@ impl<'a> FXCodeGenSync<'a> {
         }
     }
 
-    fn input_type_toks(&self) -> TokenStream {
-        let ident = self.ctx().input_ident();
-        let generic_params = self.generic_params();
-        quote_spanned! {ident.span()=>
-            #ident #generic_params
-        }
-    }
-
     // Compose declaration of the type to use for holding the builder method object.
     fn builder_wrapper_type(&self, fctx: &FXFieldCtx, turbo_fish: bool) -> darling::Result<TokenStream> {
+        let ctx = self.ctx();
         let ty = fctx.ty();
         let fallible = fctx.fallible();
         let span = fallible.or(fctx.builder()).final_span();
-        let input_type = self.input_type_toks();
+        let input_type = ctx.struct_type_toks();
         let (wrapper_type, error_type) = if *fallible {
             let error_type = fctx.fallible_error();
             let fallible_span = fallible.final_span();
@@ -245,7 +217,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
 
     fn field_lazy_builder_wrapper(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         if *fctx.lazy() {
-            self.implementor(fctx).lazy_wrapper_fn(self, fctx)
+            self.implementor(fctx).lazy_wrapper_fn(fctx)
         }
         else {
             Ok(None)
@@ -314,7 +286,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                         darling::Error::custom("Missing information about the `self` identifier, but accessor method cannot be an associated function")
                             .with_span(&span),
                     )?;
-                    let ty = self.fallible_return_type(fctx, ty)?;
+                    let ty = fctx.fallible_return_type(fctx, ty)?;
 
                     mc.set_async(fctx.mode_async());
                     mc.set_ret_type(ty);
@@ -345,7 +317,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 }
             }
             else {
-                let ty = self.fallible_return_type(fctx, self.maybe_optional_ty(fctx, ty))?;
+                let ty = fctx.fallible_return_type(fctx, self.maybe_optional_ty(fctx, ty))?;
 
                 mc.set_ret_type(quote_spanned! {span=> &#ty });
                 mc.set_ret_stmt(quote_spanned! {span=> &self.#ident });
@@ -389,7 +361,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 mc.set_async(fctx.mode_async());
                 mc.set_self_lifetime(lifetime.clone());
                 mc.set_ret_type(
-                    self.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard<#lifetime, #ty> })?,
+                    fctx.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard<#lifetime, #ty> })?,
                 );
                 mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method(#self_rc) #await_call });
             }
@@ -434,7 +406,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         let optional = fctx.optional();
         let lazy = fctx.lazy();
         let default_value = self.field_default_value(fctx);
-        let lazy_builder = self.implementor(fctx).lazy_builder(self, fctx);
+        let lazy_builder = self.implementor(fctx).lazy_builder(fctx);
         let or_default = if fctx.has_default_value() {
             let default = self.fixup_self_type(
                 default_value
@@ -502,6 +474,8 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
 
     #[cfg(feature = "serde")]
     fn field_from_shadow(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta> {
+        use crate::codegen::FXValueRepr;
+
         let field_ident = fctx.ident();
         let shadow_var = self.ctx().shadow_var_ident();
         self.field_value_wrap(fctx, FXValueRepr::Exact(quote![#shadow_var.#field_ident ].into()))
@@ -743,7 +717,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
 
         Ok(if *lazy {
             let field_type = self.type_tokens(fctx)?;
-            let lazy_builder = self.wrap_builder(fctx, self.implementor(fctx).lazy_builder(self, fctx))?;
+            let lazy_builder = self.wrap_builder(fctx, self.implementor(fctx).lazy_builder(fctx))?;
             let value_toks = value_wrapper.to_token_stream();
 
             value_wrapper

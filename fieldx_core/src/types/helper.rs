@@ -1,9 +1,7 @@
 use std::fmt::Display;
 
-pub(crate) use fieldx_aux::FXAccessorMode;
-
 #[derive(Debug, Clone, Copy)]
-pub(crate) enum FXHelperKind {
+pub enum FXHelperKind {
     Accessor,
     AccessorMut,
     Builder,
@@ -37,7 +35,7 @@ impl Display for FXHelperKind {
 
 impl FXHelperKind {
     #[inline]
-    pub(crate) fn default_prefix(&self) -> &str {
+    pub fn default_prefix(&self) -> &str {
         match self {
             FXHelperKind::AccessorMut => "",
             FXHelperKind::Accessor => "",
@@ -52,7 +50,7 @@ impl FXHelperKind {
     }
 
     #[inline]
-    pub(crate) fn default_suffix(&self) -> &str {
+    pub fn default_suffix(&self) -> &str {
         match self {
             FXHelperKind::AccessorMut => "_mut",
             FXHelperKind::Accessor => "",

@@ -1,13 +1,14 @@
-use super::FXCodeGenSync;
-use super::FXSyncImplDetails;
 use crate::codegen::constructor::FXFnConstructor;
 use crate::ctx::FXFieldCtx;
+
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
 
-pub(crate) struct FXSyncImplementor;
+use super::FXSyncImplDetails;
+
+pub struct FXSyncImplementor;
 
 impl FXSyncImplDetails for FXSyncImplementor {
     fn field_proxy_type(&self, span: Span) -> TokenStream {
@@ -26,12 +27,13 @@ impl FXSyncImplDetails for FXSyncImplementor {
         quote_spanned![span=> ::fieldx::sync::FXBuilderInfallible]
     }
 
-    fn lazy_wrapper_fn(&self, _: &FXCodeGenSync, _: &FXFieldCtx) -> Result<Option<FXFnConstructor>, darling::Error> {
+    fn lazy_wrapper_fn(&self, _: &FXFieldCtx) -> Result<Option<FXFnConstructor>, darling::Error> {
         Ok(None)
     }
 
-    fn lazy_builder(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> TokenStream {
-        let input_type = codegen.input_type_toks();
+    fn lazy_builder(&self, fctx: &FXFieldCtx) -> TokenStream {
+        let ctx = fctx.codegen_ctx();
+        let input_type = ctx.struct_type_toks();
         let lazy_builder_name = fctx.lazy_ident();
         let span = fctx.lazy().final_span();
         quote_spanned![span=> <#input_type>::#lazy_builder_name]

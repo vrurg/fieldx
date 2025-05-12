@@ -1,15 +1,13 @@
-use super::FXCodeGenSync;
 use super::FXSyncImplDetails;
 use crate::codegen::constructor::FXConstructor;
 use crate::codegen::constructor::FXFnConstructor;
-use crate::codegen::FXCodeGenContextual;
 use crate::ctx::FXFieldCtx;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote_spanned;
 
-pub(crate) struct FXAsyncImplementor;
+pub struct FXAsyncImplementor;
 
 impl FXAsyncImplementor {
     fn lazy_wrapper_name(&self, fctx: &FXFieldCtx) -> syn::Ident {
@@ -36,10 +34,10 @@ impl FXSyncImplDetails for FXAsyncImplementor {
         quote_spanned![span=> ::fieldx::r#async::FXBuilderInfallible]
     }
 
-    fn lazy_wrapper_fn(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn lazy_wrapper_fn(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let span = fctx.lazy().final_span();
         let lazy_builder_name = fctx.lazy_ident();
-        let builder_return = codegen.fallible_return_type(fctx, fctx.ty())?;
+        let builder_return = fctx.fallible_return_type(fctx, fctx.ty())?;
 
         let mut mc = FXFnConstructor::new(self.lazy_wrapper_name(fctx));
         mc.set_span(span)
@@ -61,9 +59,9 @@ impl FXSyncImplDetails for FXAsyncImplementor {
         Ok(Some(mc))
     }
 
-    fn lazy_builder(&self, codegen: &FXCodeGenSync, fctx: &FXFieldCtx) -> TokenStream {
+    fn lazy_builder(&self, fctx: &FXFieldCtx) -> TokenStream {
         let span = fctx.lazy().final_span();
-        let input_type = codegen.input_type_toks();
+        let input_type = fctx.codegen_ctx().struct_type_toks();
         let wrapper_name = self.lazy_wrapper_name(fctx);
         quote_spanned! {span=> ::std::boxed::Box::new(<#input_type>::#wrapper_name)}
     }

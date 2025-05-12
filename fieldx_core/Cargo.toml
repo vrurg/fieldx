@@ -1,0 +1,32 @@
+[package]
+    authors.workspace       = true
+    categories.workspace    = true
+    description             = "Various types and tools useful implementing fieldx_derive core functionality. May provide useful APIs for 3rd-party crates."
+    documentation.workspace = true
+    edition.workspace       = true
+    exclude.workspace       = true
+    keywords.workspace      = true
+    license-file.workspace  = true
+    name                    = "fieldx_core"
+    repository.workspace    = true
+    rust-version.workspace  = true
+    version                 = "0.1.17-beta.1"
+
+[dependencies]
+    darling               = { workspace = true, features = ["suggestions"] }
+    delegate              = { workspace = true }
+    fieldx_aux            = { workspace = true }
+    fieldx_derive_support = { workspace = true }
+    getset                = { workspace = true }
+    once_cell             = { workspace = true }
+    paste                 = { workspace = true }
+    proc-macro2           = { workspace = true }
+    quote                 = { workspace = true }
+    syn                   = { workspace = true, features = ["extra-traits", "parsing", "derive"] }
+
+[features]
+    async       = []
+    diagnostics = ["darling/diagnostics"]
+    serde       = []
+    sync        = []
+    tracing     = []

@@ -4,10 +4,9 @@ use crate::codegen::constructor::FXFieldConstructor;
 use crate::codegen::constructor::FXFnConstructor;
 use crate::codegen::constructor::FXStructConstructor;
 use crate::field_receiver::FXField;
-use crate::input_receiver::FXInputReceiver;
-use crate::util::args::FXArgProps;
-use crate::util::args::FXSArgs;
-use crate::util::args::{self};
+use crate::struct_receiver::args::props::FXStructArgProps;
+use crate::struct_receiver::args::FXStructArgs;
+use crate::struct_receiver::FXStructReceiver;
 use delegate::delegate;
 use fieldx_aux::FXProp;
 use getset::CopyGetters;
@@ -25,7 +24,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::rc::Weak;
 #[derive(Debug, Getters, CopyGetters)]
-pub(crate) struct FXCodeGenCtx {
+pub struct FXCodeGenCtx {
     myself: Weak<Self>,
 
     errors: OnceCell<RefCell<darling::error::Accumulator>>,
@@ -46,13 +45,13 @@ pub(crate) struct FXCodeGenCtx {
     #[cfg(feature = "serde")]
     me_var_ident:     OnceCell<syn::Ident>,
 
-    #[getset(get = "pub(crate)")]
-    args: FXSArgs,
+    #[getset(get = "pub")]
+    args: FXStructArgs,
 
     #[getset(skip)]
-    arg_props:    Rc<FXArgProps>,
+    arg_props:    Rc<FXStructArgProps>,
     // We use Option because FXInputReceiver can't implement Default
-    input:        Option<Rc<FXInputReceiver>>,
+    input:        Option<Rc<FXStructReceiver>>,
     extra_fields: RefCell<Vec<FXField>>,
     unique_id:    RefCell<u32>,
 
@@ -64,13 +63,13 @@ impl FXCodeGenCtx {
     delegate! {
         /// Delegate to the FXArgProps implementation.
         to self.arg_props {
-            pub(crate) fn needs_default(&self) -> FXProp<bool>;
-            pub(crate) fn syncish(&self) -> FXProp<bool>;
-            pub(crate) fn needs_new(&self) -> FXProp<bool>;
+            pub fn needs_default(&self) -> FXProp<bool>;
+            pub fn syncish(&self) -> FXProp<bool>;
+            pub fn needs_new(&self) -> FXProp<bool>;
         }
     }
 
-    pub(crate) fn new(input: FXInputReceiver, args: args::FXSArgs) -> Rc<Self> {
+    pub fn new(input: FXStructReceiver, args: FXStructArgs) -> Rc<Self> {
         let input = Rc::new(input);
 
         let mut user_struct = FXStructConstructor::new(input.ident().clone());
@@ -82,7 +81,7 @@ impl FXCodeGenCtx {
 
         Rc::new_cyclic(|myself| Self {
             myself: myself.clone(),
-            arg_props: Rc::new(FXArgProps::new(args.clone(), myself.clone())),
+            arg_props: Rc::new(FXStructArgProps::new(args.clone(), myself.clone())),
             args,
 
             user_struct: RefCell::new(user_struct),
@@ -109,29 +108,29 @@ impl FXCodeGenCtx {
         })
     }
 
-    pub(crate) fn user_struct(&self) -> Ref<FXStructConstructor> {
+    pub fn user_struct(&self) -> Ref<FXStructConstructor> {
         self.user_struct.borrow()
     }
 
-    pub(crate) fn user_struct_mut(&self) -> RefMut<FXStructConstructor> {
+    pub fn user_struct_mut(&self) -> RefMut<FXStructConstructor> {
         self.user_struct.borrow_mut()
     }
 
-    pub(crate) fn builder_struct(&self) -> darling::Result<Ref<FXStructConstructor>> {
+    pub fn builder_struct(&self) -> darling::Result<Ref<FXStructConstructor>> {
         Ok(self._builder_struct()?.borrow())
     }
 
-    pub(crate) fn builder_struct_mut(&self) -> darling::Result<RefMut<FXStructConstructor>> {
+    pub fn builder_struct_mut(&self) -> darling::Result<RefMut<FXStructConstructor>> {
         Ok(self._builder_struct()?.borrow_mut())
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn set_shadow_struct(&self, shadow_struct: FXStructConstructor) {
+    pub fn set_shadow_struct(&self, shadow_struct: FXStructConstructor) {
         self.shadow_struct.replace(Some(shadow_struct));
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn shadow_struct(&self) -> darling::Result<Ref<FXStructConstructor>> {
+    pub fn shadow_struct(&self) -> darling::Result<Ref<FXStructConstructor>> {
         let sstruct = self.shadow_struct.borrow();
         if sstruct.is_none() {
             return Err(darling::Error::custom("Shadow struct is not set yet"));
@@ -140,7 +139,7 @@ impl FXCodeGenCtx {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn shadow_struct_mut(&self) -> darling::Result<RefMut<FXStructConstructor>> {
+    pub fn shadow_struct_mut(&self) -> darling::Result<RefMut<FXStructConstructor>> {
         let sstruct = self.shadow_struct.borrow_mut();
         if sstruct.is_none() {
             return Err(darling::Error::custom("Shadow struct is not set yet"));
@@ -155,17 +154,17 @@ impl FXCodeGenCtx {
     }
 
     #[inline(always)]
-    pub(crate) fn input(&self) -> &FXInputReceiver {
+    pub fn input(&self) -> &FXStructReceiver {
         // Unwrap is safe because the field is always set by the constructor and can't be taken away.
         self.input.as_ref().unwrap()
     }
 
-    pub(crate) fn arg_props(&self) -> &Rc<FXArgProps> {
+    pub fn arg_props(&self) -> &Rc<FXStructArgProps> {
         &self.arg_props
     }
 
     #[inline(always)]
-    pub(crate) fn copyable_types(&self) -> std::cell::Ref<Vec<syn::Type>> {
+    pub fn copyable_types(&self) -> std::cell::Ref<Vec<syn::Type>> {
         self.copyable_types.borrow()
     }
 
@@ -177,17 +176,17 @@ impl FXCodeGenCtx {
 
     // #[inline(always)]
     // #[cfg(feature = "serde")]
-    // pub(crate) fn shadow_defaults(&self) -> std::cell::Ref<Vec<TokenStream>> {
+    // pub fn shadow_defaults(&self) -> std::cell::Ref<Vec<TokenStream>> {
     //     self.shadow_default_toks.borrow()
     // }
 
     #[inline(always)]
-    pub(crate) fn push_error(&self, err: darling::Error) {
+    pub fn push_error(&self, err: darling::Error) {
         self._errors().borrow_mut().push(err);
     }
 
     #[inline(always)]
-    pub(crate) fn ok_or_empty<T: From<TokenStream>>(&self, outcome: darling::Result<T>) -> T {
+    pub fn ok_or_empty<T: From<TokenStream>>(&self, outcome: darling::Result<T>) -> T {
         outcome.unwrap_or_else(|err| {
             self.push_error(err);
             quote![].into()
@@ -195,31 +194,31 @@ impl FXCodeGenCtx {
     }
 
     #[inline(always)]
-    pub(crate) fn ok_or_record<T>(&self, outcome: darling::Result<T>) {
+    pub fn ok_or_record<T>(&self, outcome: darling::Result<T>) {
         if let Err(err) = outcome {
             self.push_error(err);
         }
     }
 
-    pub(crate) fn exec_or_record(&self, code: impl FnOnce() -> darling::Result<()>) {
+    pub fn exec_or_record(&self, code: impl FnOnce() -> darling::Result<()>) {
         if let Err(err) = code() {
             self.push_error(err)
         }
     }
 
     #[inline(always)]
-    pub(crate) fn add_field_decl(&self, field: FXFieldConstructor) {
+    pub fn add_field_decl(&self, field: FXFieldConstructor) {
         self.user_struct.borrow_mut().add_field(field);
     }
 
     #[inline(always)]
-    pub(crate) fn add_method(&self, method: FXFnConstructor) -> &Self {
+    pub fn add_method(&self, method: FXFnConstructor) -> &Self {
         self.user_struct.borrow_mut().struct_impl_mut().add_method(method);
         self
     }
 
     #[inline(always)]
-    pub(crate) fn maybe_add_method(&self, method: Option<FXFnConstructor>) -> &Self {
+    pub fn maybe_add_method(&self, method: Option<FXFnConstructor>) -> &Self {
         if let Some(method) = method {
             self.user_struct.borrow_mut().struct_impl_mut().add_method(method);
         }
@@ -227,39 +226,49 @@ impl FXCodeGenCtx {
     }
 
     #[inline(always)]
-    pub(crate) fn add_builder_method(&self, builder: FXFnConstructor) -> darling::Result<&Self> {
+    pub fn add_builder_method(&self, builder: FXFnConstructor) -> darling::Result<&Self> {
         self.builder_struct_mut()?.struct_impl_mut().add_method(builder);
         Ok(self)
     }
 
     #[inline(always)]
-    pub(crate) fn add_builder_field(&self, builder_field: FXFieldConstructor) -> darling::Result<&Self> {
+    pub fn add_builder_field(&self, builder_field: FXFieldConstructor) -> darling::Result<&Self> {
         self.builder_struct_mut()?.add_field(builder_field);
         Ok(self)
     }
 
     #[inline(always)]
-    pub(crate) fn add_for_copy_trait_check(&self, field_ctx: &FXFieldCtx) {
+    pub fn add_for_copy_trait_check(&self, field_ctx: &FXFieldCtx) {
         self.copyable_types.borrow_mut().push(field_ctx.ty().clone());
     }
 
     // #[inline(always)]
     // #[cfg(feature = "serde")]
-    // pub(crate) fn add_shadow_default_decl(&self, field: TokenStream) {
+    // pub fn add_shadow_default_decl(&self, field: TokenStream) {
     //     self.shadow_default_toks.borrow_mut().push(field);
     // }
 
     #[inline(always)]
-    pub(crate) fn input_ident(&self) -> &syn::Ident {
+    pub fn input_ident(&self) -> &syn::Ident {
         self.input().ident()
     }
 
-    pub(crate) fn tokens_extend<T: ToTokens>(&self, toks: T) {
+    #[inline(always)]
+    pub fn struct_type_toks(&self) -> TokenStream {
+        let struct_input = self.input();
+        let ident = struct_input.ident();
+        let (_, generic_params, _) = struct_input.generics().split_for_impl();
+        quote_spanned! {ident.span()=>
+            #ident #generic_params
+        }
+    }
+
+    pub fn tokens_extend<T: ToTokens>(&self, toks: T) {
         self._tokens().borrow_mut().extend(toks.to_token_stream());
     }
 
     #[inline]
-    pub(crate) fn finalize(&self) -> TokenStream {
+    pub fn finalize(&self) -> TokenStream {
         if let Some(errors) = self.errors.get().map(|e| e.take()) {
             match errors.finish() {
                 Ok(_) => (),
@@ -280,7 +289,7 @@ impl FXCodeGenCtx {
     #[cfg(feature = "serde")]
     #[inline]
     // How to reference shadow instance in an associated function
-    pub(crate) fn shadow_var_ident(&self) -> &syn::Ident {
+    pub fn shadow_var_ident(&self) -> &syn::Ident {
         self.shadow_var_ident
             .get_or_init(|| format_ident!("__shadow", span = self.arg_props().serde().final_span()))
     }
@@ -288,17 +297,17 @@ impl FXCodeGenCtx {
     // How to reference struct instance in an associated function
     #[cfg(feature = "serde")]
     #[inline]
-    pub(crate) fn me_var_ident(&self) -> &syn::Ident {
+    pub fn me_var_ident(&self) -> &syn::Ident {
         self.me_var_ident
             .get_or_init(|| format_ident!("__me", span = self.arg_props().serde().final_span()))
     }
 
     #[inline]
-    pub(crate) fn add_extra_field(&self, field: FXField) {
+    pub fn add_extra_field(&self, field: FXField) {
         self.extra_fields.borrow_mut().push(field);
     }
 
-    pub(crate) fn field_ctx_table(&self) -> &RefCell<HashMap<syn::Ident, Rc<FXFieldCtx>>> {
+    pub fn field_ctx_table(&self) -> &RefCell<HashMap<syn::Ident, Rc<FXFieldCtx>>> {
         self.field_ctx_table.get_or_init(|| {
             RefCell::new(
                 self.extra_fields
@@ -314,7 +323,7 @@ impl FXCodeGenCtx {
         })
     }
 
-    pub(crate) fn ident_field_ctx(self: &Rc<Self>, field_ident: &syn::Ident) -> darling::Result<Rc<FXFieldCtx>> {
+    pub fn ident_field_ctx(self: &Rc<Self>, field_ident: &syn::Ident) -> darling::Result<Rc<FXFieldCtx>> {
         Ok(self
             .field_ctx_table()
             .borrow()
@@ -325,7 +334,7 @@ impl FXCodeGenCtx {
             .clone())
     }
 
-    pub(crate) fn field_ctx(&self, field: &FXField) -> Rc<FXFieldCtx> {
+    pub fn field_ctx(&self, field: &FXField) -> Rc<FXFieldCtx> {
         let mut field_ctx_table = self.field_ctx_table().borrow_mut();
         field_ctx_table
             .entry(field.ident().unwrap().clone())
@@ -333,7 +342,7 @@ impl FXCodeGenCtx {
             .clone()
     }
 
-    pub(crate) fn all_field_ctx(&self) -> Vec<Rc<FXFieldCtx>> {
+    pub fn all_field_ctx(&self) -> Vec<Rc<FXFieldCtx>> {
         // Don't iterate over field_ctx_table keys because we want to preserve the order of fields as they appear in the
         // struct.
         self.extra_fields
@@ -345,13 +354,13 @@ impl FXCodeGenCtx {
     }
 
     #[inline(always)]
-    pub(crate) fn struct_generic_params(&self) -> TokenStream {
+    pub fn struct_generic_params(&self) -> TokenStream {
         self.input().generics().split_for_impl().1.to_token_stream()
     }
 
     #[allow(dead_code)]
     #[inline]
-    pub(crate) fn unique_ident_pfx(&self, prefix: &str) -> syn::Ident {
+    pub fn unique_ident_pfx(&self, prefix: &str) -> syn::Ident {
         let new_count = *self.unique_id.borrow() + 1;
         let _ = self.unique_id.replace(new_count);
         format_ident!("{}_{}", prefix, new_count)
@@ -359,7 +368,7 @@ impl FXCodeGenCtx {
 
     #[allow(dead_code)]
     #[inline]
-    pub(crate) fn unique_ident(&self) -> syn::Ident {
+    pub fn unique_ident(&self) -> syn::Ident {
         self.unique_ident_pfx(&format!("__{}_fxsym", self.input_ident()))
     }
 

@@ -1,11 +1,10 @@
-use crate::helper::FXHelperKind;
+use crate::simple_type_prop;
+use crate::types::helper::FXHelperKind;
 use crate::util::common_prop_impl;
 use crate::util::doc_props;
 use crate::util::mode_async_prop;
 use crate::util::mode_plain_prop;
 use crate::util::mode_sync_prop;
-use crate::util::simple_bool_prop;
-use crate::util::simple_type_prop;
 use fieldx_aux::FXAccessorMode;
 use fieldx_aux::FXAttributes;
 use fieldx_aux::FXBoolHelper;
@@ -13,7 +12,6 @@ use fieldx_aux::FXBoolHelper;
 use fieldx_aux::FXDefault;
 use fieldx_aux::FXFallible;
 use fieldx_aux::FXHelperTrait;
-use fieldx_aux::FXNestingAttr;
 use fieldx_aux::FXOrig;
 use fieldx_aux::FXProp;
 use fieldx_aux::FXSetState;
@@ -22,7 +20,7 @@ use once_cell::unsync::OnceCell;
 use super::FXField;
 
 #[derive(Debug)]
-pub(crate) struct FXFieldProps {
+pub struct FXFieldProps {
     source: FXField,
 
     // --- Helper properties
@@ -136,7 +134,7 @@ impl FXFieldProps {
         fallible, FXFallible;
     }
 
-    pub(crate) fn new(field: FXField) -> Self {
+    pub fn new(field: FXField) -> Self {
         Self {
             source: field,
 
@@ -212,13 +210,13 @@ impl FXFieldProps {
     }
 
     #[inline(always)]
-    pub(crate) fn field(&self) -> &FXField {
+    pub fn field(&self) -> &FXField {
         &self.source
     }
 
     // Returns a true FXProp only if either `lock`, `writer`, or `reader` is set.
     // Otherwise, returns `None`.
-    pub(crate) fn syncish(&self) -> FXProp<bool> {
+    pub fn syncish(&self) -> FXProp<bool> {
         *self.syncish.get_or_init(|| {
             self.source
                 .lock()
@@ -255,7 +253,7 @@ impl FXFieldProps {
         })
     }
 
-    pub(crate) fn helper_ident(&self, helper_kind: FXHelperKind) -> Option<&syn::Ident> {
+    pub fn helper_ident(&self, helper_kind: FXHelperKind) -> Option<&syn::Ident> {
         match helper_kind {
             FXHelperKind::Accessor => self.accessor_ident(),
             FXHelperKind::AccessorMut => self.accessor_mut_ident(),
@@ -269,11 +267,11 @@ impl FXFieldProps {
         }
     }
 
-    pub(crate) fn skipped(&self) -> FXProp<bool> {
+    pub fn skipped(&self) -> FXProp<bool> {
         *self.skipped.get_or_init(|| self.source.skip().into())
     }
 
-    pub(crate) fn visibility(&self) -> Option<&syn::Visibility> {
+    pub fn visibility(&self) -> Option<&syn::Visibility> {
         self.visibility
             .get_or_init(|| {
                 if *self.source.private.is_true() {
@@ -284,13 +282,13 @@ impl FXFieldProps {
             .as_ref()
     }
 
-    pub(crate) fn builder_attributes(&self) -> Option<&FXAttributes> {
+    pub fn builder_attributes(&self) -> Option<&FXAttributes> {
         self.builder_attributes
             .get_or_init(|| self.source.builder().as_ref().and_then(|b| b.attributes()).cloned())
             .as_ref()
     }
 
-    pub(crate) fn base_name(&self) -> Option<&syn::Ident> {
+    pub fn base_name(&self) -> Option<&syn::Ident> {
         self.base_name
             .get_or_init(|| {
                 if let Some(ref bn) = self.source.base_name {
@@ -303,7 +301,7 @@ impl FXFieldProps {
             .as_ref()
     }
 
-    pub(crate) fn default_value(&self) -> Option<&syn::Expr> {
+    pub fn default_value(&self) -> Option<&syn::Expr> {
         self.default_value
             .get_or_init(|| {
                 self.source
@@ -322,7 +320,7 @@ impl FXFieldProps {
             .as_ref()
     }
 
-    pub(crate) fn has_default(&self) -> FXProp<bool> {
+    pub fn has_default(&self) -> FXProp<bool> {
         *self.has_default.get_or_init(|| {
             self.source
                 .default_value()
@@ -331,7 +329,7 @@ impl FXFieldProps {
         })
     }
 
-    pub(crate) fn doc(&self) -> &Vec<syn::Attribute> {
+    pub fn doc(&self) -> &Vec<syn::Attribute> {
         self.doc.get_or_init(|| {
             self.source
                 .attrs()
@@ -343,21 +341,21 @@ impl FXFieldProps {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn serde(&self) -> Option<FXProp<Option<bool>>> {
+    pub fn serde(&self) -> Option<FXProp<Option<bool>>> {
         *self
             .serde
             .get_or_init(|| self.source.serde.as_ref().map(|s| s.is_serde().respan(s.orig_span())))
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn serialize(&self) -> Option<FXProp<bool>> {
+    pub fn serialize(&self) -> Option<FXProp<bool>> {
         *self
             .serialize
             .get_or_init(|| self.source.serde().as_ref().and_then(|s| s.needs_serialize()))
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn deserialize(&self) -> Option<FXProp<bool>> {
+    pub fn deserialize(&self) -> Option<FXProp<bool>> {
         *self
             .deserialize
             .get_or_init(|| self.source.serde.as_ref().and_then(|s| s.needs_deserialize()))

@@ -12,14 +12,14 @@ use super::FXConstructor;
 use super::FXImplConstructor;
 
 #[derive(Debug, Getters, MutGetters, Setters)]
-#[getset(get = "pub(crate)")]
-pub(crate) struct FXStructConstructor {
+#[getset(get = "pub")]
+pub struct FXStructConstructor {
     ident:       syn::Ident,
     vis:         Option<TokenStream>,
     attributes:  Vec<syn::Attribute>,
     generics:    Option<syn::Generics>,
     fields:      Vec<FXFieldConstructor>,
-    #[getset(get_mut = "pub(crate)")]
+    #[getset(get_mut = "pub")]
     struct_impl: FXImplConstructor,
     trait_impls: Vec<FXImplConstructor>,
     span:        Option<Span>,
@@ -28,7 +28,7 @@ pub(crate) struct FXStructConstructor {
 impl FXStructConstructor {
     tokenstream_setter! { vis}
 
-    pub(crate) fn new(ident: syn::Ident) -> Self {
+    pub fn new(ident: syn::Ident) -> Self {
         Self {
             struct_impl: FXImplConstructor::new(ident.clone()),
             ident,
@@ -41,28 +41,28 @@ impl FXStructConstructor {
         }
     }
 
-    pub(crate) fn set_generics(&mut self, generics: syn::Generics) -> &mut Self {
+    pub fn set_generics(&mut self, generics: syn::Generics) -> &mut Self {
         self.generics = Some(generics.clone());
         self.struct_impl_mut().set_from_generics(Some(generics));
         self
     }
 
-    pub(crate) fn add_field(&mut self, field: FXFieldConstructor) -> &mut Self {
+    pub fn add_field(&mut self, field: FXFieldConstructor) -> &mut Self {
         self.fields.push(field);
         self
     }
 
-    pub(crate) fn add_trait_impl(&mut self, trait_impl: FXImplConstructor) -> &mut Self {
+    pub fn add_trait_impl(&mut self, trait_impl: FXImplConstructor) -> &mut Self {
         self.trait_impls.push(trait_impl);
         self
     }
 
-    pub(crate) fn field_idents(&self) -> impl Iterator<Item = &syn::Ident> {
+    pub fn field_idents(&self) -> impl Iterator<Item = &syn::Ident> {
         self.fields.iter().map(|field| field.ident())
     }
 
     // Re-order attributes in a way that `derive` attribute comes first.
-    pub(crate) fn ordered_attrs(&self) -> Vec<syn::Attribute> {
+    pub fn ordered_attrs(&self) -> Vec<syn::Attribute> {
         let mut attrs = self.attributes.clone();
         attrs.sort_by(|a, b| {
             if a.path().is_ident("derive") && !b.path().is_ident("derive") {
