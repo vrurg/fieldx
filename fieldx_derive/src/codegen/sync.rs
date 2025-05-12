@@ -474,8 +474,6 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
 
     #[cfg(feature = "serde")]
     fn field_from_shadow(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta> {
-        use crate::codegen::FXValueRepr;
-
         let field_ident = fctx.ident();
         let shadow_var = self.ctx().shadow_var_ident();
         self.field_value_wrap(fctx, FXValueRepr::Exact(quote![#shadow_var.#field_ident ].into()))
