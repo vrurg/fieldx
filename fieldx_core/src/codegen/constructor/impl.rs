@@ -17,6 +17,7 @@ pub struct FXImplConstructor {
     /// name.
     for_ident:      Option<TokenStream>,
     attributes:     Vec<syn::Attribute>,
+    assoc_types:    Vec<TokenStream>,
     impl_generics:  Option<TokenStream>,
     trait_generics: Option<TokenStream>,
     generics:       Option<TokenStream>,
@@ -33,6 +34,7 @@ impl FXImplConstructor {
             ident:          ident.into(),
             for_ident:      None,
             attributes:     Vec::new(),
+            assoc_types:    Vec::new(),
             impl_generics:  None,
             trait_generics: None,
             generics:       None,
@@ -69,6 +71,11 @@ impl FXImplConstructor {
         self
     }
 
+    pub fn add_assoc_type<T: ToTokens>(&mut self, assoc_type: T) -> &mut Self {
+        self.assoc_types.push(assoc_type.to_token_stream());
+        self
+    }
+
     pub fn add_method(&mut self, method: FXFnConstructor) -> &mut Self {
         self.methods.push(method);
         self
@@ -84,6 +91,7 @@ impl FXConstructor for FXImplConstructor {
         let impl_generics = self.impl_generics.as_ref();
         let generics = self.generics.as_ref();
         let where_clause = self.where_clause.as_ref();
+        let assoc_types = &self.assoc_types;
         let methods = &self.methods;
         let for_ident = self.for_ident.as_ref().map(|fi| quote_spanned! {span=> for #fi });
         let trait_generics_and_for_ident = self
@@ -103,6 +111,7 @@ impl FXConstructor for FXImplConstructor {
         quote_spanned! {span=>
             #(#attributes)*
             impl #impl_generics #ident #trait_generics_and_for_ident #generics #where_clause {
+                #(#assoc_types)*
                 #(#methods)*
             }
         }
