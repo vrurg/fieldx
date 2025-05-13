@@ -6,11 +6,11 @@ use crate::ctx::codegen::FXImplementationContext;
 // #[cfg(feature = "diagnostics")]
 // use crate::helper::FXOrig;
 use crate::ctx::FXCodeGenCtx;
+use crate::doc_props;
 use crate::simple_bool_prop;
 use crate::simple_type_prop;
 use crate::types::helper::FXHelperKind;
 use crate::util::common_prop_impl;
-use crate::util::doc_props;
 use crate::util::mode_async_prop;
 use crate::util::mode_plain_prop;
 use crate::util::mode_sync_prop;

@@ -313,6 +313,7 @@ macro_rules! common_prop_impl {
     };
 }
 
+#[macro_export]
 macro_rules! doc_props {
     ($($doc_prop:ident from $arg:ident . $subarg:ident );+ $(;)?) => {
         $(
@@ -331,7 +332,6 @@ macro_rules! doc_props {
 }
 
 pub(crate) use common_prop_impl;
-pub(crate) use doc_props;
 pub(crate) use helper_standard_methods;
 
 #[allow(dead_code)]
