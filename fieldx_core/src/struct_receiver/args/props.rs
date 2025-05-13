@@ -1,6 +1,8 @@
+use std::fmt::Debug;
 use std::rc::Rc;
 use std::rc::Weak;
 
+use crate::ctx::codegen::FXImplementationContext;
 // #[cfg(feature = "diagnostics")]
 // use crate::helper::FXOrig;
 use crate::ctx::FXCodeGenCtx;
@@ -14,7 +16,6 @@ use crate::util::mode_plain_prop;
 use crate::util::mode_sync_prop;
 use fieldx_aux::FXAccessorMode;
 use fieldx_aux::FXAttributes;
-use fieldx_aux::FXBoolHelper;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXDefault;
 use fieldx_aux::FXFallible;
@@ -24,6 +25,7 @@ use fieldx_aux::FXProp;
 use fieldx_aux::FXPropBool;
 use fieldx_aux::FXSetState;
 use fieldx_aux::FXSpaned;
+use fieldx_aux::FXTrigger;
 use once_cell::unsync::OnceCell;
 use quote::format_ident;
 use syn::spanned::Spanned;
@@ -32,9 +34,12 @@ use syn::Token;
 use super::FXStructArgs;
 
 #[derive(Debug)]
-pub struct FXStructArgProps {
+pub struct FXStructArgProps<ImplCtx = ()>
+where
+    ImplCtx: FXImplementationContext,
+{
     source:      FXStructArgs,
-    codegen_ctx: Weak<FXCodeGenCtx>,
+    codegen_ctx: Weak<FXCodeGenCtx<ImplCtx>>,
 
     // Accessor helper standard properties
     accessor:                       OnceCell<Option<FXProp<bool>>>,
@@ -137,7 +142,10 @@ pub struct FXStructArgProps {
     serde_doc:                OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
 }
 
-impl FXStructArgProps {
+impl<ImplCtx> FXStructArgProps<ImplCtx>
+where
+    ImplCtx: FXImplementationContext,
+{
     simple_bool_prop! {builder}
 
     common_prop_impl! {
@@ -157,7 +165,7 @@ impl FXStructArgProps {
         fallible, FXFallible;
     }
 
-    pub fn new(args: FXStructArgs, codegen_ctx: Weak<FXCodeGenCtx>) -> Self {
+    pub fn new(args: FXStructArgs, codegen_ctx: Weak<FXCodeGenCtx<ImplCtx>>) -> Self {
         Self {
             source: args,
             codegen_ctx,
@@ -249,7 +257,7 @@ impl FXStructArgProps {
         }
     }
 
-    pub fn codegen_ctx(&self) -> Rc<FXCodeGenCtx> {
+    pub fn codegen_ctx(&self) -> Rc<FXCodeGenCtx<ImplCtx>> {
         self.codegen_ctx.upgrade().expect("codegen context was dropped")
     }
 

@@ -1,4 +1,5 @@
 pub(crate) mod codegen_trait;
+mod derive_ctx;
 mod plain;
 #[cfg(feature = "serde")]
 mod serde;
@@ -7,12 +8,13 @@ pub(crate) mod sync;
 pub(crate) use codegen_trait::FXCodeGenContextual;
 use codegen_trait::FXCodeGenerator;
 use darling::FromField;
+use derive_ctx::FXDeriveCodegenCtx;
+use derive_ctx::FXDeriveFieldCtx;
+use derive_ctx::FXDeriveMacroCtx;
 use fieldx_aux::FXProp;
 use fieldx_core::codegen::constructor::FXConstructor;
 use fieldx_core::codegen::constructor::FXFnConstructor;
 use fieldx_core::codegen::constructor::FXImplConstructor;
-use fieldx_core::ctx::FXCodeGenCtx;
-use fieldx_core::ctx::FXFieldCtx;
 use fieldx_core::field_receiver::FXField;
 use fieldx_core::struct_receiver::args::FXStructArgs;
 use fieldx_core::struct_receiver::FXStructReceiver;
@@ -84,14 +86,15 @@ impl<T> FXValueRepr<T> {
 // Methods that are related to the current context if first place.
 
 pub(crate) struct FXRewriter<'a> {
-    codegen_ctx: Rc<FXCodeGenCtx>,
+    codegen_ctx: Rc<FXDeriveCodegenCtx>,
     plain:       OnceCell<FXCodeGenerator<'a>>,
     sync:        OnceCell<FXCodeGenerator<'a>>,
 }
 
 impl<'a> FXRewriter<'a> {
     pub(crate) fn new(input: FXStructReceiver, args: FXStructArgs) -> Self {
-        let ctx = FXCodeGenCtx::new(input, args);
+        let impl_ctx = FXDeriveMacroCtx::new();
+        let ctx = FXDeriveCodegenCtx::new(input, args, impl_ctx);
 
         Self {
             codegen_ctx: ctx,
@@ -110,11 +113,11 @@ impl<'a> FXRewriter<'a> {
             .get_or_init(|| FXCodeGenerator::ModeSync(FXCodeGenSync::new(self, self.codegen_ctx.clone())))
     }
 
-    pub(crate) fn ctx(&self) -> &Rc<FXCodeGenCtx> {
+    pub(crate) fn ctx(&self) -> &Rc<FXDeriveCodegenCtx> {
         &self.codegen_ctx
     }
 
-    pub(crate) fn field_codegen(&'a self, fctx: &FXFieldCtx) -> darling::Result<&'a FXCodeGenerator<'a>> {
+    pub(crate) fn field_codegen(&'a self, fctx: &FXDeriveFieldCtx) -> darling::Result<&'a FXCodeGenerator<'a>> {
         Ok(if *fctx.mode_plain() {
             self.plain_gen()
         }
@@ -153,12 +156,7 @@ impl<'a> FXRewriter<'a> {
 
             // Safe because of is_ref_counted
             let myself_field = arg_props.myself_field_ident().unwrap();
-            let (_, weak_type) = if *ctx.syncish() {
-                self.sync_gen().ref_count_types(rc_span)
-            }
-            else {
-                self.plain_gen().ref_count_types(rc_span)
-            };
+            let weak_type = ctx.impl_details().ref_count_weak(rc_span);
 
             let field: syn::Field = parse_quote_spanned![rc.final_span()=>
                 #[fieldx( #( #fieldx_args ),* )]
@@ -185,12 +183,12 @@ impl<'a> FXRewriter<'a> {
         ctx.ok_or_record(self.serde_prepare_struct());
     }
 
-    fn prepare_field(&'a self, fctx: &FXFieldCtx) -> darling::Result<()> {
+    fn prepare_field(&'a self, fctx: &FXDeriveFieldCtx) -> darling::Result<()> {
         let ctx = self.ctx();
         let is_active = !*fctx.skipped();
 
         if is_active && *fctx.accessor() && fctx.accessor_mode().is_copy() {
-            ctx.add_for_copy_trait_check(fctx);
+            ctx.impl_ctx().add_for_copy_trait_check(fctx);
         }
 
         let codegen = self.field_codegen(fctx)?;
@@ -292,7 +290,9 @@ impl<'a> FXRewriter<'a> {
 
         if *rc {
             let rc_span = rc.final_span();
-            let (rc_type, weak_type) = self.struct_codegen().ref_count_types(rc_span);
+            let implementor = ctx.impl_details();
+            let rc_type = implementor.ref_count_strong(rc_span);
+            let weak_type = implementor.ref_count_weak(rc_span);
             let mut myself_mc = FXFnConstructor::new(arg_props.myself_name().cloned().unwrap());
             let mut downgrade_mc = FXFnConstructor::new(arg_props.myself_downgrade_name().cloned().unwrap());
             let myself_field = arg_props.myself_field_ident();
@@ -369,9 +369,10 @@ impl<'a> FXRewriter<'a> {
         }
     }
 
-    fn builder_field_ctxs(&self) -> darling::Result<Vec<darling::Result<Rc<FXFieldCtx>>>> {
+    fn builder_field_ctxs(&self) -> darling::Result<Vec<darling::Result<Rc<FXDeriveFieldCtx>>>> {
         let ctx = self.ctx();
         Ok(ctx
+            .impl_ctx()
             .builder_struct()?
             .field_idents()
             .map(|ident| ctx.ident_field_ctx(ident))
@@ -476,7 +477,7 @@ impl<'a> FXRewriter<'a> {
         });
         build_method.set_ret_stmt(quote_spanned! {span=> Ok(#obj_ident) });
 
-        let mut bsc = ctx.builder_struct_mut()?;
+        let mut bsc = ctx.impl_ctx().builder_struct_mut()?;
         let bic = bsc.struct_impl_mut();
         bic.add_method(new_method);
         bic.add_method(build_method);
@@ -491,7 +492,8 @@ impl<'a> FXRewriter<'a> {
 
         Ok(if *builder_struct {
             self.builder_impl()?;
-            ctx.builder_struct_mut()?
+            ctx.impl_ctx()
+                .builder_struct_mut()?
                 .maybe_add_doc(arg_props.builder_doc())?
                 .to_token_stream()
         }
@@ -515,7 +517,7 @@ impl<'a> FXRewriter<'a> {
             // .add_attributes(ctx.all_attrs().iter())
             .maybe_add_attributes(ctx.args().attributes_impl().as_ref().map(|a| a.iter()));
 
-        let copyables = ctx.copyable_types();
+        let copyables = ctx.impl_ctx().copyable_types();
         if !copyables.is_empty() {
             let copyables: Vec<TokenStream> = copyables
                 .iter()

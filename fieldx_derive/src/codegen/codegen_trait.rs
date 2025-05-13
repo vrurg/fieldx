@@ -4,8 +4,6 @@ use fieldx_aux::FXPropBool;
 use fieldx_core::codegen::constructor::FXConstructor;
 use fieldx_core::codegen::constructor::FXFieldConstructor;
 use fieldx_core::codegen::constructor::FXFnConstructor;
-use fieldx_core::ctx::FXCodeGenCtx;
-use fieldx_core::ctx::FXFieldCtx;
 use fieldx_core::types::helper::FXHelperKind;
 use fieldx_core::types::meta::FXToksMeta;
 use fieldx_core::types::meta::FXValueFlag;
@@ -22,6 +20,8 @@ use syn::spanned::Spanned;
 
 use crate::util::std_default_expr_toks;
 
+use super::derive_ctx::FXDeriveCodegenCtx;
+use super::derive_ctx::FXDeriveFieldCtx;
 use super::FXCodeGenPlain;
 use super::FXCodeGenSync;
 use super::FXValueRepr;
@@ -34,79 +34,39 @@ pub(crate) enum FXCodeGenerator<'a> {
 
 #[enum_dispatch(FXCodeGenerator)]
 pub(crate) trait FXCodeGenContextual {
-    fn ctx(&self) -> &Rc<FXCodeGenCtx>;
+    fn ctx(&self) -> &Rc<FXDeriveCodegenCtx>;
 
     // Actual code producers
-    fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
-    fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
-    fn field_builder_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream>;
-    fn field_reader(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
-    fn field_writer(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
-    fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
-    fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
-    fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
-    fn field_lazy_builder_wrapper(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
-    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<FXToksMeta>) -> darling::Result<FXToksMeta>;
-    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta>;
+    fn field_accessor(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_accessor_mut(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_builder_setter(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<TokenStream>;
+    fn field_reader(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_writer(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_setter(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_clearer(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_predicate(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_lazy_builder_wrapper(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
+    fn field_value_wrap(&self, fctx: &FXDeriveFieldCtx, value: FXValueRepr<FXToksMeta>) -> darling::Result<FXToksMeta>;
+    fn field_default_wrap(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta>;
     fn field_lazy_initializer(
         &self,
-        fctx: &FXFieldCtx,
+        fctx: &FXDeriveFieldCtx,
         method_constructor: &mut FXFnConstructor,
     ) -> darling::Result<TokenStream>;
     #[cfg(feature = "serde")]
     // How to move field from shadow struct
-    fn field_from_shadow(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta>;
+    fn field_from_shadow(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta>;
     #[cfg(feature = "serde")]
     // How to move field from the struct itself
-    fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta>;
-
-    // fn add_field_decl(&self, field: TokenStream);
-    // fn add_defaults_decl(&self, defaults: TokenStream);
-    // fn add_method_decl(&self, method: TokenStream);
-    // fn add_builder_decl(&self, builder_method: TokenStream);
-    // fn add_builder_field_decl(&self, builder_field: TokenStream);
-    // fn add_builder_field_ident(&self, fctx: syn::Ident);
-    // fn add_for_copy_trait_check(&self, fctx: &FXFieldCtx);
-    // #[cfg(feature = "serde")]
-    // fn add_shadow_field_decl(&self, field: TokenStream);
-    // #[cfg(feature = "serde")]
-    // fn add_shadow_default_decl(&self, field: TokenStream);
-
-    fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> darling::Result<&'s TokenStream>;
-    fn ref_count_types(&self, span: Span) -> (TokenStream, TokenStream);
-    // fn copyable_types(&self) -> Ref<Vec<syn::Type>>;
-    // #[cfg(feature = "serde")]
-    // fn shadow_fields(&self) -> Ref<Vec<TokenStream>>;
-    // #[cfg(feature = "serde")]
-    // fn shadow_defaults(&self) -> Ref<Vec<TokenStream>>;
-
-    // fn field_ctx_table(&self) -> Ref<HashMap<Ident, FXFieldCtx>>;
-    // fn field_ctx_table_mut(&self) -> RefMut<HashMap<Ident, FXFieldCtx>>;
-    // fn builder_field_ident(&self) -> &RefCell<Vec<syn::Ident>>;
-    // fn methods_combined(&self) -> TokenStream;
-    // fn defaults_combined(&self) -> TokenStream;
-    // fn builder_fields_combined(&self) -> TokenStream;
-    // fn builders_combined(&self) -> TokenStream;
-    // fn struct_fields(&self) -> Ref<Vec<TokenStream>>;
-
-    // fn generic_params(&self) -> TokenStream {
-    //     let input = self.ctx().input();
-    //     let generic_idents = input.generic_param_idents();
-    //     let span = input.generics().span();
-
-    //     if !generic_idents.is_empty() {
-    //         quote_spanned![span=> < #( #generic_idents ),* >]
-    //     }
-    //     else {
-    //         quote![]
-    //     }
-    // }
+    fn field_from_struct(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta>;
+    fn type_tokens<'s>(&'s self, fctx: &'s FXDeriveFieldCtx) -> darling::Result<&'s TokenStream>;
 
     fn maybe_ref_counted<TT: ToTokens>(&self, ty: &TT) -> TokenStream {
-        let ref_counted = self.ctx().arg_props().rc();
+        let ctx = self.ctx();
+        let ref_counted = ctx.arg_props().rc();
         if *ref_counted {
             let rc_span = ref_counted.final_span();
-            let (rc_type, _) = self.ref_count_types(rc_span);
+            let rc_type = ctx.impl_details().ref_count_strong(rc_span);
             return quote_spanned![rc_span=> #rc_type<#ty>];
         }
 
@@ -139,7 +99,7 @@ pub(crate) trait FXCodeGenContextual {
 
         if *rc {
             let rc_span = rc.final_span();
-            let (rc_type, _) = self.ref_count_types(rc_span);
+            let rc_type = ctx.impl_details().ref_count_strong(rc_span);
             let myself_field = arg_props.myself_field_ident();
             quote_spanned![rc_span=>
                 #rc_type::new_cyclic(
@@ -163,7 +123,7 @@ pub(crate) trait FXCodeGenContextual {
         }
     }
 
-    fn maybe_optional<T: ToTokens>(&self, fctx: &FXFieldCtx, ty: T) -> TokenStream {
+    fn maybe_optional<T: ToTokens>(&self, fctx: &FXDeriveFieldCtx, ty: T) -> TokenStream {
         let opt = fctx.optional();
         if *opt {
             quote_spanned! {opt.final_span()=> ::std::option::Option<#ty>}
@@ -173,7 +133,7 @@ pub(crate) trait FXCodeGenContextual {
         }
     }
 
-    fn field_decl(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
+    fn field_decl(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<()> {
         let mut constructor = fctx.take_constructor()?;
 
         constructor.set_vis(fctx.vis());
@@ -191,7 +151,7 @@ pub(crate) trait FXCodeGenContextual {
         &self,
         method: Option<FXFnConstructor>,
         helper_kind: FXHelperKind,
-        fctx: &FXFieldCtx,
+        fctx: &FXDeriveFieldCtx,
     ) -> darling::Result<()> {
         if let Some(mut method) = method {
             let ctx = self.ctx();
@@ -226,9 +186,10 @@ pub(crate) trait FXCodeGenContextual {
         Ok(())
     }
 
-    fn field_methods(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
+    fn field_methods(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<()> {
         if !*fctx.skipped() {
             let ctx = self.ctx();
+            let impl_ctx = ctx.impl_ctx();
 
             self.maybe_add_helper_method(self.field_accessor(fctx)?, FXHelperKind::Accessor, fctx)?;
             self.maybe_add_helper_method(self.field_accessor_mut(fctx)?, FXHelperKind::AccessorMut, fctx)?;
@@ -248,16 +209,16 @@ pub(crate) trait FXCodeGenContextual {
                     else {
                         bm.add_attributes(fctx.props().field_props().doc().iter());
                     }
-                    ctx.add_builder_method(bm)?;
+                    impl_ctx.add_builder_method(bm)?;
                 }
-                ctx.add_builder_field(self.field_builder_field(fctx)?)?;
+                impl_ctx.add_builder_field(self.field_builder_field(fctx)?)?;
             }
         }
 
         Ok(())
     }
 
-    fn field_default(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
+    fn field_default(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<()> {
         let skipped = fctx.skipped();
         let def_expr = if *skipped {
             let span = skipped.final_span();
@@ -277,7 +238,7 @@ pub(crate) trait FXCodeGenContextual {
         Ok(())
     }
 
-    fn field_default_value(&self, fctx: &FXFieldCtx) -> FXValueRepr<FXToksMeta> {
+    fn field_default_value(&self, fctx: &FXDeriveFieldCtx) -> FXValueRepr<FXToksMeta> {
         if let Some(default_value) = fctx.default_value() {
             FXValueRepr::Versatile(FXToksMeta::new(
                 default_value.to_token_stream(),
@@ -298,7 +259,7 @@ pub(crate) trait FXCodeGenContextual {
         }
     }
 
-    fn field_builder(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_builder(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let builder = fctx.forced_builder().or(fctx.builder());
         Ok(if *builder {
             let span = builder.final_span();
@@ -332,7 +293,7 @@ pub(crate) trait FXCodeGenContextual {
         })
     }
 
-    fn field_builder_field(&self, fctx: &FXFieldCtx) -> darling::Result<FXFieldConstructor> {
+    fn field_builder_field(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXFieldConstructor> {
         let span = fctx.span();
         let ty = fctx.ty();
         let ty = quote_spanned! {span=> ::std::option::Option<#ty>};
@@ -349,7 +310,7 @@ pub(crate) trait FXCodeGenContextual {
     }
 
     // Ensure that we return an error or panic if the builder field is required but not set.
-    fn field_builder_value_required(&self, fctx: &FXFieldCtx) {
+    fn field_builder_value_required(&self, fctx: &FXDeriveFieldCtx) {
         let builder_required = fctx.builder_required();
         let builder = fctx.builder();
         if !*fctx.builder_method_optional() {
@@ -387,7 +348,12 @@ pub(crate) trait FXCodeGenContextual {
         }
     }
 
-    fn field_builder_value_for_set(&self, fctx: &FXFieldCtx, field_ident: &syn::Ident, span: &Span) -> FXToksMeta {
+    fn field_builder_value_for_set(
+        &self,
+        fctx: &FXDeriveFieldCtx,
+        field_ident: &syn::Ident,
+        span: &Span,
+    ) -> FXToksMeta {
         let ctx = self.ctx();
         let span = *span;
         let optional = fctx.optional();
@@ -493,7 +459,7 @@ pub(crate) trait FXCodeGenContextual {
     // TokenStreams used to produce methods with Into support.
     fn to_toks(
         &self,
-        fctx: &FXFieldCtx,
+        fctx: &FXDeriveFieldCtx,
         use_into: FXProp<bool>,
     ) -> (TokenStream, Option<TokenStream>, Option<TokenStream>) {
         let ty = fctx.ty();
@@ -510,7 +476,7 @@ pub(crate) trait FXCodeGenContextual {
         }
     }
 
-    fn simple_field_build_setter(&self, fctx: &FXFieldCtx, field_ident: &syn::Ident, span: &Span) -> TokenStream {
+    fn simple_field_build_setter(&self, fctx: &FXDeriveFieldCtx, field_ident: &syn::Ident, span: &Span) -> TokenStream {
         let set_toks = self.field_builder_value_for_set(fctx, field_ident, span);
         let attributes = &set_toks.attributes;
 
@@ -520,7 +486,7 @@ pub(crate) trait FXCodeGenContextual {
         ]
     }
 
-    fn maybe_ref_counted_self(&self, fctx: &FXFieldCtx, mc: &mut FXFnConstructor) -> darling::Result<()> {
+    fn maybe_ref_counted_self(&self, fctx: &FXDeriveFieldCtx, mc: &mut FXFnConstructor) -> darling::Result<()> {
         if mc.self_rc_ident().is_none() {
             let ctx = self.ctx();
             let arg_props = ctx.arg_props();

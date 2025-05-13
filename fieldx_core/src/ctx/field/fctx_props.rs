@@ -9,8 +9,10 @@ use fieldx_aux::FXSetState;
 use fieldx_derive_support::fallback_prop;
 use once_cell::sync::OnceCell;
 use quote::format_ident;
+use std::fmt::Debug;
 use std::rc::Rc;
 
+use crate::ctx::codegen::FXImplementationContext;
 use crate::ctx::FXCodeGenCtx;
 use crate::field_receiver::props::FXFieldProps;
 use crate::struct_receiver::args::props::FXStructArgProps;
@@ -45,10 +47,13 @@ macro_rules! helper_ident_method {
 }
 
 #[derive(Debug)]
-pub struct FieldCTXProps {
+pub struct FieldCTXProps<EXTRA = ()>
+where
+    EXTRA: FXImplementationContext,
+{
     field_props: FXFieldProps,
-    arg_props:   Rc<FXStructArgProps>,
-    codegen_ctx: Rc<FXCodeGenCtx>,
+    arg_props:   Rc<FXStructArgProps<EXTRA>>,
+    codegen_ctx: Rc<FXCodeGenCtx<EXTRA>>,
 
     // --- Final helper properties
     // Accessor helper standard properties
@@ -125,7 +130,10 @@ pub struct FieldCTXProps {
     serde_rename_deserialize: OnceCell<Option<FXProp<String>>>,
 }
 
-impl FieldCTXProps {
+impl<EXTRA> FieldCTXProps<EXTRA>
+where
+    EXTRA: FXImplementationContext,
+{
     fallback_prop! {
         accessor, bool, default {
             self.clearer().or(self.predicate()).or(self.lazy()).or(self.inner_mut())
@@ -181,7 +189,7 @@ impl FieldCTXProps {
 
     helper_visibility_method! { accessor, accessor_mut, clearer, predicate, reader, setter, writer }
 
-    pub fn new(field: FXFieldProps, codegen_ctx: Rc<FXCodeGenCtx>) -> Self {
+    pub fn new(field: FXFieldProps, codegen_ctx: Rc<FXCodeGenCtx<EXTRA>>) -> Self {
         Self {
             field_props: field,
             arg_props: codegen_ctx.arg_props().clone(),
@@ -248,7 +256,7 @@ impl FieldCTXProps {
         &self.field_props
     }
 
-    pub fn arg_props(&self) -> &Rc<FXStructArgProps> {
+    pub fn arg_props(&self) -> &Rc<FXStructArgProps<EXTRA>> {
         &self.arg_props
     }
 

@@ -8,14 +8,15 @@ use fieldx_aux::FXAttributes;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXDefault;
 use fieldx_aux::FXProp;
+use once_cell::unsync::OnceCell;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
 use quote::ToTokens;
-use std::cell::OnceCell;
 use std::cell::Ref;
 use std::cell::RefCell;
+use std::fmt::Debug;
 use std::rc::Rc;
 use syn::spanned::Spanned;
 
@@ -24,29 +25,41 @@ use crate::codegen::constructor::FXFieldConstructor;
 use crate::field_receiver::props::FXFieldProps;
 use crate::field_receiver::FXField;
 use crate::types::helper::FXHelperKind;
+use crate::types::impl_details::impl_async::FXAsyncImplementor;
+use crate::types::impl_details::impl_plain::FXPlainImplementor;
+use crate::types::impl_details::impl_sync::FXSyncImplementor;
+use crate::types::impl_details::FXImplDetails;
 use crate::types::meta::FXToksMeta;
 use crate::types::FXInlining;
 
+use super::codegen::FXImplementationContext;
 use super::FXCodeGenCtx;
 
 #[derive(Debug)]
-pub struct FXFieldCtx {
+pub struct FXFieldCtx<ImplCtx = ()>
+where
+    ImplCtx: FXImplementationContext,
+{
     field:               FXField,
     #[allow(unused)]
-    codegen_ctx:         Rc<FXCodeGenCtx>,
+    codegen_ctx:         Rc<FXCodeGenCtx<ImplCtx>>,
     constructor:         RefCell<Option<FXFieldConstructor>>,
     ty_wrapped:          OnceCell<TokenStream>,
     ident:               OnceCell<syn::Ident>,
+    impl_details:        Box<dyn FXImplDetails<ImplCtx>>,
     #[cfg(feature = "serde")]
     default_fn_ident:    OnceCell<darling::Result<syn::Ident>>,
     builder_checker:     RefCell<Option<TokenStream>>,
-    props:               fctx_props::FieldCTXProps,
+    props:               fctx_props::FieldCTXProps<ImplCtx>,
     default_expr:        RefCell<Option<FXToksMeta>>,
     #[cfg(feature = "serde")]
     shadow_default_expr: RefCell<Option<FXToksMeta>>,
 }
 
-impl FXFieldCtx {
+impl<ImplCtx> FXFieldCtx<ImplCtx>
+where
+    ImplCtx: FXImplementationContext,
+{
     delegate! {
         to self.field {
             pub fn has_default_value(&self) -> bool;
@@ -121,13 +134,24 @@ impl FXFieldCtx {
 
     // arg_accessor! { optional: FXBool, lock: FXBool, inner_mut: FXBool }
 
-    pub fn new(field: FXField, codegen_ctx: Rc<FXCodeGenCtx>) -> Self {
+    pub fn new(field: FXField, codegen_ctx: Rc<FXCodeGenCtx<ImplCtx>>) -> Self {
         let mut constructor = FXFieldConstructor::new(
             field.ident().expect("No field ident found").clone(),
             field.ty(),
             field.span(),
         );
         constructor.add_attributes(field.attrs().iter());
+        let props = FieldCTXProps::<ImplCtx>::new(FXFieldProps::new(field.clone()), codegen_ctx.clone());
+
+        let impl_details: Box<dyn FXImplDetails<ImplCtx>> = if *props.mode_async() {
+            Box::new(FXAsyncImplementor)
+        }
+        else if *props.mode_sync() {
+            Box::new(FXSyncImplementor)
+        }
+        else {
+            Box::new(FXPlainImplementor)
+        };
 
         // eprintln!(
         //     "FIELD ATTRS:\n{}",
@@ -140,12 +164,13 @@ impl FXFieldCtx {
         // );
 
         Self {
-            props: FieldCTXProps::new(FXFieldProps::new(field.clone()), codegen_ctx.clone()),
+            props,
             constructor: RefCell::new(Some(constructor)),
             field,
             codegen_ctx,
             ty_wrapped: OnceCell::new(),
             ident: OnceCell::new(),
+            impl_details,
             #[cfg(feature = "serde")]
             default_fn_ident: OnceCell::new(),
             builder_checker: RefCell::new(None),
@@ -155,7 +180,7 @@ impl FXFieldCtx {
         }
     }
 
-    pub fn props(&self) -> &fctx_props::FieldCTXProps {
+    pub fn props(&self) -> &fctx_props::FieldCTXProps<ImplCtx> {
         &self.props
     }
 
@@ -166,7 +191,7 @@ impl FXFieldCtx {
     }
 
     #[inline]
-    pub fn codegen_ctx(&self) -> &FXCodeGenCtx {
+    pub fn codegen_ctx(&self) -> &FXCodeGenCtx<ImplCtx> {
         &self.codegen_ctx
     }
 
@@ -183,11 +208,11 @@ impl FXFieldCtx {
     }
 
     #[inline]
-    pub fn ty_wrapped<F>(&self, initializer: F) -> &TokenStream
+    pub fn ty_wrapped<F>(&self, initializer: F) -> darling::Result<&TokenStream>
     where
-        F: FnOnce() -> TokenStream,
+        F: FnOnce() -> darling::Result<TokenStream>,
     {
-        self.ty_wrapped.get_or_init(initializer)
+        self.ty_wrapped.get_or_try_init(initializer)
     }
 
     #[inline]
@@ -227,7 +252,7 @@ impl FXFieldCtx {
         self.builder_checker.borrow().clone()
     }
 
-    pub fn fallible_return_type<TT>(&self, fctx: &FXFieldCtx, ty: TT) -> darling::Result<TokenStream>
+    pub fn fallible_return_type<TT>(&self, fctx: &FXFieldCtx<ImplCtx>, ty: TT) -> darling::Result<TokenStream>
     where
         TT: ToTokens,
     {
@@ -291,5 +316,9 @@ impl FXFieldCtx {
     #[cfg(feature = "serde")]
     pub fn shadow_default_expr(&self) -> Ref<Option<FXToksMeta>> {
         self.shadow_default_expr.borrow()
+    }
+
+    pub fn impl_details(&self) -> &dyn FXImplDetails<ImplCtx> {
+        &self.impl_details
     }
 }

@@ -7,7 +7,6 @@ use crate::util::mode_plain_prop;
 use crate::util::mode_sync_prop;
 use fieldx_aux::FXAccessorMode;
 use fieldx_aux::FXAttributes;
-use fieldx_aux::FXBoolHelper;
 #[cfg(feature = "serde")]
 use fieldx_aux::FXDefault;
 use fieldx_aux::FXFallible;
@@ -15,6 +14,7 @@ use fieldx_aux::FXHelperTrait;
 use fieldx_aux::FXOrig;
 use fieldx_aux::FXProp;
 use fieldx_aux::FXSetState;
+use fieldx_aux::FXTrigger;
 use once_cell::unsync::OnceCell;
 
 use super::FXField;

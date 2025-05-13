@@ -2,8 +2,6 @@ use fieldx_aux::FXAccessorMode;
 use fieldx_aux::FXPropBool;
 use fieldx_core::codegen::constructor::FXConstructor;
 use fieldx_core::codegen::constructor::FXFnConstructor;
-use fieldx_core::ctx::FXCodeGenCtx;
-use fieldx_core::ctx::FXFieldCtx;
 use fieldx_core::types::helper::FXHelperKind;
 use fieldx_core::types::meta::FXToksMeta;
 use fieldx_core::types::meta::FXValueFlag;
@@ -18,17 +16,19 @@ use quote::ToTokens;
 use std::rc::Rc;
 use syn::spanned::Spanned;
 
+use super::derive_ctx::FXDeriveCodegenCtx;
+use super::derive_ctx::FXDeriveFieldCtx;
 use super::FXCodeGenContextual;
 use super::FXValueRepr;
 
 pub(crate) struct FXCodeGenPlain<'a> {
     #[allow(dead_code)]
     codegen: &'a crate::codegen::FXRewriter<'a>,
-    ctx:     Rc<FXCodeGenCtx>,
+    ctx:     Rc<FXDeriveCodegenCtx>,
 }
 
 impl<'a> FXCodeGenPlain<'a> {
-    pub(crate) fn new(codegen: &'a crate::codegen::FXRewriter<'a>, ctx: Rc<FXCodeGenCtx>) -> Self {
+    pub(crate) fn new(codegen: &'a crate::codegen::FXRewriter<'a>, ctx: Rc<FXDeriveCodegenCtx>) -> Self {
         let ctx = Rc::clone(&ctx);
         Self { ctx, codegen }
     }
@@ -42,7 +42,7 @@ impl<'a> FXCodeGenPlain<'a> {
         }
     }
 
-    fn maybe_inner_mut_accessor(&self, fctx: &FXFieldCtx, mc: &mut FXFnConstructor) -> TokenStream {
+    fn maybe_inner_mut_accessor(&self, fctx: &FXDeriveFieldCtx, mc: &mut FXFnConstructor) -> TokenStream {
         let span = mc.span();
         let ident = fctx.ident();
         let self_ident = mc.self_ident();
@@ -64,7 +64,7 @@ impl<'a> FXCodeGenPlain<'a> {
 
     fn maybe_inner_mut_map(
         &self,
-        fctx: &FXFieldCtx,
+        fctx: &FXDeriveFieldCtx,
         mc: &FXFnConstructor,
         accessor: TokenStream,
         inner_method: Option<TokenStream>,
@@ -79,7 +79,11 @@ impl<'a> FXCodeGenPlain<'a> {
         }
     }
 
-    fn maybe_inner_mut_wrap(&self, fctx: &FXFieldCtx, expr: FXValueMeta<TokenStream>) -> FXValueMeta<TokenStream> {
+    fn maybe_inner_mut_wrap(
+        &self,
+        fctx: &FXDeriveFieldCtx,
+        expr: FXValueMeta<TokenStream>,
+    ) -> FXValueMeta<TokenStream> {
         let inner_mut = fctx.inner_mut();
         if *inner_mut {
             let span = inner_mut.orig_span().unwrap_or_else(|| expr.span());
@@ -92,7 +96,12 @@ impl<'a> FXCodeGenPlain<'a> {
         }
     }
 
-    fn inner_mut_return_type(&self, fctx: &FXFieldCtx, mc: &mut FXFnConstructor, ret_type: TokenStream) -> TokenStream {
+    fn inner_mut_return_type(
+        &self,
+        fctx: &FXDeriveFieldCtx,
+        mc: &mut FXFnConstructor,
+        ret_type: TokenStream,
+    ) -> TokenStream {
         if *fctx.inner_mut() {
             let span = mc.span();
             let lifetime = if let Some(lf) = mc.self_lifetime() {
@@ -110,7 +119,7 @@ impl<'a> FXCodeGenPlain<'a> {
         }
     }
 
-    fn get_or_init_method(&self, fctx: &FXFieldCtx, span: &Span) -> TokenStream {
+    fn get_or_init_method(&self, fctx: &FXDeriveFieldCtx, span: &Span) -> TokenStream {
         if *fctx.fallible() {
             quote_spanned! {*span=> get_or_try_init}
         }
@@ -122,24 +131,26 @@ impl<'a> FXCodeGenPlain<'a> {
 
 impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
     #[inline(always)]
-    fn ctx(&self) -> &Rc<FXCodeGenCtx> {
+    fn ctx(&self) -> &Rc<FXDeriveCodegenCtx> {
         &self.ctx
     }
 
-    fn field_lazy_builder_wrapper(&self, _: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_lazy_builder_wrapper(&self, _: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         Ok(None)
     }
 
-    fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> darling::Result<&'s TokenStream> {
-        Ok(fctx.ty_wrapped(|| {
+    fn type_tokens<'s>(&'s self, fctx: &'s FXDeriveFieldCtx) -> darling::Result<&'s TokenStream> {
+        fctx.ty_wrapped(|| {
             // fxtrace!(fctx.ident_tok().to_string());
             let mut ty_tok = fctx.ty().to_token_stream();
             let lazy = fctx.lazy();
             let optional = fctx.optional();
             let inner_mut = fctx.inner_mut();
+            let implementor = fctx.impl_details();
             if *lazy {
                 let span = lazy.final_span();
-                ty_tok = quote_spanned![span=> ::fieldx::OnceCell<#ty_tok>];
+                let proxy_type = implementor.field_proxy_type(span);
+                ty_tok = quote_spanned![span=> #proxy_type<#ty_tok>];
             }
             else if *optional {
                 let span = optional.final_span();
@@ -151,18 +162,15 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                 ty_tok = quote_spanned![span=> ::fieldx::RefCell<#ty_tok>];
             }
 
-            ty_tok
-        }))
+            Ok(ty_tok)
+        })
     }
 
-    fn ref_count_types(&self, span: Span) -> (TokenStream, TokenStream) {
-        (
-            quote_spanned![span=> ::std::rc::Rc],
-            quote_spanned![span=> ::std::rc::Weak],
-        )
-    }
-
-    fn field_lazy_initializer(&self, fctx: &FXFieldCtx, mc: &mut FXFnConstructor) -> darling::Result<TokenStream> {
+    fn field_lazy_initializer(
+        &self,
+        fctx: &FXDeriveFieldCtx,
+        mc: &mut FXFnConstructor,
+    ) -> darling::Result<TokenStream> {
         let lazy_name = fctx.lazy_ident();
         let span = mc.span(); // fctx.lazy().final_span();
         let init_method = self.get_or_init_method(fctx, &span);
@@ -171,7 +179,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         Ok(quote_spanned! {span=> .#init_method (|| #builder_self.#lazy_name() ) })
     }
 
-    fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_accessor(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         Ok(if *fctx.accessor() {
             let ident = fctx.ident();
             let mut mc = FXFnConstructor::new(fctx.accessor_ident().clone());
@@ -261,7 +269,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         })
     }
 
-    fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_accessor_mut(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let accessor_mut = fctx.accessor_mut();
         Ok(if *accessor_mut {
             let ident = fctx.ident();
@@ -333,7 +341,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         })
     }
 
-    fn field_builder_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+    fn field_builder_setter(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<TokenStream> {
         let builder = fctx.builder().or(fctx.forced_builder());
         let span = builder.final_span();
         let field_ident = fctx.ident();
@@ -375,7 +383,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         })
     }
 
-    fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_setter(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let setter = fctx.setter();
         Ok(if *setter {
             let span = setter.span();
@@ -444,7 +452,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         })
     }
 
-    fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_clearer(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let clearer = fctx.clearer();
         Ok(if *clearer {
             let span = clearer.final_span();
@@ -475,7 +483,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         })
     }
 
-    fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_predicate(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let lazy = fctx.lazy();
         let optional = fctx.optional();
         let predicate = fctx.predicate();
@@ -517,7 +525,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         })
     }
 
-    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<FXToksMeta>) -> darling::Result<FXToksMeta> {
+    fn field_value_wrap(&self, fctx: &FXDeriveFieldCtx, value: FXValueRepr<FXToksMeta>) -> darling::Result<FXToksMeta> {
         let ident_span = fctx.ident().span();
         let lazy = fctx.lazy();
         let optional = fctx.optional();
@@ -575,7 +583,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         })
     }
 
-    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta> {
+    fn field_default_wrap(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
         self.field_value_wrap(
             fctx,
             self.field_default_value(fctx).map(|dv| {
@@ -586,18 +594,18 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
     }
 
     // Reader/writer make no sense for non-sync. Hence do nothing.
-    fn field_reader(&self, _fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_reader(&self, _fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         Ok(None)
     }
 
-    fn field_writer(&self, _fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_writer(&self, _fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         Ok(None)
     }
 
     #[cfg(feature = "serde")]
-    fn field_from_shadow(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta> {
+    fn field_from_shadow(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
         let field_ident = fctx.ident();
-        let shadow_var = self.ctx().shadow_var_ident();
+        let shadow_var = self.ctx().impl_ctx().shadow_var_ident()?;
         let span = fctx.serde().final_span();
 
         Ok(if *fctx.serde_optional() {
@@ -628,9 +636,9 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
     }
 
     #[cfg(feature = "serde")]
-    fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta> {
+    fn field_from_struct(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
         let field_ident = fctx.ident();
-        let me_var = self.ctx().me_var_ident();
+        let me_var = self.ctx().impl_ctx().me_var_ident()?;
         let lazy_or_inner_mut = fctx.lazy().or(fctx.inner_mut());
         let optional = fctx.optional();
 

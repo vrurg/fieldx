@@ -2,11 +2,7 @@ use fieldx_aux::FXPropBool;
 use fieldx_core::codegen::constructor::FXConstructor;
 use fieldx_core::codegen::constructor::FXFnConstructor;
 use fieldx_core::ctx::FXCodeGenCtx;
-use fieldx_core::ctx::FXFieldCtx;
 use fieldx_core::types::helper::FXHelperKind;
-use fieldx_core::types::impl_details::impl_async;
-use fieldx_core::types::impl_details::impl_sync;
-use fieldx_core::types::impl_details::FXSyncImplDetails;
 use fieldx_core::types::meta::FXToksMeta;
 use fieldx_core::types::meta::FXValueFlag;
 use fieldx_core::types::FXInlining;
@@ -19,37 +15,23 @@ use quote::ToTokens;
 use std::rc::Rc;
 use syn::spanned::Spanned;
 
+use super::derive_ctx::FXDeriveCodegenCtx;
+use super::derive_ctx::FXDeriveFieldCtx;
+use super::derive_ctx::FXDeriveMacroCtx;
 use super::FXCodeGenContextual;
 use super::FXValueRepr;
 
 pub(crate) struct FXCodeGenSync<'a> {
-    codegen:    &'a crate::codegen::FXRewriter<'a>,
-    ctx:        Rc<FXCodeGenCtx>,
-    impl_async: impl_async::FXAsyncImplementor,
-    impl_sync:  impl_sync::FXSyncImplementor,
+    codegen: &'a crate::codegen::FXRewriter<'a>,
+    ctx:     Rc<FXCodeGenCtx<FXDeriveMacroCtx>>,
 }
 
 impl<'a> FXCodeGenSync<'a> {
-    pub(crate) fn new(codegen: &'a crate::codegen::FXRewriter<'a>, ctx: Rc<FXCodeGenCtx>) -> Self {
-        Self {
-            codegen,
-            ctx,
-            impl_async: impl_async::FXAsyncImplementor,
-            impl_sync: impl_sync::FXSyncImplementor,
-        }
+    pub(crate) fn new(codegen: &'a crate::codegen::FXRewriter<'a>, ctx: Rc<FXCodeGenCtx<FXDeriveMacroCtx>>) -> Self {
+        Self { codegen, ctx }
     }
 
-    #[inline]
-    fn implementor(&self, fctx: &FXFieldCtx) -> &dyn FXSyncImplDetails {
-        if *fctx.mode_async() {
-            &self.impl_async
-        }
-        else {
-            &self.impl_sync
-        }
-    }
-
-    fn read_method_name(&self, fctx: &FXFieldCtx, mutable: bool, span: Span) -> syn::Ident {
+    fn read_method_name(&self, fctx: &FXDeriveFieldCtx, mutable: bool, span: Span) -> syn::Ident {
         let sfx = if mutable { "_mut" } else { "" };
         if *fctx.fallible() {
             format_ident!("try_read{sfx}", span = span)
@@ -61,7 +43,7 @@ impl<'a> FXCodeGenSync<'a> {
 
     fn field_reader_method(
         &self,
-        fctx: &FXFieldCtx,
+        fctx: &FXDeriveFieldCtx,
         helper_ident: &syn::Ident,
         helper_vis: &syn::Visibility,
         attributes_fn: TokenStream,
@@ -72,8 +54,8 @@ impl<'a> FXCodeGenSync<'a> {
         let mut mc = FXFnConstructor::new(helper_ident);
         let ident = fctx.ident();
         let ty = fctx.ty();
-        let implementor = self.implementor(fctx);
-        let rwlock_guard = implementor.rwlock_read_guard(span);
+        let implementor = fctx.impl_details();
+        let rwlock_guard = implementor.rwlock_read_guard(span)?;
         let await_call = implementor.await_call(span);
         let read_method = self.read_method_name(fctx, false, span);
         let lifetime = quote_spanned! {span=> 'fx_reader_lifetime};
@@ -92,7 +74,7 @@ impl<'a> FXCodeGenSync<'a> {
         // spans.  However, their surrounding syntax belongs to the method itself.
         if *lazy {
             let lazy_span = lazy.final_span();
-            let mapped_guard = self.implementor(fctx).rwlock_mapped_read_guard(lazy_span);
+            let mapped_guard = implementor.rwlock_mapped_read_guard(lazy_span)?;
             let self_rc = mc.self_maybe_rc_as_ref()
                 .ok_or(
                     darling::Error::custom("Missing information about the `self` identifier, but reader method cannot be an associated function")
@@ -119,7 +101,7 @@ impl<'a> FXCodeGenSync<'a> {
     }
 
     #[inline(always)]
-    fn maybe_optional_ty<T: ToTokens>(&self, fctx: &FXFieldCtx, ty: &T) -> TokenStream {
+    fn maybe_optional_ty<T: ToTokens>(&self, fctx: &FXDeriveFieldCtx, ty: &T) -> TokenStream {
         let optional = fctx.optional();
         if *optional {
             let span = optional.final_span();
@@ -131,35 +113,36 @@ impl<'a> FXCodeGenSync<'a> {
     }
 
     #[inline(always)]
-    fn maybe_locked_ty<T: ToTokens>(&self, fctx: &FXFieldCtx, ty: &T) -> TokenStream {
+    fn maybe_locked_ty<T: ToTokens>(&self, fctx: &FXDeriveFieldCtx, ty: &T) -> darling::Result<TokenStream> {
         let lock = fctx.lock();
-        if *lock {
+        Ok(if *lock {
             let span = lock.final_span();
-            let rwlock = self.implementor(fctx).rwlock(span);
+            let rwlock = fctx.impl_details().rwlock(span)?;
             quote_spanned![span=> #rwlock<#ty>]
         }
         else {
             ty.to_token_stream()
-        }
+        })
     }
 
     // Compose declaration of the type to use for holding the builder method object.
-    fn builder_wrapper_type(&self, fctx: &FXFieldCtx, turbo_fish: bool) -> darling::Result<TokenStream> {
+    fn builder_wrapper_type(&self, fctx: &FXDeriveFieldCtx, turbo_fish: bool) -> darling::Result<TokenStream> {
         let ctx = self.ctx();
         let ty = fctx.ty();
         let fallible = fctx.fallible();
         let span = fallible.or(fctx.builder()).final_span();
         let input_type = ctx.struct_type_toks();
+        let implementor = fctx.impl_details();
         let (wrapper_type, error_type) = if *fallible {
             let error_type = fctx.fallible_error();
             let fallible_span = fallible.final_span();
             (
-                self.implementor(fctx).fx_fallible_builder_wrapper(span),
+                implementor.fx_fallible_builder_wrapper(span)?,
                 quote_spanned![fallible_span=> , #error_type],
             )
         }
         else {
-            (self.implementor(fctx).fx_infallible_builder_wrapper(span), quote![])
+            (implementor.fx_infallible_builder_wrapper(span)?, quote![])
         };
 
         let dcolon = if turbo_fish {
@@ -172,7 +155,7 @@ impl<'a> FXCodeGenSync<'a> {
         Ok(quote_spanned! {span=> #wrapper_type #dcolon <#input_type, #ty #error_type>})
     }
 
-    fn wrap_builder(&self, fctx: &FXFieldCtx, builder: TokenStream) -> darling::Result<TokenStream> {
+    fn wrap_builder(&self, fctx: &FXDeriveFieldCtx, builder: TokenStream) -> darling::Result<TokenStream> {
         let wrapper_type = self.builder_wrapper_type(fctx, true)?;
         let span = fctx.fallible().final_span();
         Ok(quote_spanned! {span=>
@@ -183,48 +166,41 @@ impl<'a> FXCodeGenSync<'a> {
 
 impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
     #[inline(always)]
-    fn ctx(&self) -> &Rc<FXCodeGenCtx> {
+    fn ctx(&self) -> &Rc<FXDeriveCodegenCtx> {
         &self.ctx
     }
 
-    fn type_tokens<'s>(&'s self, fctx: &'s FXFieldCtx) -> darling::Result<&'s TokenStream> {
+    fn type_tokens<'s>(&'s self, fctx: &'s FXDeriveFieldCtx) -> darling::Result<&'s TokenStream> {
         let builder_wrapper_type = self.builder_wrapper_type(fctx, false)?;
-        Ok(fctx.ty_wrapped(|| {
+        fctx.ty_wrapped(|| {
             let ty = fctx.ty().to_token_stream();
 
             if *fctx.skipped() {
-                return ty;
+                return Ok(ty);
             }
 
             let lazy = fctx.lazy();
             if *lazy {
-                let proxy_type = self.implementor(fctx).field_proxy_type(lazy.final_span());
+                let proxy_type = fctx.impl_details().field_proxy_type(lazy.final_span());
                 let span = fctx.ty().span();
-                quote_spanned! [span=> #proxy_type<#builder_wrapper_type>]
+                Ok(quote_spanned! [span=> #proxy_type<#builder_wrapper_type>])
             }
             else {
                 self.maybe_locked_ty(fctx, &self.maybe_optional_ty(fctx, &ty))
             }
-        }))
+        })
     }
 
-    fn ref_count_types(&self, span: Span) -> (TokenStream, TokenStream) {
-        (
-            quote_spanned![span=> ::std::sync::Arc],
-            quote_spanned![span=> ::std::sync::Weak],
-        )
-    }
-
-    fn field_lazy_builder_wrapper(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_lazy_builder_wrapper(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         if *fctx.lazy() {
-            self.implementor(fctx).lazy_wrapper_fn(fctx)
+            fctx.impl_details().lazy_wrapper_fn(fctx)
         }
         else {
             Ok(None)
         }
     }
 
-    fn field_accessor(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_accessor(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let accessor = fctx.accessor();
         Ok(if *accessor {
             let span = accessor.final_span();
@@ -280,7 +256,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 };
 
                 if *lazy {
-                    let implementor = self.implementor(fctx);
+                    let implementor = fctx.impl_details();
                     let await_call = implementor.await_call(span);
                     let self_rc = mc.self_maybe_rc_as_ref().ok_or(
                         darling::Error::custom("Missing information about the `self` identifier, but accessor method cannot be an associated function")
@@ -330,7 +306,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         })
     }
 
-    fn field_accessor_mut(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_accessor_mut(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let accessor_mut = fctx.accessor_mut();
         Ok(if *accessor_mut {
             let mut mc = FXFnConstructor::new(fctx.accessor_mut_ident().clone());
@@ -345,17 +321,17 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::AccessorMut, FXInlining::Always, span))?;
 
             let lazy = fctx.lazy();
+            let implementor = fctx.impl_details();
 
             if *lazy {
                 let lazy_span = lazy.final_span();
-                let implementor = self.implementor(fctx);
                 let self_rc = mc.self_maybe_rc_as_ref()
                     .ok_or(
                         darling::Error::custom("Missing information about the `self` identifier, but mutable accessor method cannot be an associated function")
                             .with_span(&span),
                     )?;
                 let await_call = implementor.await_call(span);
-                let mapped_guard = self.implementor(fctx).rwlock_mapped_write_guard(lazy_span);
+                let mapped_guard = implementor.rwlock_mapped_write_guard(lazy_span)?;
                 let lifetime = quote_spanned! {lazy_span=> 'fx_get_mut};
 
                 mc.set_async(fctx.mode_async());
@@ -378,7 +354,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
 
                 if *lock {
                     let lock_span = lock.final_span();
-                    let wrguard = self.implementor(fctx).rwlock_write_guard(lock_span);
+                    let wrguard = implementor.rwlock_write_guard(lock_span)?;
 
                     mc.set_ret_type(quote_spanned! [lock_span=> #wrguard<#ty_toks>]);
                     mc.set_ret_stmt(quote_spanned! [lock_span=> self.#ident.write()]);
@@ -398,7 +374,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         })
     }
 
-    fn field_builder_setter(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+    fn field_builder_setter(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<TokenStream> {
         let builder = fctx.forced_builder().or(fctx.builder());
         let span = builder.final_span();
         let field_ident = fctx.ident();
@@ -406,7 +382,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         let optional = fctx.optional();
         let lazy = fctx.lazy();
         let default_value = self.field_default_value(fctx);
-        let lazy_builder = self.implementor(fctx).lazy_builder(fctx);
+        let lazy_builder = fctx.impl_details().lazy_builder(fctx);
         let or_default = if fctx.has_default_value() {
             let default = self.fixup_self_type(
                 default_value
@@ -467,22 +443,26 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         })
     }
 
-    fn field_lazy_initializer(&self, _fctx: &FXFieldCtx, mc: &mut FXFnConstructor) -> darling::Result<TokenStream> {
+    fn field_lazy_initializer(
+        &self,
+        _fctx: &FXDeriveFieldCtx,
+        mc: &mut FXFnConstructor,
+    ) -> darling::Result<TokenStream> {
         let self_var = mc.self_maybe_rc();
         Ok(quote![.lazy_init(&#self_var)])
     }
 
     #[cfg(feature = "serde")]
-    fn field_from_shadow(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta> {
+    fn field_from_shadow(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
         let field_ident = fctx.ident();
-        let shadow_var = self.ctx().shadow_var_ident();
+        let shadow_var = self.ctx().impl_ctx().shadow_var_ident()?;
         self.field_value_wrap(fctx, FXValueRepr::Exact(quote![#shadow_var.#field_ident ].into()))
     }
 
     #[cfg(feature = "serde")]
-    fn field_from_struct(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta> {
+    fn field_from_struct(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
         let field_ident = fctx.ident();
-        let me_var = self.ctx().me_var_ident();
+        let me_var = self.ctx().impl_ctx().me_var_ident()?;
         let mut field_access = quote_spanned! {field_ident.span()=> #me_var.#field_ident };
         let into_inner = fctx.lock().or(fctx.lazy());
         if *into_inner {
@@ -491,7 +471,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         Ok(field_access.into())
     }
 
-    fn field_reader(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_reader(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let reader = fctx.reader();
         if *reader {
             let span = reader.final_span();
@@ -509,15 +489,15 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         }
     }
 
-    fn field_writer(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_writer(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let writer = fctx.writer();
         Ok(if *writer {
             let span = writer.final_span();
             let mut mc = FXFnConstructor::new(fctx.writer_ident().clone());
             let ident = fctx.ident();
             let mut ret_ty = fctx.ty().to_token_stream();
-            let await_call = self.implementor(fctx).await_call(span);
-            let implementor = self.implementor(fctx);
+            let implementor = fctx.impl_details();
+            let await_call = implementor.await_call(span);
 
             mc.set_vis(fctx.writer_visibility())
                 .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Writer, FXInlining::Always, span))?
@@ -528,7 +508,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
             if *lazy {
                 let lazy_span = lazy.final_span();
                 let lifetime = quote_spanned! {lazy_span=> 'fx_writer_lifetime};
-                let fx_wrlock_guard = implementor.fx_mapped_write_guard(lazy_span);
+                let fx_wrlock_guard = implementor.fx_mapped_write_guard(lazy_span)?;
                 let builder_wrapper_type = self.builder_wrapper_type(fctx, false)?;
 
                 mc.set_self_lifetime(lifetime.clone());
@@ -536,7 +516,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 mc.set_ret_stmt(quote_spanned! {span=> self.#ident.write()#await_call});
             }
             else {
-                let wrlock_guard = implementor.rwlock_write_guard(span);
+                let wrlock_guard = implementor.rwlock_write_guard(span)?;
                 let optional = fctx.optional();
 
                 if *optional {
@@ -554,11 +534,11 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         })
     }
 
-    fn field_setter(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_setter(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let setter = fctx.setter();
         Ok(if *setter {
             let span = setter.final_span();
-            let implementor = self.implementor(fctx);
+            let implementor = fctx.impl_details();
             let mut mc = FXFnConstructor::new(fctx.setter_ident().clone());
             let ident = fctx.ident();
             let ty = fctx.ty();
@@ -620,14 +600,14 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         })
     }
 
-    fn field_clearer(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_clearer(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let clearer = fctx.clearer();
         Ok(if *clearer {
             let span = clearer.final_span();
             let mut mc = FXFnConstructor::new(fctx.clearer_ident().clone());
             let ident = fctx.ident();
             let ty = fctx.ty();
-            let implementor = self.implementor(fctx);
+            let implementor = fctx.impl_details();
             let await_call = implementor.await_call(span);
             let lock = fctx.lock();
 
@@ -657,7 +637,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         })
     }
 
-    fn field_predicate(&self, fctx: &FXFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
+    fn field_predicate(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
         let predicate = fctx.predicate();
         Ok(if *predicate {
             let span = predicate.final_span();
@@ -678,7 +658,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
             else if *lock {
                 let lock_span = lock.final_span();
                 mc.set_async(fctx.mode_async());
-                let await_call = self.implementor(fctx).await_call(lock_span);
+                let await_call = fctx.impl_details().await_call(lock_span);
                 let read_method = self.read_method_name(fctx, false, lock_span);
                 mc.set_ret_stmt(quote_spanned! {lock_span=> self.#ident.#read_method()#await_call.is_some()});
             }
@@ -693,7 +673,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         })
     }
 
-    fn field_value_wrap(&self, fctx: &FXFieldCtx, value: FXValueRepr<FXToksMeta>) -> darling::Result<FXToksMeta> {
+    fn field_value_wrap(&self, fctx: &FXDeriveFieldCtx, value: FXValueRepr<FXToksMeta>) -> darling::Result<FXToksMeta> {
         let ident_span = fctx.ident().span();
         let optional = fctx.optional();
         let lazy = fctx.lazy();
@@ -715,7 +695,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
 
         Ok(if *lazy {
             let field_type = self.type_tokens(fctx)?;
-            let lazy_builder = self.wrap_builder(fctx, self.implementor(fctx).lazy_builder(fctx))?;
+            let lazy_builder = self.wrap_builder(fctx, fctx.impl_details().lazy_builder(fctx))?;
             let value_toks = value_wrapper.to_token_stream();
 
             value_wrapper
@@ -733,7 +713,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
             let lock = fctx.lock();
             if *lock {
                 let lock_span = lock.final_span();
-                let rwlock = self.implementor(fctx).rwlock(lock_span);
+                let rwlock = fctx.impl_details().rwlock(lock_span)?;
                 let value_toks = value_wrapper.to_token_stream();
                 value_wrapper
                     .replace(quote_spanned![lock_span=> #rwlock::new(#value_toks) ])
@@ -745,7 +725,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         })
     }
 
-    fn field_default_wrap(&self, fctx: &FXFieldCtx) -> darling::Result<FXToksMeta> {
+    fn field_default_wrap(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
         self.field_value_wrap(fctx, self.field_default_value(fctx))
     }
 }

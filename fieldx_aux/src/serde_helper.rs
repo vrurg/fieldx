@@ -1,7 +1,7 @@
 use crate::set_literals;
 use crate::FXAttributes;
 use crate::FXBool;
-use crate::FXBoolHelper;
+use crate::FXTrigger;
 use crate::FXDefault;
 use crate::FXDoc;
 use crate::FXNestingAttr;

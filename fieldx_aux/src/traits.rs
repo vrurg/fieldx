@@ -61,8 +61,7 @@ where
     }
 }
 
-/// Implements `FXTriggerHelper`-like functionality for `Option<impl FXTriggerHelper>`
-pub trait FXBoolHelper {
+pub trait FXTrigger {
     fn is_true(&self) -> FXProp<bool>;
     fn is_true_opt(&self) -> Option<FXProp<bool>>;
 }
@@ -81,7 +80,7 @@ pub trait FXHelperTrait: FXSetState {
     fn doc(&self) -> Option<&FXDoc>;
 }
 
-impl<H: FXSetState> FXBoolHelper for Option<H> {
+impl<H: FXSetState> FXTrigger for Option<H> {
     #[inline]
     fn is_true(&self) -> FXProp<bool> {
         self.as_ref().map_or(FXProp::new(false, None), |h| h.is_set())

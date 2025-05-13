@@ -289,15 +289,6 @@ impl From<bool> for FXProp<bool> {
     }
 }
 
-// impl<T> From<T> for FXProp<bool>
-// where
-//     T: FXTriggerHelper,
-// {
-//     fn from(value: T) -> Self {
-//         value.is_true()
-//     }
-// }
-
 impl<T> From<&T> for FXProp<bool>
 where
     T: FXSetState,

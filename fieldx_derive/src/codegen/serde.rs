@@ -1,5 +1,6 @@
 use crate::util::std_default_expr_toks;
 
+use super::derive_ctx::FXDeriveFieldCtx;
 use super::FXCodeGenContextual;
 use fieldx_aux::FXOrig;
 use fieldx_aux::FXProp;
@@ -8,7 +9,6 @@ use fieldx_core::codegen::constructor::FXFieldConstructor;
 use fieldx_core::codegen::constructor::FXFnConstructor;
 use fieldx_core::codegen::constructor::FXImplConstructor;
 use fieldx_core::codegen::constructor::FXStructConstructor;
-use fieldx_core::ctx::FXFieldCtx;
 use fieldx_core::types::meta::FXToksMeta;
 use fieldx_core::types::meta::FXValueFlag;
 use proc_macro2::Span;
@@ -42,7 +42,7 @@ fn serde_rename_attr(
 }
 
 pub(crate) trait FXCGenSerde: FXCodeGenContextual {
-    fn filter_shadow_attributes<'a>(&'a self, fctx: &'a FXFieldCtx) -> impl Iterator<Item = &'a syn::Attribute> {
+    fn filter_shadow_attributes<'a>(&'a self, fctx: &'a FXDeriveFieldCtx) -> impl Iterator<Item = &'a syn::Attribute> {
         // Only use `serde` attribute and those listed in forward_attrs
         let serde_helper = fctx
             .field()
@@ -56,7 +56,7 @@ pub(crate) trait FXCGenSerde: FXCodeGenContextual {
             .filter(move |a| a.path().is_ident("serde") || serde_helper.is_some_and(|sh| sh.accepts_attr(a)))
     }
 
-    fn serde_skip_toks(&self, fctx: &FXFieldCtx) -> Option<TokenStream> {
+    fn serde_skip_toks(&self, fctx: &FXDeriveFieldCtx) -> Option<TokenStream> {
         // Don't skip a field if:
         // - no `serde` argument
         // - it is not `serde(off)`
@@ -79,7 +79,7 @@ pub(crate) trait FXCGenSerde: FXCodeGenContextual {
         None
     }
 
-    fn serde_field_attribute(&self, fctx: &FXFieldCtx) -> darling::Result<TokenStream> {
+    fn serde_field_attribute(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<TokenStream> {
         let ctx = self.ctx();
         Ok(if *ctx.arg_props().serde() {
             let span = fctx.serde().final_span();
@@ -147,7 +147,7 @@ pub(crate) trait FXCGenSerde: FXCodeGenContextual {
         })
     }
 
-    fn serde_shadow_field_type(&self, fctx: &FXFieldCtx) -> TokenStream {
+    fn serde_shadow_field_type(&self, fctx: &FXDeriveFieldCtx) -> TokenStream {
         let ty = fctx.ty().to_token_stream();
         let serde_optional = fctx.serde_optional();
         if *serde_optional {
@@ -158,7 +158,7 @@ pub(crate) trait FXCGenSerde: FXCodeGenContextual {
         }
     }
 
-    fn serde_shadow_field_value<FT: Into<FXToksMeta>>(&self, fctx: &FXFieldCtx, value: FT) -> FXToksMeta {
+    fn serde_shadow_field_value<FT: Into<FXToksMeta>>(&self, fctx: &FXDeriveFieldCtx, value: FT) -> FXToksMeta {
         let serde_optional = fctx.serde_optional();
         let mut value = value.into();
         if *serde_optional {
@@ -170,7 +170,7 @@ pub(crate) trait FXCGenSerde: FXCodeGenContextual {
         value
     }
 
-    fn serde_shadow_field(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
+    fn serde_shadow_field(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<()> {
         let mut fc = FXFieldConstructor::new(
             fctx.ident().clone(),
             self.serde_shadow_field_type(fctx),
@@ -184,12 +184,12 @@ pub(crate) trait FXCGenSerde: FXCodeGenContextual {
             fc.add_attributes(serde_attrs.iter());
         }
 
-        self.ctx().shadow_struct_mut()?.add_field(fc);
+        self.ctx().impl_ctx().shadow_struct_mut()?.add_field(fc);
 
         Ok(())
     }
 
-    fn serde_shadow_field_default(&self, fctx: &FXFieldCtx) -> darling::Result<()> {
+    fn serde_shadow_field_default(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<()> {
         let ctx = self.ctx();
         let needs_default = ctx.needs_default();
 
@@ -208,7 +208,7 @@ pub(crate) trait FXCGenSerde: FXCodeGenContextual {
         Ok(())
     }
 
-    fn serde_field_default_fn(&self, fctx: &FXFieldCtx) -> darling::Result<syn::Ident> {
+    fn serde_field_default_fn(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<syn::Ident> {
         let field_type = self.serde_shadow_field_type(fctx);
         let serde = fctx.serde();
         if !*serde {
@@ -323,6 +323,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
 
     fn serde_shadow_default_impl(&'a self) -> darling::Result<()> {
         let ctx = self.ctx();
+        let impl_ctx = ctx.impl_ctx();
         let arg_props = ctx.arg_props();
 
         if *arg_props.needs_default() {
@@ -344,7 +345,8 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
 
             // If all fields are initialized using unwrapped Default::default() then we can just derive the trait.
             if all_std {
-                ctx.shadow_struct_mut()?
+                impl_ctx
+                    .shadow_struct_mut()?
                     .add_attribute_toks(quote_spanned! {span=> #[derive(Default)]})?;
                 return Ok(());
             }
@@ -365,7 +367,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                 .set_ret_stmt(quote_spanned! {span=> Self { #( #shadow_defaults ),* } });
 
             default_impl.add_method(default_fn);
-            ctx.shadow_struct_mut()?.add_trait_impl(default_impl);
+            impl_ctx.shadow_struct_mut()?.add_trait_impl(default_impl);
         }
 
         Ok(())
@@ -426,6 +428,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
     // Impl From for the shadow struct
     fn serde_struct_from_shadow(&'a self) -> darling::Result<()> {
         let ctx = self.ctx();
+        let impl_ctx = ctx.impl_ctx();
         let arg_props = ctx.arg_props();
         let serde = arg_props.serde();
         if *serde && *arg_props.needs_deserialize() {
@@ -433,7 +436,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
             let mut from_impl = FXImplConstructor::new(format_ident!("From", span = span));
             let mut from_method = FXFnConstructor::new_associated(format_ident!("from", span = span));
             let shadow_ident = arg_props.serde_shadow_ident().unwrap();
-            let shadow_var = ctx.shadow_var_ident();
+            let shadow_var = impl_ctx.shadow_var_ident()?;
             let mut fields = vec![];
             let input_generics = ctx.input().generics();
             let generics = input_generics.split_for_impl().1;
@@ -481,7 +484,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
             from_method.set_ret_stmt(quote_spanned![span=> Self { #( #fields, )* #init_from_default }]);
             from_impl.add_method(from_method);
 
-            ctx.shadow_struct_mut()?.add_trait_impl(from_impl);
+            impl_ctx.shadow_struct_mut()?.add_trait_impl(from_impl);
         }
 
         Ok(())
@@ -489,6 +492,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
 
     fn serde_struct_into_shadow(&'a self) -> darling::Result<()> {
         let ctx = self.ctx();
+        let impl_ctx = ctx.impl_ctx();
         let arg_props = ctx.arg_props();
         let serde = arg_props.serde();
         if *serde && *arg_props.needs_serialize() {
@@ -498,7 +502,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
             let struct_ident = ctx.input_ident();
             let shadow_ident = arg_props.serde_shadow_ident().unwrap();
             let mut fields = vec![];
-            let me_var = ctx.me_var_ident();
+            let me_var = impl_ctx.me_var_ident()?;
             let (_, generics, _) = ctx.input().generics().split_for_impl();
 
             from_impl
@@ -545,7 +549,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
                 }
             });
             from_impl.add_method(from_method);
-            ctx.shadow_struct_mut()?.add_trait_impl(from_impl);
+            impl_ctx.shadow_struct_mut()?.add_trait_impl(from_impl);
         }
 
         Ok(())
@@ -556,7 +560,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
 
         if *ctx.arg_props().serde() {
             if let Some(shadow_struct) = self.serde_shadow_struct()? {
-                ctx.set_shadow_struct(shadow_struct);
+                ctx.impl_ctx().set_shadow_struct(shadow_struct);
 
                 for fctx in ctx.all_field_ctx() {
                     if *fctx.serde() {
@@ -643,7 +647,7 @@ impl<'a> FXRewriteSerde<'a> for super::FXRewriter<'a> {
     fn serde_finalize(&'a self) -> darling::Result<TokenStream> {
         let ctx = self.ctx();
         Ok(if *ctx.arg_props().serde() {
-            ctx.shadow_struct()?.to_token_stream()
+            ctx.impl_ctx().shadow_struct()?.to_token_stream()
         }
         else {
             quote![]

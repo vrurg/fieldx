@@ -7,6 +7,10 @@ use crate::field_receiver::FXField;
 use crate::struct_receiver::args::props::FXStructArgProps;
 use crate::struct_receiver::args::FXStructArgs;
 use crate::struct_receiver::FXStructReceiver;
+use crate::types::impl_details::impl_async::FXAsyncImplementor;
+use crate::types::impl_details::impl_plain::FXPlainImplementor;
+use crate::types::impl_details::impl_sync::FXSyncImplementor;
+use crate::types::impl_details::FXImplDetails;
 use delegate::delegate;
 use fieldx_aux::FXProp;
 use getset::CopyGetters;
@@ -21,45 +25,53 @@ use std::cell::Ref;
 use std::cell::RefCell;
 use std::cell::RefMut;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::rc::Rc;
 use std::rc::Weak;
+
+pub trait FXImplementationContext: Debug + Sized {
+    fn set_codegen_ctx(&mut self, ctx: Weak<FXCodeGenCtx<Self>>);
+}
+
+impl FXImplementationContext for () {
+    fn set_codegen_ctx(&mut self, _ctx: Weak<FXCodeGenCtx<Self>>) {}
+}
+
 #[derive(Debug, Getters, CopyGetters)]
-pub struct FXCodeGenCtx {
+// ImplCtx specify implementation-specific extra context type.
+pub struct FXCodeGenCtx<ImplCtx = ()>
+where
+    ImplCtx: FXImplementationContext,
+{
     myself: Weak<Self>,
 
     errors: OnceCell<RefCell<darling::error::Accumulator>>,
     tokens: OnceCell<RefCell<TokenStream>>,
 
-    user_struct:    RefCell<FXStructConstructor>,
-    builder_struct: OnceCell<RefCell<FXStructConstructor>>,
-
-    #[cfg(feature = "serde")]
-    shadow_struct: RefCell<Option<FXStructConstructor>>,
-
-    // #[cfg(feature = "serde")]
-    // shadow_field_toks:   RefCell<Vec<TokenStream>>,
-    // #[cfg(feature = "serde")]
-    // shadow_default_toks: RefCell<Vec<TokenStream>>,
-    #[cfg(feature = "serde")]
-    shadow_var_ident: OnceCell<syn::Ident>,
-    #[cfg(feature = "serde")]
-    me_var_ident:     OnceCell<syn::Ident>,
+    user_struct: RefCell<FXStructConstructor>,
 
     #[getset(get = "pub")]
     args: FXStructArgs,
 
     #[getset(skip)]
-    arg_props:    Rc<FXStructArgProps>,
-    // We use Option because FXInputReceiver can't implement Default
+    arg_props:    Rc<FXStructArgProps<ImplCtx>>,
+    // Use Option because FXInputReceiver can't implement Default
     input:        Option<Rc<FXStructReceiver>>,
     extra_fields: RefCell<Vec<FXField>>,
     unique_id:    RefCell<u32>,
+    // Unlike the field-level context, struct properties depend on the struct-level context itself.
+    // Therefore, property-based initializations are performed lazily for enhanced safety.
+    impl_details: OnceCell<Box<dyn FXImplDetails<ImplCtx>>>,
 
-    field_ctx_table: OnceCell<RefCell<HashMap<syn::Ident, Rc<FXFieldCtx>>>>,
-    copyable_types:  RefCell<Vec<syn::Type>>,
+    field_ctx_table: OnceCell<RefCell<HashMap<syn::Ident, Rc<FXFieldCtx<ImplCtx>>>>>,
+
+    impl_ctx: ImplCtx,
 }
 
-impl FXCodeGenCtx {
+impl<ImplCtx> FXCodeGenCtx<ImplCtx>
+where
+    ImplCtx: FXImplementationContext,
+{
     delegate! {
         /// Delegate to the FXArgProps implementation.
         to self.arg_props {
@@ -69,7 +81,7 @@ impl FXCodeGenCtx {
         }
     }
 
-    pub fn new(input: FXStructReceiver, args: FXStructArgs) -> Rc<Self> {
+    pub fn new(input: FXStructReceiver, args: FXStructArgs, mut impl_ctx: ImplCtx) -> Rc<Self> {
         let input = Rc::new(input);
 
         let mut user_struct = FXStructConstructor::new(input.ident().clone());
@@ -79,32 +91,25 @@ impl FXCodeGenCtx {
             .set_vis(input.vis().clone())
             .add_attributes(input.attrs().iter());
 
-        Rc::new_cyclic(|myself| Self {
-            myself: myself.clone(),
-            arg_props: Rc::new(FXStructArgProps::new(args.clone(), myself.clone())),
-            args,
+        Rc::new_cyclic(|myself| {
+            impl_ctx.set_codegen_ctx(myself.clone());
+            Self {
+                myself: myself.clone(),
+                arg_props: Rc::new(FXStructArgProps::<ImplCtx>::new(args.clone(), myself.clone())),
+                args,
 
-            user_struct: RefCell::new(user_struct),
-            builder_struct: OnceCell::new(),
+                user_struct: RefCell::new(user_struct),
 
-            copyable_types: RefCell::new(Vec::new()),
-            errors: OnceCell::new(),
-            extra_fields: RefCell::new(Vec::new()),
-            field_ctx_table: OnceCell::new(),
-            tokens: OnceCell::new(),
-            unique_id: RefCell::new(0),
+                errors: OnceCell::new(),
+                extra_fields: RefCell::new(Vec::new()),
+                field_ctx_table: OnceCell::new(),
+                tokens: OnceCell::new(),
+                unique_id: RefCell::new(0),
+                impl_details: OnceCell::new(),
 
-            // #[cfg(feature = "serde")]
-            // shadow_default_toks: RefCell::new(Vec::new()),
-            #[cfg(feature = "serde")]
-            shadow_var_ident: OnceCell::new(),
-            #[cfg(feature = "serde")]
-            me_var_ident: OnceCell::new(),
-
-            #[cfg(feature = "serde")]
-            shadow_struct: RefCell::new(None),
-
-            input: Some(input),
+                input: Some(input),
+                impl_ctx,
+            }
         })
     }
 
@@ -116,41 +121,14 @@ impl FXCodeGenCtx {
         self.user_struct.borrow_mut()
     }
 
-    pub fn builder_struct(&self) -> darling::Result<Ref<FXStructConstructor>> {
-        Ok(self._builder_struct()?.borrow())
-    }
-
-    pub fn builder_struct_mut(&self) -> darling::Result<RefMut<FXStructConstructor>> {
-        Ok(self._builder_struct()?.borrow_mut())
-    }
-
-    #[cfg(feature = "serde")]
-    pub fn set_shadow_struct(&self, shadow_struct: FXStructConstructor) {
-        self.shadow_struct.replace(Some(shadow_struct));
-    }
-
-    #[cfg(feature = "serde")]
-    pub fn shadow_struct(&self) -> darling::Result<Ref<FXStructConstructor>> {
-        let sstruct = self.shadow_struct.borrow();
-        if sstruct.is_none() {
-            return Err(darling::Error::custom("Shadow struct is not set yet"));
-        }
-        Ok(Ref::map(sstruct, |s| s.as_ref().unwrap()))
-    }
-
-    #[cfg(feature = "serde")]
-    pub fn shadow_struct_mut(&self) -> darling::Result<RefMut<FXStructConstructor>> {
-        let sstruct = self.shadow_struct.borrow_mut();
-        if sstruct.is_none() {
-            return Err(darling::Error::custom("Shadow struct is not set yet"));
-        }
-        Ok(RefMut::map(sstruct, |s| s.as_mut().unwrap()))
-    }
-
     fn myself(&self) -> Rc<Self> {
         self.myself
             .upgrade()
             .expect("Context object is gone while trying to upgrade a weak reference")
+    }
+
+    pub fn impl_ctx(&self) -> &ImplCtx {
+        &self.impl_ctx
     }
 
     #[inline(always)]
@@ -159,13 +137,8 @@ impl FXCodeGenCtx {
         self.input.as_ref().unwrap()
     }
 
-    pub fn arg_props(&self) -> &Rc<FXStructArgProps> {
+    pub fn arg_props(&self) -> &Rc<FXStructArgProps<ImplCtx>> {
         &self.arg_props
-    }
-
-    #[inline(always)]
-    pub fn copyable_types(&self) -> std::cell::Ref<Vec<syn::Type>> {
-        self.copyable_types.borrow()
     }
 
     // #[inline(always)]
@@ -226,29 +199,6 @@ impl FXCodeGenCtx {
     }
 
     #[inline(always)]
-    pub fn add_builder_method(&self, builder: FXFnConstructor) -> darling::Result<&Self> {
-        self.builder_struct_mut()?.struct_impl_mut().add_method(builder);
-        Ok(self)
-    }
-
-    #[inline(always)]
-    pub fn add_builder_field(&self, builder_field: FXFieldConstructor) -> darling::Result<&Self> {
-        self.builder_struct_mut()?.add_field(builder_field);
-        Ok(self)
-    }
-
-    #[inline(always)]
-    pub fn add_for_copy_trait_check(&self, field_ctx: &FXFieldCtx) {
-        self.copyable_types.borrow_mut().push(field_ctx.ty().clone());
-    }
-
-    // #[inline(always)]
-    // #[cfg(feature = "serde")]
-    // pub fn add_shadow_default_decl(&self, field: TokenStream) {
-    //     self.shadow_default_toks.borrow_mut().push(field);
-    // }
-
-    #[inline(always)]
     pub fn input_ident(&self) -> &syn::Ident {
         self.input().ident()
     }
@@ -286,28 +236,12 @@ impl FXCodeGenCtx {
         }
     }
 
-    #[cfg(feature = "serde")]
-    #[inline]
-    // How to reference shadow instance in an associated function
-    pub fn shadow_var_ident(&self) -> &syn::Ident {
-        self.shadow_var_ident
-            .get_or_init(|| format_ident!("__shadow", span = self.arg_props().serde().final_span()))
-    }
-
-    // How to reference struct instance in an associated function
-    #[cfg(feature = "serde")]
-    #[inline]
-    pub fn me_var_ident(&self) -> &syn::Ident {
-        self.me_var_ident
-            .get_or_init(|| format_ident!("__me", span = self.arg_props().serde().final_span()))
-    }
-
     #[inline]
     pub fn add_extra_field(&self, field: FXField) {
         self.extra_fields.borrow_mut().push(field);
     }
 
-    pub fn field_ctx_table(&self) -> &RefCell<HashMap<syn::Ident, Rc<FXFieldCtx>>> {
+    pub fn field_ctx_table(&self) -> &RefCell<HashMap<syn::Ident, Rc<FXFieldCtx<ImplCtx>>>> {
         self.field_ctx_table.get_or_init(|| {
             RefCell::new(
                 self.extra_fields
@@ -316,14 +250,17 @@ impl FXCodeGenCtx {
                     .chain(self.input().fields().iter().cloned())
                     .map(|f| {
                         let field_ident = f.ident().unwrap();
-                        (field_ident.clone(), Rc::new(FXFieldCtx::new(f.clone(), self.myself())))
+                        (
+                            field_ident.clone(),
+                            Rc::new(FXFieldCtx::<ImplCtx>::new(f.clone(), self.myself())),
+                        )
                     })
                     .collect(),
             )
         })
     }
 
-    pub fn ident_field_ctx(self: &Rc<Self>, field_ident: &syn::Ident) -> darling::Result<Rc<FXFieldCtx>> {
+    pub fn ident_field_ctx(self: &Rc<Self>, field_ident: &syn::Ident) -> darling::Result<Rc<FXFieldCtx<ImplCtx>>> {
         Ok(self
             .field_ctx_table()
             .borrow()
@@ -334,7 +271,7 @@ impl FXCodeGenCtx {
             .clone())
     }
 
-    pub fn field_ctx(&self, field: &FXField) -> Rc<FXFieldCtx> {
+    pub fn field_ctx(&self, field: &FXField) -> Rc<FXFieldCtx<ImplCtx>> {
         let mut field_ctx_table = self.field_ctx_table().borrow_mut();
         field_ctx_table
             .entry(field.ident().unwrap().clone())
@@ -342,7 +279,7 @@ impl FXCodeGenCtx {
             .clone()
     }
 
-    pub fn all_field_ctx(&self) -> Vec<Rc<FXFieldCtx>> {
+    pub fn all_field_ctx(&self) -> Vec<Rc<FXFieldCtx<ImplCtx>>> {
         // Don't iterate over field_ctx_table keys because we want to preserve the order of fields as they appear in the
         // struct.
         self.extra_fields
@@ -372,35 +309,27 @@ impl FXCodeGenCtx {
         self.unique_ident_pfx(&format!("__{}_fxsym", self.input_ident()))
     }
 
-    fn _builder_struct(&self) -> darling::Result<&RefCell<FXStructConstructor>> {
-        let arg_props = self.arg_props();
-        let prop = arg_props.builder_struct();
-        if *prop {
-            Ok(self
-                .builder_struct
-                .get_or_try_init(|| -> darling::Result<RefCell<FXStructConstructor>> {
-                    let builder_struct = RefCell::new(FXStructConstructor::new(arg_props.builder_ident().clone()));
-                    {
-                        let mut bs_mut = builder_struct.borrow_mut();
-                        bs_mut
-                            .set_vis(arg_props.builder_struct_visibility())
-                            .set_generics(self.input().generics().clone())
-                            .set_span(prop.final_span())
-                            .maybe_add_attributes(arg_props.builder_struct_attributes().map(|a| a.iter()))
-                            .struct_impl_mut()
-                            .maybe_add_attributes(arg_props.builder_struct_attributes_impl().map(|a| a.iter()));
+    /// The implementation details for the struct are determined by the following rules:
+    /// 1. Use [`FXAsyncImplementor`] if the struct-level `async` mode is enabled explicitly.
+    /// 2. Use [`FXSyncImplementor`] if the struct-level `sync` mode is enabled explicitly, or if any of the fields is
+    ///    marked as either `sync` or `async`.
+    /// 3. Otherwise, use [`FXPlainImplementor`].
+    pub fn impl_details(&self) -> &dyn FXImplDetails<ImplCtx> {
+        self.impl_details
+            .get_or_init(|| {
+                let arg_props = self.arg_props();
 
-                        if *arg_props.builder_default() {
-                            bs_mut.add_attribute_toks(quote_spanned! {prop.final_span()=> #[derive(Default)]})?;
-                        }
-                    }
-
-                    Ok(builder_struct)
-                })?)
-        }
-        else {
-            Err(darling::Error::custom("Builder struct is not enabled"))
-        }
+                if arg_props.mode_async().is_some_and(|p| *p) {
+                    Box::new(FXAsyncImplementor)
+                }
+                else if arg_props.mode_sync().is_some_and(|p| *p) || *arg_props.syncish() {
+                    Box::new(FXSyncImplementor)
+                }
+                else {
+                    Box::new(FXPlainImplementor)
+                }
+            })
+            .as_ref()
     }
 
     #[inline(always)]
