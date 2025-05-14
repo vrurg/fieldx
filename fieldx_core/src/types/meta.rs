@@ -6,9 +6,13 @@ use quote::ToTokens;
 pub enum FXValueFlag {
     #[default]
     None             = 0,
+    /// Value is a standard default value.
     StdDefault       = 1,
+    /// Value is an user-introduced default value.
     UserDefault      = 2,
+    /// Value is wrapped in a container type.
     ContainerWrapped = 4,
+    /// Value is wrapped in a reference countered type.
     RefCounted       = 8,
 }
 

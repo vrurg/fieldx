@@ -1,24 +1,28 @@
+use crate::join_token_list;
 use crate::set_literals;
+use crate::to_tokens_vec;
 use crate::FXAttributes;
 use crate::FXBool;
-use crate::FXTrigger;
 use crate::FXDefault;
 use crate::FXDoc;
 use crate::FXNestingAttr;
 use crate::FXOrig;
 use crate::FXProp;
 use crate::FXPropBool;
+use crate::FXPunctuated;
 use crate::FXSetState;
 use crate::FXString;
 use crate::FXSynValue;
+use crate::FXTrigger;
 use crate::FXTryFrom;
 use crate::FXTryInto;
 use crate::FromNestAttr;
 
 use darling::util::Flag;
-use darling::util::PathList;
 use darling::FromMeta;
 use getset::Getters;
+use quote::quote_spanned;
+use quote::ToTokens;
 use syn::Lit;
 
 #[derive(Default, Debug, FromMeta, Clone)]
@@ -78,6 +82,19 @@ impl FromNestAttr for FXSerdeRename {
     }
 }
 
+impl ToTokens for FXSerdeRename {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let mut toks = vec![];
+        if let Some(ref serialize) = self.serialize {
+            toks.push(quote_spanned![serialize.final_span()=> #serialize]);
+        }
+        if let Some(ref deserialize) = self.deserialize {
+            toks.push(quote_spanned![deserialize.final_span()=> #deserialize]);
+        }
+        tokens.extend(join_token_list!(toks));
+    }
+}
+
 #[derive(Default, Debug, Getters, FromMeta, Clone)]
 #[getset(get = "pub")]
 #[darling(and_then = Self::validate)]
@@ -92,7 +109,7 @@ pub struct FXSerdeHelper {
     #[getset(skip)]
     private:       Option<FXBool>,
     // Attributes of the original struct to be used with the shadow struct.
-    forward_attrs: Option<PathList>,
+    forward_attrs: Option<FXSynValue<FXPunctuated<syn::Path, syn::Token![,]>>>,
     #[darling(rename = "default")]
     #[getset(skip)]
     default_value: Option<FXDefault>,
@@ -187,7 +204,9 @@ impl FXSerdeHelper {
 
     #[inline]
     pub fn accepts_attr(&self, attr: &syn::Attribute) -> bool {
-        self.forward_attrs.as_ref().map_or(true, |fa| fa.contains(attr.path()))
+        self.forward_attrs
+            .as_ref()
+            .map_or(true, |fa| fa.iter().any(|p| p == attr.path()))
     }
 
     #[inline]
@@ -227,5 +246,73 @@ impl FXSerdeHelper {
     #[inline]
     pub fn private(&self) -> Option<&FXBool> {
         self.private.as_ref()
+    }
+}
+
+impl ToTokens for FXSerdeHelper {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let mut toks = vec![];
+        if self.off.is_present() {
+            toks.push(quote_spanned![self.off.span()=> off]);
+        }
+
+        toks.extend(to_tokens_vec!(self:
+            attributes,
+            serialize,
+            deserialize,
+            doc,
+            forward_attrs,
+            private,
+            rename,
+            shadow_name,
+            visibility
+        ));
+
+        if let Some(ref default_value) = self.default_value {
+            toks.push(quote_spanned![default_value.final_span()=> default( #default_value )]);
+        }
+
+        tokens.extend(join_token_list!(toks));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use darling::FromMeta;
+    use darling::ToTokens;
+    use quote::quote;
+
+    use crate::FXSerdeHelper;
+
+    #[test]
+    fn test_roundtrip() {
+        let input: syn::Meta = syn::parse2(quote! {
+            serde(
+                off,
+                serialize(off),
+                deserialize,
+                vis(pub(crate)),
+                default(Self::serde_default()),
+                shadow_name("FooDup"),
+                forward_attrs(a1, a2, allow),
+                rename("new_name"),
+                doc("line1", "line2")
+            )
+        })
+        .unwrap();
+        let helper = FXSerdeHelper::from_meta(&input).unwrap();
+        let expected = quote! {
+            off,
+            serialize(off),
+            deserialize(),
+            doc("line1", "line2"),
+            forward_attrs(a1, a2, allow),
+            rename(serialize("new_name"), deserialize("new_name")),
+            shadow_name("FooDup"),
+            vis(pub(crate)),
+            default(Self::serde_default())
+        };
+
+        assert_eq!(helper.to_token_stream().to_string(), expected.to_string());
     }
 }

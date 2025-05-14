@@ -1,6 +1,8 @@
 pub mod props;
 
 use darling::FromMeta;
+use fieldx_aux::join_token_list;
+use fieldx_aux::to_tokens_vec;
 use fieldx_aux::validate_exclusives;
 use fieldx_aux::validate_no_macro_args;
 use fieldx_aux::FXAccessor;
@@ -18,6 +20,9 @@ use fieldx_aux::FXSetter;
 use fieldx_aux::FXSynValue;
 use fieldx_aux::FXSyncMode;
 use getset::Getters;
+use quote::quote;
+use quote::quote_spanned;
+use quote::ToTokens;
 
 #[derive(Debug, FromMeta, Clone, Getters, Default)]
 #[darling(and_then = Self::validate)]
@@ -69,8 +74,6 @@ pub struct FXStructArgs {
     lock:         Option<FXBool>,
     inner_mut:    Option<FXBool>,
     serde:        Option<FXSerde>,
-    // #[cfg(not(feature = "serde"))]
-    // serde:        Option<fieldx_aux::syn_value::FXPunctuated<syn::Meta, syn::Token![,]>>,
 }
 
 impl FXStructArgs {
@@ -120,5 +123,128 @@ impl FXStructArgs {
         acc.finish()?;
 
         Ok(self)
+    }
+}
+
+impl ToTokens for FXStructArgs {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let mut toks = vec![];
+
+        // Any individual `sync` or `r#async` arguments will be turned into `mode(sync)` or `mode(async)`.
+        if let Some(mode) = &self.mode {
+            toks.push(mode.to_token_stream())
+        }
+        else {
+            let is_mode_sync = self.mode_sync.is_set();
+            let is_mode_async = self.mode_async.is_set();
+            if *is_mode_sync {
+                toks.push(quote_spanned! {is_mode_sync.final_span()=> mode(sync)});
+            }
+            else if *is_mode_async {
+                toks.push(quote_spanned! {is_mode_async.final_span()=> mode(async)});
+            }
+        }
+
+        if let Some(new) = &self.new {
+            toks.push(new.to_token_stream());
+        }
+        else {
+            let is_no_new = self.no_new.is_set();
+            if *is_no_new {
+                toks.push(quote_spanned! {is_no_new.final_span()=> new(off)});
+            }
+        }
+
+        toks.extend(to_tokens_vec!(self:
+            builder,
+            into, default, rc,
+            attributes, attributes_fn, attributes_impl,
+            fallible, lazy, accessor, accessor_mut,
+            setter, reader, writer, clearer,
+            predicate, optional, visibility,
+            private, clone, copy, lock,
+            inner_mut, serde
+        ));
+
+        let attr_args = join_token_list!(toks);
+
+        tokens.extend(quote! {fxstruct(#attr_args)});
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use darling::FromMeta;
+    use darling::ToTokens;
+    use quote::quote;
+
+    use crate::struct_receiver::args::FXStructArgs;
+
+    #[test]
+    fn test_roundtrip() {
+        let input: syn::Meta = syn::parse2(quote! {
+            fxstruct(
+                mode(async),
+                new(off),
+                builder(opt_in, "TestBuilder"),
+                into,
+                default(off),
+                rc,
+                attributes( third_party(1,2,3) ),
+                attributes_fn( deny(unused) ),
+                attributes_impl( deny(unused) ),
+                fallible(off, error(crate::error::MyError)),
+                lazy(off),
+                get("get_"),
+                get_mut,
+                set,
+                reader(off),
+                writer(off),
+                clearer(off),
+                predicate(off),
+                optional,
+                vis(pub(crate)),
+                private(off),
+                clone(off),
+                copy(off),
+                lock(off),
+                inner_mut(off),
+            )
+        })
+        .unwrap();
+
+        let args = FXStructArgs::from_meta(&input).unwrap();
+
+        let expected = quote! {
+            fxstruct(
+                mode(async),
+                new(off),
+                builder(name("TestBuilder"), opt_in()),
+                into(),
+                default(off),
+                rc(),
+                attributes(third_party(1, 2, 3)),
+                attributes_fn(deny(unused)),
+                attributes_impl(deny(unused)),
+                fallible(off, error(crate::error::MyError)),
+                lazy(off),
+                get(name("get_")),
+                get_mut(),
+                set(),
+                reader(off),
+                writer(off),
+                clearer(off),
+                predicate(off),
+                optional(),
+                vis(pub(crate)),
+                private(off),
+                clone(off),
+                copy(off),
+                lock(off),
+                inner_mut(off)
+            )
+        };
+
+        assert_eq!(args.to_token_stream().to_string(), expected.to_string());
     }
 }

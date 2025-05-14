@@ -70,6 +70,6 @@ impl Borrow<syn::Attribute> for FXAttribute {
 
 impl ToTokens for FXAttribute {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.0.to_tokens(tokens);
+        self.0.meta.to_tokens(tokens);
     }
 }

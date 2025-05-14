@@ -98,6 +98,8 @@ pub use crate::value::FXValueArg;
 pub use crate::with_origin::FXOrig;
 
 pub use fieldx_derive_support::fxhelper;
+use quote::quote;
+use quote::ToTokens;
 use syn::ext::IdentExt;
 use value::FXEmpty;
 
@@ -106,7 +108,7 @@ use value::FXEmpty;
 /// In particular, specifies what default types and containers are used. For example, refernce counted objects would use
 /// [`std::sync::Arc`] for `sync` and `async`, but [`std::rc::Rc`] for `plain`.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
-pub enum FXSyncMode {
+pub enum FXSyncModeVariant {
     /// sync mode
     Sync,
     /// async mode
@@ -116,40 +118,72 @@ pub enum FXSyncMode {
     Plain,
 }
 
+#[derive(Debug, Clone)]
+pub struct FXSyncMode {
+    variant: FXSyncModeVariant,
+    orig:    Option<syn::Ident>,
+}
+
 impl syn::parse::Parse for FXSyncMode {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let ident = syn::Ident::parse_any(input)?;
-        Ok(if ident == "sync" {
-            Self::Sync
+        let variant = if ident == "sync" {
+            FXSyncModeVariant::Sync
         }
         else if ident == "async" {
-            Self::Async
+            FXSyncModeVariant::Async
         }
         else if ident == "plain" {
-            Self::Plain
+            FXSyncModeVariant::Plain
         }
         else {
-            Err(syn::Error::new_spanned(ident, "expected 'sync', 'async' or 'plain'"))?
+            Err(syn::Error::new_spanned(
+                ident.to_token_stream(),
+                "expected 'sync', 'async' or 'plain'",
+            ))?
+        };
+        Ok(FXSyncMode {
+            variant,
+            orig: Some(ident),
         })
     }
 }
 
 impl FXSyncMode {
     pub fn is_sync(&self) -> bool {
-        self == &Self::Sync
+        self.variant == FXSyncModeVariant::Sync
     }
 
     pub fn is_async(&self) -> bool {
-        self == &Self::Async
+        self.variant == FXSyncModeVariant::Async
     }
 
     pub fn is_plain(&self) -> bool {
-        self == &Self::Plain
+        self.variant == FXSyncModeVariant::Plain
     }
 
     // Only to make it usable with validate_exclusives macro
     pub fn is_true(&self) -> FXProp<bool> {
         FXProp::new(true, None)
+    }
+
+    pub fn variant(&self) -> FXSyncModeVariant {
+        self.variant
+    }
+}
+
+impl ToTokens for FXSyncMode {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        if let Some(ref orig) = self.orig {
+            tokens.extend(orig.to_token_stream());
+        }
+        else {
+            tokens.extend(match self.variant {
+                FXSyncModeVariant::Sync => quote![sync],
+                FXSyncModeVariant::Async => quote![async],
+                FXSyncModeVariant::Plain => quote![plain],
+            });
+        }
     }
 }
 

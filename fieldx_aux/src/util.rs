@@ -167,3 +167,47 @@ macro_rules! validate_no_macro_args {
             )+
     };
 }
+
+#[macro_export]
+macro_rules! to_tokens_vec {
+    ($self:ident: $($name:ident),*) => {
+        {
+            let mut toks = vec![];
+            $(
+                if let Some(ref value) = $self.$name {
+                    toks.push(value.to_token_stream());
+                }
+            )*
+            toks
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! join_token_list {
+    ($toks:ident) => {{
+        use syn::spanned::Spanned;
+        let last_comma_at = $toks.len() - 1;
+        let toks = $toks.iter().enumerate().map(|(i, t)| {
+            if i < last_comma_at {
+                ::quote::quote_spanned! {t.span()=> #t, }
+            }
+            else {
+                ::quote::quote! { #t }
+            }
+        });
+        ::quote::quote! { #( #toks )* }
+    }};
+}
+
+#[cfg(test)]
+mod test {
+    use quote::quote;
+
+    #[test]
+    fn test_join_toks() {
+        let toks = [quote! { a }, quote! { b }, quote! { c }];
+        let result = join_token_list!(toks);
+        assert_eq!(result.to_string(), quote! { a, b, c }.to_string());
+    }
+}

@@ -187,3 +187,62 @@ impl<const STRUCT: bool> FromNestAttr for FXBuilderHelper<STRUCT> {
         Ok(Self::default())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use darling::FromMeta;
+    use proc_macro2::TokenStream;
+    use quote::quote;
+    use quote::ToTokens;
+    use syn::parse2;
+
+    use crate::FXBuilderHelper;
+    use crate::FXNestingAttr;
+
+    #[test]
+    fn test_roundtrip() {
+        let input: TokenStream = quote! {
+            builder(
+                off,
+                "TestBuilder",
+                attributes( third_party(1,2,3) ),
+                attributes_fn( deny(unused) ),
+                attributes_impl( deny(unused) ),
+                default,
+                into,
+                required,
+                opt_in,
+                post_build( adjust_struct ),
+                error( std::io::Error, std::io::ErrorKind::Other ),
+                prefix( "set_" ),
+                vis(pub(crate)),
+                doc("# Builder", "", "Test doc."),
+                method_doc("# Builder Method", "", "Lorem ipsum.")
+            )
+        };
+        let input: syn::Meta = parse2(input).unwrap();
+        let helper = FXNestingAttr::<FXBuilderHelper<true>>::from_meta(&input).unwrap();
+
+        let expected: TokenStream = quote! {
+            builder(
+                off,
+                name( "TestBuilder" ),
+                attributes_fn( deny(unused) ),
+                vis(pub(crate)),
+                doc("# Builder", "", "Test doc."),
+                attributes( third_party(1,2,3) ),
+                attributes_impl( deny(unused) ),
+                default(),
+                into(),
+                required(),
+                opt_in(),
+                post_build( adjust_struct ),
+                error( std::io::Error, std::io::ErrorKind::Other ),
+                prefix( "set_" ),
+                method_doc("# Builder Method", "", "Lorem ipsum.")
+            )
+        };
+
+        assert_eq!(helper.to_token_stream().to_string(), expected.to_string());
+    }
+}

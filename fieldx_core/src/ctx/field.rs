@@ -291,7 +291,7 @@ where
         let attrs = self
             .props
             .helper_attributes_fn(helper_kind)
-            .map_or(Vec::new(), |a| a.iter().collect::<Vec<_>>());
+            .map_or(Vec::new(), |a| a.iter().map(|a| &**a).collect::<Vec<&syn::Attribute>>());
 
         match inlining {
             FXInlining::Default => quote_spanned![span=> #( #attrs )*],
