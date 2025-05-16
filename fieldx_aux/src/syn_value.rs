@@ -82,10 +82,21 @@ where
 {
     fn from_meta(item: &Meta) -> darling::Result<Self> {
         Ok(Self {
-            value: Some(match item {
-                Meta::List(list) => syn::parse2(list.tokens.clone())?,
-                _ => return Err(darling::Error::unsupported_format("argument is expected")),
-            }),
+            value: match item {
+                Meta::List(list) => {
+                    if list.tokens.is_empty() && AS_KEYWORD {
+                        None
+                    }
+                    else {
+                        Some(syn::parse2(list.tokens.clone())?)
+                    }
+                }
+                _ => {
+                    return Err(darling::Error::unsupported_format(
+                        "must be a function-call-like argument",
+                    ))
+                }
+            },
         })
     }
 }
@@ -500,5 +511,24 @@ mod test {
             quote! {MyType::fun("something")}.to_string()
         );
         assert_eq!(arg.2.to_token_stream().to_string(), quote! {3.1415926}.to_string());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use darling::FromMeta;
+    use quote::quote;
+
+    use crate::FXNestingAttr;
+
+    use super::FXSynValueArg;
+
+    #[test]
+    fn no_args() {
+        let input = quote! {foo()};
+        let meta: syn::Meta = syn::parse2(input).unwrap();
+        let nest: FXNestingAttr<FXSynValueArg<syn::Expr, true>, false> = FromMeta::from_meta(&meta).unwrap();
+
+        assert!(nest.value().is_none());
     }
 }
