@@ -605,7 +605,8 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
     #[cfg(feature = "serde")]
     fn field_from_shadow(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
         let field_ident = fctx.ident();
-        let shadow_var = self.ctx().impl_ctx().shadow_var_ident()?;
+        let impl_ctx = self.ctx().impl_ctx();
+        let shadow_var = impl_ctx.shadow_var_ident()?;
         let span = fctx.serde().final_span();
 
         Ok(if *fctx.serde_optional() {
@@ -638,7 +639,8 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
     #[cfg(feature = "serde")]
     fn field_from_struct(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
         let field_ident = fctx.ident();
-        let me_var = self.ctx().impl_ctx().me_var_ident()?;
+        let impl_ctx = self.ctx().impl_ctx();
+        let me_var = impl_ctx.me_var_ident()?;
         let lazy_or_inner_mut = fctx.lazy().or(fctx.inner_mut());
         let optional = fctx.optional();
 

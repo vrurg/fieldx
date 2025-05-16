@@ -170,7 +170,7 @@ macro_rules! validate_no_macro_args {
 
 #[macro_export]
 macro_rules! to_tokens_vec {
-    ($self:ident: $($name:ident),*) => {
+    ($self:ident: $($name:ident),* $(,)?) => {
         {
             let mut toks = vec![];
             $(
@@ -185,18 +185,25 @@ macro_rules! to_tokens_vec {
 
 #[macro_export]
 macro_rules! join_token_list {
-    ($toks:ident) => {{
+    ($toks:expr) => {{
         use syn::spanned::Spanned;
-        let last_comma_at = $toks.len() - 1;
-        let toks = $toks.iter().enumerate().map(|(i, t)| {
-            if i < last_comma_at {
-                ::quote::quote_spanned! {t.span()=> #t, }
-            }
-            else {
-                ::quote::quote! { #t }
-            }
-        });
-        ::quote::quote! { #( #toks )* }
+        let toks_len = $toks.len();
+        if toks_len > 1 {
+            let last_comma_at = $toks.len() - 1;
+            let toks = $toks.iter().enumerate().map(|(i, t)| {
+                if i < last_comma_at {
+                    ::quote::quote_spanned! {t.span()=> #t, }
+                }
+                else {
+                    ::quote::quote! { #t }
+                }
+            });
+            ::quote::quote! { #( #toks )* }
+        }
+        else {
+            let toks = $toks;
+            ::quote::quote! { #( #toks )* }
+        }
     }};
 }
 

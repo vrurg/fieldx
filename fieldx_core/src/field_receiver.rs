@@ -3,6 +3,7 @@ pub mod props;
 use darling::util::Flag;
 use darling::FromField;
 use darling::FromMeta;
+use fieldx_aux::to_tokens_vec;
 use fieldx_aux::validate_exclusives;
 use fieldx_aux::validate_no_macro_args;
 use fieldx_aux::FXAccessor;
@@ -14,7 +15,6 @@ use fieldx_aux::FXFallible;
 use fieldx_aux::FXHelper;
 use fieldx_aux::FXNestingAttr;
 use fieldx_aux::FXOrig;
-#[cfg(feature = "serde")]
 use fieldx_aux::FXSerde;
 use fieldx_aux::FXSetState;
 use fieldx_aux::FXSetter;
@@ -84,13 +84,14 @@ pub struct FXFieldReceiver {
     copy:          Option<FXBool>,
     lock:          Option<FXBool>,
     inner_mut:     Option<FXBool>,
-    #[cfg(feature = "serde")]
     serde:         Option<FXSerde>,
 
     #[darling(skip)]
     #[getset(skip)]
     span: OnceCell<Span>,
 
+    #[darling(skip)]
+    fieldx_attrs:     Vec<syn::Attribute>,
     #[darling(skip)]
     fieldx_attr_span: Option<Span>,
 
@@ -121,9 +122,9 @@ impl FromField for FXField {
         for attr in field.attrs.iter() {
             // Intercept #[fieldx] form of the attribute and mark the field manually
             if attr.path().is_ident("fieldx") {
-                fxfield.set_attr_span(attr.span());
-
+                fxfield.fieldx_attrs.push(attr.clone());
                 if attr.meta.require_path_only().is_ok() {
+                    fxfield.fieldx_attr_span = Some(attr.span());
                     fxfield.mark_implicitly(attr.meta.clone()).map_err(|err| {
                         darling::Error::custom(format!("Can't use bare word '{err}'")).with_span(attr)
                     })?;
@@ -156,7 +157,8 @@ impl ToTokens for FXField {
         let FXFieldReceiver {
             ident, vis, ty, attrs, ..
         } = fxr;
-        tokens.extend(quote_spanned![fxr.span()=> #( #attrs )* #vis #ident: #ty])
+        let fieldx_attrs = &fxr.fieldx_attrs;
+        tokens.extend(quote_spanned![fxr.span()=> #( #attrs )* #( #fieldx_attrs )* #vis #ident: #ty])
     }
 }
 
@@ -215,10 +217,10 @@ impl FXFieldReceiver {
             acc.push(err);
         }
 
-        // #[cfg(not(feature = "serde"))]
-        // if let Some(err) = crate::util::feature_required("serde", &self.serde) {
-        //     acc.push(err);
-        // }
+        #[cfg(not(feature = "serde"))]
+        if let Some(err) = crate::util::feature_required("serde", &self.serde) {
+            acc.push(err);
+        }
 
         acc.finish()?;
 
@@ -262,44 +264,107 @@ impl FXFieldReceiver {
         self.span.set(span)
     }
 
-    #[inline]
-    pub fn set_attr_span(&mut self, span: Span) {
-        self.fieldx_attr_span = Some(span);
-    }
+    // #[inline]
+    // pub fn set_attr_span(&mut self, span: Span) {
+    //     self.fieldx_attr_span = Some(span);
+    // }
 
     #[inline]
     pub fn span(&self) -> Span {
         #[allow(clippy::redundant_closure)]
         *self.span.get_or_init(|| Span::call_site())
     }
+
+    pub fn to_arg_tokens(&self) -> Vec<TokenStream> {
+        let mut toks = vec![];
+
+        if self.skip.is_present() {
+            toks.push(quote_spanned! {self.skip.span()=> skip});
+        }
+
+        // Any individual `sync` or `r#async` arguments will be turned into `mode(sync)` or `mode(async)`.
+        if let Some(mode) = &self.mode {
+            toks.push(mode.to_token_stream())
+        }
+        else {
+            let is_mode_sync = self.mode_sync.is_set();
+            let is_mode_async = self.mode_async.is_set();
+            if *is_mode_sync {
+                toks.push(quote_spanned! {is_mode_sync.final_span()=> mode(sync)});
+            }
+            else if *is_mode_async {
+                toks.push(quote_spanned! {is_mode_async.final_span()=> mode(async)});
+            }
+        }
+
+        toks.extend(to_tokens_vec!(self:
+            base_name,
+            builder,
+            into,
+            default_value,
+            attributes_fn,
+            accessor,
+            accessor_mut,
+            setter,
+            reader,
+            writer,
+            clearer,
+            predicate,
+            clone,
+            copy,
+            lock,
+            inner_mut,
+            optional,
+            visibility,
+            private,
+            lazy,
+            fallible,
+            serde
+        ));
+
+        toks
+    }
 }
 
-// impl FXHelperContainer for FXFieldReceiver {
-//     fn get_helper(&self, kind: FXHelperKind) -> Option<&dyn FXHelperTrait> {
-//         match kind {
-//             FXHelperKind::Accessor => self.accessor().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Builder => self.builder().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Clearer => self.clearer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Lazy => self.lazy().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Predicate => self.predicate().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Reader => self.reader().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Setter => self.setter().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//             FXHelperKind::Writer => self.writer().as_ref().map(|h| &**h as &dyn FXHelperTrait),
-//         }
-//     }
+#[cfg(test)]
+mod tests {
+    use quote::quote;
+    use syn::parse2;
 
-//     fn get_helper_span(&self, kind: FXHelperKind) -> Option<Span> {
-//         match kind {
-//             FXHelperKind::Accessor => self.accessor().as_ref().map(|h| (h.span())),
-//             FXHelperKind::AccessorMut => self.accessor_mut().as_ref().map(|h| h.span()),
-//             FXHelperKind::Builder => self.builder().as_ref().map(|h| h.span()),
-//             FXHelperKind::Clearer => self.clearer().as_ref().map(|h| h.span()),
-//             FXHelperKind::Lazy => self.lazy().as_ref().map(|h| h.span()),
-//             FXHelperKind::Predicate => self.predicate().as_ref().map(|h| h.span()),
-//             FXHelperKind::Reader => self.reader().as_ref().map(|h| h.span()),
-//             FXHelperKind::Setter => self.setter().as_ref().map(|h| h.span()),
-//             FXHelperKind::Writer => self.writer().as_ref().map(|h| h.span()),
-//         }
-//     }
-// }
+    use super::*;
+
+    #[test]
+    fn test_attrs() {
+        let mode_arg = if cfg!(feature = "async") {
+            quote! { r#async }
+        }
+        else if cfg!(feature = "sync") {
+            quote! { sync }
+        }
+        else {
+            quote! {mode(plain)}
+        };
+        let input = quote! {
+            struct Foo {
+                #[attr(1)]
+                #[fieldx(skip)]
+                #[fieldx(#mode_arg, lazy, get_mut)]
+                #[fieldx(predicate)]
+                foo: u32,
+            }
+        };
+        let foo_struct = parse2::<syn::ItemStruct>(input).unwrap();
+        let field: FXField = FXField::from_field(foo_struct.fields.iter().next().unwrap()).unwrap();
+        assert_eq!(
+            field.to_token_stream().to_string(),
+            quote! {
+                #[attr(1)]
+                #[fieldx(skip)]
+                #[fieldx(#mode_arg, lazy, get_mut)]
+                #[fieldx(predicate)]
+                foo: u32
+            }
+            .to_string()
+        );
+    }
+}

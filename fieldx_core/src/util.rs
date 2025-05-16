@@ -18,7 +18,7 @@ macro_rules! simple_bool_prop {
         pub fn $meth(&self) -> Option<FXProp<bool>> {
             *self
                 .$prop_field
-                .get_or_init(|| self.source.$field.as_ref().map(|f| f.into()))
+                .get_or_init(|| self.source.$field.as_ref().map(|f| f.is_set()))
         }
     };
     (@fin $field:ident, $prop_field:ident $(,)?) => {
@@ -32,7 +32,7 @@ macro_rules! simple_bool_prop {
         pub fn $field(&self) -> Option<FXProp<bool>> {
             *self
                 .$field
-                .get_or_init(|| self.source.$field.as_ref().map(|f| f.into()))
+                .get_or_init(|| self.source.$field.as_ref().map(|f| f.is_set()))
         }
     };
 }
@@ -197,7 +197,7 @@ macro_rules! common_prop_impl {
 
         pub fn lock(&self) -> Option<FXProp<bool>> {
             *self.lock.get_or_init(|| {
-                self.source.lock.as_ref().map(|l| l.into()).or_else(|| {
+                self.source.lock.as_ref().map(|l| l.is_set()).or_else(|| {
                     self.mode_sync().and_then(|s| {
                         if *s && self.inner_mut().map_or(false, |i| *i) {
                             self.inner_mut()
@@ -212,7 +212,7 @@ macro_rules! common_prop_impl {
 
         pub fn optional(&self) -> Option<FXProp<bool>> {
             *self.optional.get_or_init(|| {
-                self.source.optional.as_ref().map(|o| o.into()).or_else(|| {
+                self.source.optional.as_ref().map(|o| o.is_set()).or_else(|| {
                     self.lazy().and_then(|l| {
                         if *l {
                             // If lazy is set then optional is false. Because lazy is explicit, its span is used.
@@ -353,14 +353,14 @@ where
 pub fn mode_sync_prop(mode_sync: &Option<FXBool>, mode: &Option<FXSynValue<FXSyncMode>>) -> Option<FXProp<bool>> {
     mode_sync
         .as_ref()
-        .map(|th| th.into())
+        .map(|th| th.is_set())
         .or_else(|| mode.as_ref().map(|m| FXProp::new(m.is_sync(), m.orig_span())))
 }
 
 pub fn mode_async_prop(mode_async: &Option<FXBool>, mode: &Option<FXSynValue<FXSyncMode>>) -> Option<FXProp<bool>> {
     mode_async
         .as_ref()
-        .map(|th| th.into())
+        .map(|th| th.is_set())
         .or_else(|| mode.as_ref().map(|m| FXProp::new(m.is_async(), m.orig_span())))
 }
 

@@ -223,7 +223,7 @@ impl FXFieldProps {
                 .as_ref()
                 .and_then(|l| {
                     if *l.is_set() {
-                        Some(l.into())
+                        Some(l.is_set())
                     }
                     else {
                         None
@@ -232,7 +232,7 @@ impl FXFieldProps {
                 .or_else(|| {
                     self.source.reader().as_ref().and_then(|r| {
                         if *r.is_set() {
-                            Some(r.into())
+                            Some(r.is_set())
                         }
                         else {
                             None
@@ -242,7 +242,7 @@ impl FXFieldProps {
                 .or_else(|| {
                     self.source.writer().as_ref().and_then(|w| {
                         if *w.is_set() {
-                            Some(w.into())
+                            Some(w.is_set())
                         }
                         else {
                             None

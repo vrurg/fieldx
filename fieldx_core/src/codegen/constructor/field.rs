@@ -4,6 +4,8 @@ use proc_macro2::TokenStream;
 use quote::quote_spanned;
 use quote::ToTokens;
 
+use crate::field_receiver::FXField;
+
 use super::FXConstructor;
 
 #[derive(Debug, Getters)]
@@ -71,5 +73,25 @@ impl FXConstructor for FXFieldConstructor {
 impl ToTokens for FXFieldConstructor {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.extend(self.fx_to_tokens());
+    }
+}
+
+impl TryFrom<&FXField> for FXFieldConstructor {
+    type Error = darling::Error;
+
+    fn try_from(field: &FXField) -> darling::Result<Self> {
+        let vis = field.vis().to_token_stream();
+        let vis = if vis.is_empty() { None } else { Some(vis) };
+        let mut fc = Self {
+            ident: field.ident()?,
+            ty: field.ty().to_token_stream(),
+            attributes: field.attrs().clone(),
+            span: Some(field.span()),
+            vis,
+        };
+
+        fc.add_attributes(field.fieldx_attrs().iter());
+
+        Ok(fc)
     }
 }

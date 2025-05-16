@@ -390,8 +390,8 @@ where
         *self.fallible.get_or_init(|| {
             self.field_props()
                 .fallible()
-                .map(|f| f.into())
-                .or_else(|| self.arg_props().fallible().map(|f| f.into()))
+                .map(|f| f.is_set())
+                .or_else(|| self.arg_props().fallible().map(|f| f.is_set()))
                 .unwrap_or_else(|| FXProp::new(false, *self.field_props.field().fieldx_attr_span()))
         })
     }

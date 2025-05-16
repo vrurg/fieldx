@@ -33,7 +33,7 @@ impl<const BOOL_ONLY: bool> FXSetterHelper<BOOL_ONLY> {
 
     #[inline]
     pub fn is_into(&self) -> Option<FXProp<bool>> {
-        self.into.as_ref().map(|into| into.into())
+        self.into.as_ref().map(|into| into.is_set())
     }
 }
 

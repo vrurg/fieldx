@@ -6,6 +6,8 @@ use proc_macro2::TokenStream;
 use quote::quote_spanned;
 use quote::ToTokens;
 
+use crate::struct_receiver::FXStructReceiver;
+
 use super::field::FXFieldConstructor;
 use super::tokenstream_setter;
 use super::FXConstructor;
@@ -50,6 +52,13 @@ impl FXStructConstructor {
     pub fn add_field(&mut self, field: FXFieldConstructor) -> &mut Self {
         self.fields.push(field);
         self
+    }
+
+    pub fn add_fields_from_receiver(&mut self, struct_receiver: &FXStructReceiver) -> darling::Result<&mut Self> {
+        for field in struct_receiver.fields() {
+            self.fields.push(field.try_into()?);
+        }
+        Ok(self)
     }
 
     pub fn add_trait_impl(&mut self, trait_impl: FXImplConstructor) -> &mut Self {

@@ -154,7 +154,7 @@ impl FXSerdeHelper {
     // Some(true) only if `serialize` is explicitly set to `true`
     // Some(false) only if explicitly disabled or `deserialize` is explicitly set to `true`
     pub fn needs_serialize(&self) -> Option<FXProp<bool>> {
-        self.serialize.as_ref().map(|s| s.into()).or_else(|| {
+        self.serialize.as_ref().map(|s| s.is_set()).or_else(|| {
             self.deserialize.as_ref().and_then(|d| {
                 if *d.is_set() {
                     Some(FXProp::new(false, d.orig_span()))
@@ -169,7 +169,7 @@ impl FXSerdeHelper {
     // Some(true) only if `deserialize` is explicitly set to `true`
     // Some(false) only if explicitly disabled or `serialize` is explicitly set to `true`
     pub fn needs_deserialize(&self) -> Option<FXProp<bool>> {
-        self.deserialize.as_ref().map(|d| d.into()).or_else(|| {
+        self.deserialize.as_ref().map(|d| d.is_set()).or_else(|| {
             self.serialize
                 .as_ref()
                 .map(|s| FXProp::new(!*s.is_set(), s.orig_span()))
@@ -181,8 +181,8 @@ impl FXSerdeHelper {
         // `off`. I.e. since `serde(deserialize(off))` implies `serialize` being `on` then the outcome is `Some(true)`.
         let is_true = FXProp::from(&self.off).not();
         if *is_true {
-            let is_serialize: Option<FXProp<bool>> = self.serialize.as_ref().map(|s| s.into());
-            let is_deserialize: Option<FXProp<bool>> = self.deserialize.as_ref().map(|d| d.into());
+            let is_serialize: Option<FXProp<bool>> = self.serialize.as_ref().map(|s| s.is_set());
+            let is_deserialize: Option<FXProp<bool>> = self.deserialize.as_ref().map(|d| d.is_set());
 
             if is_serialize.is_none() && is_deserialize.is_none() {
                 FXProp::new(None, None)

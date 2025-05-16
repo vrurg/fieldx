@@ -93,7 +93,7 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
     /// Since it makes sense at both struct and field level `Option` is returned to know exactly if it is set or not.
     #[inline]
     pub fn is_into(&self) -> Option<FXProp<bool>> {
-        self.into.as_ref().map(|i| i.into())
+        self.into.as_ref().map(|i| i.is_set())
     }
 
     /// Shortcut to the `required` parameter.
@@ -101,7 +101,7 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
     /// Since it makes sense at both struct and field level `Option` is returned to know exactly if it is set or not.
     #[inline]
     pub fn is_required(&self) -> Option<FXProp<bool>> {
-        self.required.as_ref().map(|r| r.into())
+        self.required.as_ref().map(|r| r.is_set())
     }
 
     /// Shortcut to `post_build` parameter.

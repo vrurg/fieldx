@@ -80,7 +80,7 @@ pub trait FXHelperTrait: FXSetState {
     fn doc(&self) -> Option<&FXDoc>;
 }
 
-impl<H: FXSetState> FXTrigger for Option<H> {
+impl<T: FXSetState> FXTrigger for Option<T> {
     #[inline]
     fn is_true(&self) -> FXProp<bool> {
         self.as_ref().map_or(FXProp::new(false, None), |h| h.is_set())

@@ -65,7 +65,7 @@ where
 
     field_ctx_table: OnceCell<RefCell<HashMap<syn::Ident, Rc<FXFieldCtx<ImplCtx>>>>>,
 
-    impl_ctx: ImplCtx,
+    impl_ctx: RefCell<ImplCtx>,
 }
 
 impl<ImplCtx> FXCodeGenCtx<ImplCtx>
@@ -108,7 +108,7 @@ where
                 impl_details: OnceCell::new(),
 
                 input: Some(input),
-                impl_ctx,
+                impl_ctx: RefCell::new(impl_ctx),
             }
         })
     }
@@ -127,8 +127,12 @@ where
             .expect("Context object is gone while trying to upgrade a weak reference")
     }
 
-    pub fn impl_ctx(&self) -> &ImplCtx {
-        &self.impl_ctx
+    pub fn impl_ctx(&self) -> Ref<ImplCtx> {
+        self.impl_ctx.borrow()
+    }
+
+    pub fn impl_ctx_mut(&self) -> RefMut<ImplCtx> {
+        self.impl_ctx.borrow_mut()
     }
 
     #[inline(always)]
@@ -137,8 +141,8 @@ where
         self.input.as_ref().unwrap()
     }
 
-    pub fn arg_props(&self) -> &Rc<FXStructArgProps<ImplCtx>> {
-        &self.arg_props
+    pub fn arg_props(&self) -> Rc<FXStructArgProps<ImplCtx>> {
+        self.arg_props.clone()
     }
 
     // #[inline(always)]

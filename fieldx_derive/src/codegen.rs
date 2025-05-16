@@ -477,7 +477,8 @@ impl<'a> FXRewriter<'a> {
         });
         build_method.set_ret_stmt(quote_spanned! {span=> Ok(#obj_ident) });
 
-        let mut bsc = ctx.impl_ctx().builder_struct_mut()?;
+        let impl_ctx = ctx.impl_ctx();
+        let mut bsc = impl_ctx.builder_struct_mut()?;
         let bic = bsc.struct_impl_mut();
         bic.add_method(new_method);
         bic.add_method(build_method);
@@ -517,7 +518,8 @@ impl<'a> FXRewriter<'a> {
             // .add_attributes(ctx.all_attrs().iter())
             .maybe_add_attributes(ctx.args().attributes_impl().as_ref().map(|a| a.iter()));
 
-        let copyables = ctx.impl_ctx().copyable_types();
+        let impl_ctx = ctx.impl_ctx();
+        let copyables = impl_ctx.copyable_types();
         if !copyables.is_empty() {
             let copyables: Vec<TokenStream> = copyables
                 .iter()

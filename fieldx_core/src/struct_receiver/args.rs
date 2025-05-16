@@ -20,6 +20,7 @@ use fieldx_aux::FXSetter;
 use fieldx_aux::FXSynValue;
 use fieldx_aux::FXSyncMode;
 use getset::Getters;
+use proc_macro2::TokenStream;
 use quote::quote;
 use quote::quote_spanned;
 use quote::ToTokens;
@@ -124,10 +125,8 @@ impl FXStructArgs {
 
         Ok(self)
     }
-}
 
-impl ToTokens for FXStructArgs {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+    pub fn to_arg_tokens(&self) -> Vec<TokenStream> {
         let mut toks = vec![];
 
         // Any individual `sync` or `r#async` arguments will be turned into `mode(sync)` or `mode(async)`.
@@ -166,8 +165,14 @@ impl ToTokens for FXStructArgs {
             inner_mut, serde
         ));
 
-        let attr_args = join_token_list!(toks);
+        toks
+    }
+}
 
+impl ToTokens for FXStructArgs {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let toks = self.to_arg_tokens();
+        let attr_args = join_token_list!(toks);
         tokens.extend(quote! {fxstruct(#attr_args)});
     }
 }

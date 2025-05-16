@@ -455,14 +455,16 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
     #[cfg(feature = "serde")]
     fn field_from_shadow(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
         let field_ident = fctx.ident();
-        let shadow_var = self.ctx().impl_ctx().shadow_var_ident()?;
+        let impl_ctx = self.ctx().impl_ctx();
+        let shadow_var = impl_ctx.shadow_var_ident()?;
         self.field_value_wrap(fctx, FXValueRepr::Exact(quote![#shadow_var.#field_ident ].into()))
     }
 
     #[cfg(feature = "serde")]
     fn field_from_struct(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
         let field_ident = fctx.ident();
-        let me_var = self.ctx().impl_ctx().me_var_ident()?;
+        let impl_ctx = self.ctx().impl_ctx();
+        let me_var = impl_ctx.me_var_ident()?;
         let mut field_access = quote_spanned! {field_ident.span()=> #me_var.#field_ident };
         let into_inner = fctx.lock().or(fctx.lazy());
         if *into_inner {

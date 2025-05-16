@@ -24,7 +24,6 @@ use darling::FromMeta;
 use darling::ToTokens;
 use getset::Getters;
 use proc_macro2::TokenStream;
-use quote::quote;
 use quote::quote_spanned;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -210,7 +209,7 @@ impl<T: FromNestAttr<WITH_LITERALS> + ToTokens, const WITH_LITERALS: bool> ToTok
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let inner_toks = self.inner.to_token_stream();
         let path = self.path.as_ref().unwrap_or_else(|| self.orig.path());
-        tokens.extend(quote! { #path(#inner_toks) });
+        tokens.extend(quote_spanned! {path.span()=> #path(#inner_toks) });
     }
 }
 

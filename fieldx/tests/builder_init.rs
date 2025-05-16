@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use fieldx::fxstruct;
 
-#[fxstruct(builder(post_build))]
+#[fxstruct(builder(post_build()))]
 struct Foo {
     #[fieldx(default(123), builder(attributes_fn(allow(dead_code))))]
     derive: u32,
