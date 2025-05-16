@@ -118,15 +118,6 @@ impl From<FXProp<bool>> for bool {
     }
 }
 
-impl<T> From<&FXProp<T>> for bool
-where
-    T: FXSetState,
-{
-    fn from(value: &FXProp<T>) -> Self {
-        *value.is_set()
-    }
-}
-
 impl From<&FXProp<bool>> for bool {
     fn from(value: &FXProp<bool>) -> Self {
         value.value
@@ -264,37 +255,9 @@ from_lit_num! {
     syn::Lit::Int,      syn::LitInt   => u8;
 }
 
-// impl From<syn::LitStr> for FXProp<String> {
-//     fn from(value: syn::LitStr) -> Self {
-//         Self::new(value.value(), Some(value.span()))
-//     }
-// }
-
-// impl TryFrom<syn::Lit> for FXProp<String> {
-//     type Error = darling::Error;
-
-//     fn try_from(lit: syn::Lit) -> darling::Result<Self> {
-//         if let syn::Lit::Str(str) = lit {
-//             Ok(Self::new(str.value(), Some(str.span())))
-//         }
-//         else {
-//             Err(darling::Error::custom("The value must be a string").with_span(&lit))
-//         }
-//     }
-// }
-
 impl From<bool> for FXProp<bool> {
     fn from(value: bool) -> Self {
         Self::new(value, None)
-    }
-}
-
-impl<T> From<&T> for FXProp<bool>
-where
-    T: FXSetState,
-{
-    fn from(value: &T) -> Self {
-        value.is_set()
     }
 }
 
@@ -303,15 +266,6 @@ where
     T: FXSetState,
 {
     fn from(value: FXProp<T>) -> Self {
-        value.is_set()
-    }
-}
-
-impl<T> From<&FXProp<T>> for FXProp<bool>
-where
-    T: FXSetState,
-{
-    fn from(value: &FXProp<T>) -> Self {
         value.is_set()
     }
 }
@@ -410,5 +364,11 @@ impl<'a> FXPropBool for &'a Option<FXProp<bool>> {
     #[inline(always)]
     fn not(self) -> Self::Not {
         self.map(|f| FXProp::new(!f.value, f.span))
+    }
+}
+
+impl FXSetState for FXProp<bool> {
+    fn is_set(&self) -> FXProp<bool> {
+        *self
     }
 }
