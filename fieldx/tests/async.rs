@@ -27,6 +27,9 @@ pub struct Foo {
 
     bar_builds: Mutex<i32>,
     next_bar:   Mutex<Option<i32>>,
+
+    #[fieldx(writer, get(copy), get_mut, default(54321))]
+    can_copy: i32,
 }
 
 impl Foo {
@@ -108,6 +111,10 @@ async fn non_threaded() {
         "cleared fubar"
     );
     assert_eq!(*foo_async.fubar().await, String::from("аби було"), "built fubar");
+
+    assert_eq!(foo_async.can_copy().await, 54321, "can_copy is 54321");
+    *foo_async.write_can_copy().await = 12345;
+    assert_eq!(foo_async.can_copy().await, 12345, "can_copy is 12345");
 }
 
 #[tokio::test]

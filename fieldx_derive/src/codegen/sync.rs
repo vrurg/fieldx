@@ -237,49 +237,57 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Accessor, FXInlining::Always, span))?;
 
             if is_clone || is_copy {
-                let cc_span = fctx.accessor_mode().final_span();
                 let shortcut = fctx.fallible_shortcut();
-                let cmethod = if is_copy {
-                    if is_optional {
-                        quote_spanned![cc_span=> .as_ref().copied()]
+                let implementor = fctx.impl_details();
+                let await_call = implementor.await_call(span);
+                let form_return_stmt = |ident: TokenStream| -> TokenStream {
+                    let cc_span = fctx.accessor_mode().final_span();
+                    if is_copy {
+                        if is_optional {
+                            quote_spanned![cc_span=> #ident .as_ref().copied()]
+                        }
+                        else {
+                            // Use the main span here
+                            quote_spanned![cc_span=> *#ident]
+                        }
+                    }
+                    else if is_optional {
+                        quote_spanned![cc_span=> #ident .as_ref().cloned()]
                     }
                     else {
-                        quote![]
+                        quote_spanned![cc_span=> (*#ident).clone()]
                     }
-                }
-                else if is_optional {
-                    quote_spanned![cc_span=> .as_ref().cloned()]
-                }
-                else {
-                    quote_spanned![cc_span=> .clone()]
                 };
 
                 if *lazy {
+                    let lazy_span = lazy.final_span();
                     self.maybe_ref_counted_self(fctx, &mut mc)?;
-                    let implementor = fctx.impl_details();
-                    let await_call = implementor.await_call(span);
                     let self_rc = mc.self_maybe_rc_as_ref().ok_or(
                         darling::Error::custom("Missing information about the `self` identifier, but accessor method cannot be an associated function")
                             .with_span(&span),
                     )?;
                     let ty = fctx.fallible_return_type(fctx, ty)?;
+                    let lock_ident = format_ident!("rlock", span = lazy_span);
 
                     mc.set_async(fctx.mode_async());
                     mc.set_ret_type(ty);
                     mc.add_statement(
-                        quote_spanned! {span=> let rlock = self.#ident.#read_method(#self_rc) #await_call #shortcut; },
+                        quote_spanned! {lazy_span=> let #lock_ident = self.#ident.#read_method(#self_rc) #await_call #shortcut; },
                     );
-                    mc.set_ret_stmt(fctx.fallible_ok_return(&quote_spanned! {span=> (*rlock)#cmethod}));
+                    mc.set_ret_stmt(fctx.fallible_ok_return(&form_return_stmt(lock_ident.to_token_stream())));
                 }
                 else if *fctx.lock() {
                     let lock_span = fctx.lock().final_span();
+                    let lock_ident = format_ident!("rlock", span = lock_span);
+
+                    mc.set_async(fctx.mode_async());
                     mc.set_ret_type(self.maybe_optional_ty(fctx, ty));
-                    mc.add_statement(quote_spanned! {lock_span=> let rlock = self.#ident.read() #shortcut; });
-                    mc.set_ret_stmt(quote_spanned! {lock_span=> (*rlock)#cmethod});
+                    mc.add_statement(quote_spanned! {lock_span=> let #lock_ident = self.#ident.read() #await_call; });
+                    mc.set_ret_stmt(form_return_stmt(lock_ident.to_token_stream()));
                 }
                 else if is_optional {
                     mc.set_ret_type(self.maybe_optional_ty(fctx, ty));
-                    mc.set_ret_stmt(quote_spanned! {span=> self.#ident #cmethod });
+                    mc.set_ret_stmt(form_return_stmt(quote_spanned! {span=> self.#ident}));
                 }
                 else {
                     let cmethod = if is_copy {
@@ -321,6 +329,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
 
             let lazy = fctx.lazy();
             let implementor = fctx.impl_details();
+            let await_call = implementor.await_call(span);
 
             if *lazy {
                 self.maybe_ref_counted_self(fctx, &mut mc)?;
@@ -330,7 +339,6 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                         darling::Error::custom("Missing information about the `self` identifier, but mutable accessor method cannot be an associated function")
                             .with_span(&span),
                     )?;
-                let await_call = implementor.await_call(span);
                 let mapped_guard = implementor.rwlock_mapped_write_guard(lazy_span)?;
                 let lifetime = quote_spanned! {lazy_span=> 'fx_get_mut};
 
@@ -356,8 +364,9 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                     let lock_span = lock.final_span();
                     let wrguard = implementor.rwlock_write_guard(lock_span)?;
 
+                    mc.set_async(fctx.mode_async());
                     mc.set_ret_type(quote_spanned! [lock_span=> #wrguard<#ty_toks>]);
-                    mc.set_ret_stmt(quote_spanned! [lock_span=> self.#ident.write()]);
+                    mc.set_ret_stmt(quote_spanned! [lock_span=> self.#ident.write() #await_call]);
                 }
                 else {
                     // Bare field
