@@ -101,6 +101,9 @@ pub(crate) trait FXCodeGenContextual {
             let rc_span = rc.final_span();
             let rc_type = ctx.impl_details().ref_count_strong(rc_span);
             let myself_field = arg_props.myself_field_ident();
+            // Never move the post_construct call outside the new_cyclic closure!  The primary purpose of post_build is
+            // to allow tweaking of the struct once it has been created.  Invoking it on a reference-counted container
+            // makes this task difficult or impossible, depending on the constraints applied to the fields of interest.
             quote_spanned![rc_span=>
                 #rc_type::new_cyclic(
                     |me| {
@@ -108,9 +111,9 @@ pub(crate) trait FXCodeGenContextual {
                             #myself_field: me.clone(),
                             #struct_init
                         }
+                        #post_construct
                     }
                 )
-                #post_construct
             ]
         }
         else {
@@ -496,7 +499,7 @@ pub(crate) trait FXCodeGenContextual {
                 let span = rc.final_span();
                 let self_rc = format_ident!("__fx_self_rc", span = span);
                 let self_ident = mc.self_ident();
-                let expect_msg = format!("Can't obtain weak reference to myself for field '{}'", fctx.ident());
+                let expect_msg = format!("Can't acquire strong reference to myself for field '{}'", fctx.ident());
                 mc.add_statement(quote_spanned! {span=>
                     let #self_rc = #self_ident.#myself_method().expect(#expect_msg);
                 });

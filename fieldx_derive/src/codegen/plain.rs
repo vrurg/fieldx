@@ -191,7 +191,6 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
             let lazy = fctx.lazy();
             let inner_mut = fctx.inner_mut();
 
-            self.maybe_ref_counted_self(fctx, &mut mc)?;
             mc.set_span(span)
                 .set_vis(fctx.accessor_visibility().to_token_stream())
                 .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Accessor, FXInlining::Always, span))?;
@@ -217,6 +216,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
             };
 
             if *lazy {
+                self.maybe_ref_counted_self(fctx, &mut mc)?;
                 let lazy_init = self.field_lazy_initializer(fctx, &mut mc)?;
                 let accessor = self.maybe_inner_mut_accessor(fctx, &mut mc);
                 let ret = self.maybe_inner_mut_map(fctx, &mc, accessor, Some(lazy_init));
@@ -278,14 +278,13 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
             let ty = fctx.ty();
             let inner_mut = fctx.inner_mut();
 
-            self.maybe_ref_counted_self(fctx, &mut mc)?;
-
             mc.set_vis(fctx.accessor_mut_visibility())
                 .set_ret_mut(true)
                 .set_self_mut(!*inner_mut)
                 .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::AccessorMut, FXInlining::Always, span))?;
 
             if *fctx.lazy() {
+                self.maybe_ref_counted_self(fctx, &mut mc)?;
                 let lazy_init = self.field_lazy_initializer(fctx, &mut mc)?;
                 let accessor = self.maybe_inner_mut_accessor(fctx, &mut mc);
                 let mut return_stmt = self.maybe_inner_mut_map(

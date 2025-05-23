@@ -60,7 +60,6 @@ impl<'a> FXCodeGenSync<'a> {
         let read_method = self.read_method_name(fctx, false, span);
         let lifetime = quote_spanned! {span=> 'fx_reader_lifetime};
 
-        self.maybe_ref_counted_self(fctx, &mut mc)?;
         mc.set_vis(helper_vis.clone())
             .set_span(span)
             .set_async(fctx.mode_async())
@@ -70,9 +69,10 @@ impl<'a> FXCodeGenSync<'a> {
         let optional = fctx.optional();
 
         // Tokens for set_ret_type and set_ret_stmt are generated using the default span because the components of the
-        // return type that are related to specific arguments (lazy, optional) are already bound to their respective
-        // spans.  However, their surrounding syntax belongs to the method itself.
+        // return type that relate to specific arguments (lazy, optional) are already bound to their respective spans.
+        // However, the surrounding syntax belongs to the method itself.
         if *lazy {
+            self.maybe_ref_counted_self(fctx, &mut mc)?;
             let lazy_span = lazy.final_span();
             let mapped_guard = implementor.rwlock_mapped_read_guard(lazy_span)?;
             let self_rc = mc.self_maybe_rc_as_ref()
@@ -232,7 +232,6 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
             let ty = fctx.ty();
             let read_method = self.read_method_name(fctx, false, span);
 
-            self.maybe_ref_counted_self(fctx, &mut mc)?;
             mc.set_span(span)
                 .set_vis(fctx.accessor_visibility())
                 .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Accessor, FXInlining::Always, span))?;
@@ -256,6 +255,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 };
 
                 if *lazy {
+                    self.maybe_ref_counted_self(fctx, &mut mc)?;
                     let implementor = fctx.impl_details();
                     let await_call = implementor.await_call(span);
                     let self_rc = mc.self_maybe_rc_as_ref().ok_or(
@@ -315,7 +315,6 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
             let ty = fctx.ty();
             let read_method = self.read_method_name(fctx, true, span);
 
-            self.maybe_ref_counted_self(fctx, &mut mc)?;
             mc.set_span(span)
                 .set_vis(fctx.accessor_mut_visibility())
                 .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::AccessorMut, FXInlining::Always, span))?;
@@ -324,6 +323,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
             let implementor = fctx.impl_details();
 
             if *lazy {
+                self.maybe_ref_counted_self(fctx, &mut mc)?;
                 let lazy_span = lazy.final_span();
                 let self_rc = mc.self_maybe_rc_as_ref()
                     .ok_or(

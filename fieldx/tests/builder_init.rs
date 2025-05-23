@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use fieldx::fxstruct;
 
 #[fxstruct(builder(post_build()))]
@@ -24,9 +22,9 @@ struct Bar {
 }
 
 impl Bar {
-    fn post_build(self: Rc<Self>) -> Rc<Self> {
+    fn post_build(self) -> Self {
         assert_eq!(self.derive(), 123, "initial value is 123");
-        self.myself().expect("myself is not set").set_derive(12);
+        self.set_derive(12);
         self
     }
 }
