@@ -1,6 +1,6 @@
 # Changelog
 
-## [unreleased]
+## [0.1.17] - 2025-06-01
 
 ### Features
 
