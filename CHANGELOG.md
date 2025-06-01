@@ -1,6 +1,47 @@
 # Changelog
 
-## [0.1.16] - 2025-04-30
+## [unreleased]
+
+### Features
+
+- Make vast parts of fieldx_derive reusable via fieldx_core crate 
+- Add support for associated types to `FXImplConstructor` 
+- Make doc_props macro public 
+- Implement ToTokens trait for some key types 
+- Allow keyword args to also accept a `foo()` syntax
+
+    Previously, this syntax triggered 'expected ...' errors. While
+    it worked for manually written code, it failed for token streams
+    produced by the same types when wrapped in `FXNestingAttr`, because
+    their keyword forms generated the aforementioned function-call-like
+    syntax.
+ 
+- Implement FXSetState trait for FXProp
+
+    This allowed cleaning up some trait implementations. So, where
+    previously `a_prop.into()` was used, it is now `a_prop.is_set()`.
+ 
+- Implement `to_arg_tokens` method for FXFieldReceiver 
+
+### Bug Fixes
+
+- Clarify the use of reference counted self
+
+    Don't perform extra checks on the validity of the weak
+    self-reference unless necessary, and call `post_build` on the object
+    itself rather than on its reference-counting container.
+ 
+- Incorrect code generation for async locks 
+
+### Refactor
+
+- Make the codegen context generic over implementation details
+
+    Now what is related to the particular code generation is
+    available via the `impl_ctx` field and corresponding method.
+ 
+
+## [v0.1.16] - 2025-04-30
 
 ### Features
 

@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
 ![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
-# fieldx v0.1.16
+# fieldx v0.1.17
 
 ## FieldX
 
