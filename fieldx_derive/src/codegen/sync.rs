@@ -15,6 +15,8 @@ use quote::ToTokens;
 use std::rc::Rc;
 use syn::spanned::Spanned;
 
+use crate::codegen::codegen_trait::FXAccessorElements;
+
 use super::derive_ctx::FXDeriveCodegenCtx;
 use super::derive_ctx::FXDeriveFieldCtx;
 use super::derive_ctx::FXDeriveMacroCtx;
@@ -101,18 +103,6 @@ impl<'a> FXCodeGenSync<'a> {
     }
 
     #[inline(always)]
-    fn maybe_optional_ty<T: ToTokens>(&self, fctx: &FXDeriveFieldCtx, ty: &T) -> TokenStream {
-        let optional = fctx.optional();
-        if *optional {
-            let span = optional.final_span();
-            quote_spanned![span=> ::std::option::Option<#ty>]
-        }
-        else {
-            ty.to_token_stream()
-        }
-    }
-
-    #[inline(always)]
     fn maybe_locked_ty<T: ToTokens>(&self, fctx: &FXDeriveFieldCtx, ty: &T) -> darling::Result<TokenStream> {
         let lock = fctx.lock();
         Ok(if *lock {
@@ -186,7 +176,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 Ok(quote_spanned! [span=> #proxy_type<#builder_wrapper_type>])
             }
             else {
-                self.maybe_locked_ty(fctx, &self.maybe_optional_ty(fctx, &ty))
+                self.maybe_locked_ty(fctx, &self.maybe_optional(fctx, &ty))
             }
         })
     }
@@ -281,12 +271,12 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                     let lock_ident = format_ident!("rlock", span = lock_span);
 
                     mc.set_async(fctx.mode_async());
-                    mc.set_ret_type(self.maybe_optional_ty(fctx, ty));
+                    mc.set_ret_type(self.maybe_optional(fctx, ty));
                     mc.add_statement(quote_spanned! {lock_span=> let #lock_ident = self.#ident.read() #await_call; });
                     mc.set_ret_stmt(form_return_stmt(lock_ident.to_token_stream()));
                 }
                 else if is_optional {
-                    mc.set_ret_type(self.maybe_optional_ty(fctx, ty));
+                    mc.set_ret_type(self.maybe_optional(fctx, ty));
                     mc.set_ret_stmt(form_return_stmt(quote_spanned! {span=> self.#ident}));
                 }
                 else {
@@ -301,10 +291,18 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 }
             }
             else {
-                let ty = fctx.fallible_return_type(fctx, self.maybe_optional_ty(fctx, ty))?;
+                let FXAccessorElements {
+                    reference,
+                    method,
+                    type_ref,
+                    ..
+                } = self.accessor_elements(fctx);
 
-                mc.set_ret_type(quote_spanned! {span=> &#ty });
-                mc.set_ret_stmt(quote_spanned! {span=> &self.#ident });
+                let ty =
+                    fctx.fallible_return_type(fctx, self.maybe_optional(fctx, &quote_spanned! {span=> #type_ref #ty}))?;
+
+                mc.set_ret_type(quote_spanned! {span=> #reference #ty });
+                mc.set_ret_stmt(quote_spanned! {span=> #reference self.#ident #method });
             }
 
             Some(mc)

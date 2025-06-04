@@ -1,4 +1,5 @@
 use enum_dispatch::enum_dispatch;
+use fieldx_aux::FXAccessorMode;
 use fieldx_aux::FXProp;
 use fieldx_aux::FXPropBool;
 use fieldx_core::codegen::constructor::FXConstructor;
@@ -25,6 +26,18 @@ use super::derive_ctx::FXDeriveFieldCtx;
 use super::FXCodeGenPlain;
 use super::FXCodeGenSync;
 use super::FXValueRepr;
+
+#[derive(Debug, Clone, Default)]
+pub(crate) struct FXAccessorElements {
+    // Reference symbol '&'
+    pub(crate) reference:   TokenStream,
+    // Type reference symbol '&'; say, if method returns a reference to the field.
+    pub(crate) type_ref:    TokenStream,
+    // Derefer symbol '*'
+    pub(crate) dereference: TokenStream,
+    // Method call such as '.clone()' or '.as_ref()'
+    pub(crate) method:      TokenStream,
+}
 
 #[enum_dispatch]
 pub(crate) enum FXCodeGenerator<'a> {
@@ -259,6 +272,30 @@ pub(crate) trait FXCodeGenContextual {
                 .orig_span()
                 .unwrap_or_else(|| fctx.span());
             FXValueRepr::Exact(std_default_expr_toks(span))
+        }
+    }
+
+    fn accessor_elements(&self, fctx: &FXDeriveFieldCtx) -> FXAccessorElements {
+        let accessor_mode = fctx.accessor_mode();
+        let span = accessor_mode.final_span();
+        match **accessor_mode {
+            FXAccessorMode::Copy => FXAccessorElements {
+                dereference: quote_spanned![span=> *],
+                ..Default::default()
+            },
+            FXAccessorMode::Clone => FXAccessorElements {
+                method: quote_spanned![span=> .clone()],
+                ..Default::default()
+            },
+            FXAccessorMode::AsRef => FXAccessorElements {
+                type_ref: quote_spanned![span=> &],
+                method: quote_spanned![span=> .as_ref()],
+                ..Default::default()
+            },
+            FXAccessorMode::None => FXAccessorElements {
+                reference: quote_spanned![span=> &],
+                ..Default::default()
+            },
         }
     }
 

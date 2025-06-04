@@ -1,4 +1,3 @@
-use fieldx_aux::FXAccessorMode;
 use fieldx_aux::FXPropBool;
 use fieldx_core::codegen::constructor::FXConstructor;
 use fieldx_core::codegen::constructor::FXFnConstructor;
@@ -15,6 +14,8 @@ use quote::quote_spanned;
 use quote::ToTokens;
 use std::rc::Rc;
 use syn::spanned::Spanned;
+
+use crate::codegen::codegen_trait::FXAccessorElements;
 
 use super::derive_ctx::FXDeriveCodegenCtx;
 use super::derive_ctx::FXDeriveFieldCtx;
@@ -185,7 +186,6 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
             let mut mc = FXFnConstructor::new(fctx.accessor_ident().clone());
             let span = fctx.accessor().final_span();
             let accessor_mode = fctx.accessor_mode();
-            let mode_span = accessor_mode.final_span();
             let is_copy = accessor_mode.is_copy();
             let is_clone = accessor_mode.is_clone();
             let lazy = fctx.lazy();
@@ -195,25 +195,12 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                 .set_vis(fctx.accessor_visibility().to_token_stream())
                 .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Accessor, FXInlining::Always, span))?;
 
-            #[rustfmt::skip]
-            let (opt_ref, ty_ref, deref, meth) = match accessor_mode.value() {
-                FXAccessorMode::Copy =>  (
-                    quote![], quote![],
-                    quote_spanned![mode_span=> *], quote![]
-                ),
-                FXAccessorMode::Clone => (
-                    quote![], quote![],
-                    quote![], quote_spanned![mode_span=> .clone()]
-                ),
-                FXAccessorMode::AsRef => (
-                    quote![], quote_spanned![mode_span=> &],
-                    quote![], quote_spanned![mode_span=> .as_ref()]
-                ),
-                FXAccessorMode::None => (
-                    quote_spanned![mode_span=> &], quote![],
-                    quote![], quote![]
-                ),
-            };
+            let FXAccessorElements {
+                reference,
+                dereference,
+                method,
+                type_ref,
+            } = self.accessor_elements(fctx);
 
             if *lazy {
                 self.maybe_ref_counted_self(fctx, &mut mc)?;
@@ -231,15 +218,15 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                     )
                 }
                 else {
-                    fctx.fallible_return_type(fctx, quote_spanned! {span=> #opt_ref #ty})?
+                    fctx.fallible_return_type(fctx, quote_spanned! {span=> #reference #ty})?
                 };
                 mc.set_ret_type(ret_type);
-                mc.set_ret_stmt(fctx.fallible_ok_return(&quote_spanned! {span=> #deref #ret #shortcut #meth}));
+                mc.set_ret_stmt(fctx.fallible_ok_return(&quote_spanned! {span=> #dereference #ret #shortcut #method}));
             }
             else {
                 let mut ty = fctx.ty().to_token_stream();
 
-                ty = self.maybe_optional(fctx, &quote_spanned! {span=> #ty_ref #ty});
+                ty = self.maybe_optional(fctx, &quote_spanned! {span=> #type_ref #ty});
 
                 if *inner_mut {
                     let inner_mut_span = inner_mut.final_span();
@@ -254,12 +241,12 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                     mc.set_ret_type(ty_tok);
                     mc.set_ret_stmt(quote_spanned! {span =>
                         #[allow(unused_parens)]
-                        (#deref self.#ident.borrow()) #meth
+                        (#deref self.#ident.borrow()) #method
                     });
                 }
                 else {
-                    mc.set_ret_type(quote_spanned! {span=> #opt_ref #ty});
-                    mc.set_ret_stmt(quote_spanned! {span=> #opt_ref self.#ident #meth });
+                    mc.set_ret_type(quote_spanned! {span=> #reference #ty});
+                    mc.set_ret_stmt(quote_spanned! {span=> #reference self.#ident #method });
                 }
             }
             Some(mc)

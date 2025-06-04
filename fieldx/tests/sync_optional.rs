@@ -28,9 +28,9 @@ struct Bar {
 #[test]
 fn it_is_optional() {
     let mut foo = Foo::new();
-    assert_eq!(*foo.foo(), None);
+    assert_eq!(foo.foo(), None);
     foo.set_foo("manual");
-    assert_eq!(*foo.foo(), Some("manual".to_string()));
+    assert_eq!(foo.foo(), Some(&"manual".to_string()));
 
     let mut bar = Bar::new();
     assert_eq!(*bar.bar(), None);
