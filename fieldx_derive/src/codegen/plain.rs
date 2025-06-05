@@ -150,7 +150,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
             let implementor = fctx.impl_details();
             if *lazy {
                 let span = lazy.final_span();
-                let proxy_type = implementor.field_proxy_type(span);
+                let proxy_type = implementor.field_simple_proxy_type(span);
                 ty_tok = quote_spanned![span=> #proxy_type<#ty_tok>];
             }
             else if *optional {
@@ -344,7 +344,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
             let as_optional = *optional && !*fctx.builder_required();
             if *lazy || as_optional {
                 let mut field_value = if *lazy {
-                    let wrapper_type = implementor.field_proxy_type(lazy.final_span());
+                    let wrapper_type = implementor.field_simple_proxy_type(lazy.final_span());
                     quote_spanned! {lazy.final_span()=> #wrapper_type::from(self.#field_ident.take().unwrap()) }
                 }
                 else {
@@ -518,7 +518,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         let lazy = fctx.lazy();
         let optional = fctx.optional();
         let is_inner_mut = *fctx.inner_mut();
-        let wrapper_type = fctx.impl_details().field_proxy_type(lazy.final_span());
+        let wrapper_type = fctx.impl_details().field_simple_proxy_type(lazy.final_span());
 
         Ok(match value {
             FXValueRepr::Exact(v) => v,

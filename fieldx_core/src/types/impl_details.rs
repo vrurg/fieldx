@@ -19,7 +19,8 @@ where
     fn await_call(&self, span: Span) -> TokenStream;
     fn ref_count_strong(&self, span: Span) -> TokenStream;
     fn ref_count_weak(&self, span: Span) -> TokenStream;
-    fn field_proxy_type(&self, span: Span) -> TokenStream;
+    fn field_simple_proxy_type(&self, span: Span) -> TokenStream;
+    fn field_lock_proxy_type(&self, span: Span) -> Result<TokenStream>;
     fn fx_mapped_write_guard(&self, span: Span) -> Result<TokenStream>;
     fn fx_fallible_builder_wrapper(&self, span: Span) -> Result<TokenStream>;
     fn fx_infallible_builder_wrapper(&self, span: Span) -> Result<TokenStream>;
@@ -48,8 +49,12 @@ where
         self.as_ref().ref_count_weak(span)
     }
 
-    fn field_proxy_type(&self, span: Span) -> TokenStream {
-        self.as_ref().field_proxy_type(span)
+    fn field_simple_proxy_type(&self, span: Span) -> TokenStream {
+        self.as_ref().field_simple_proxy_type(span)
+    }
+
+    fn field_lock_proxy_type(&self, span: Span) -> Result<TokenStream> {
+        self.as_ref().field_lock_proxy_type(span)
     }
 
     fn fx_mapped_write_guard(&self, span: Span) -> Result<TokenStream> {

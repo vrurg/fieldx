@@ -17,8 +17,12 @@ impl<ImplCtx> FXImplDetails<ImplCtx> for FXPlainImplementor
 where
     ImplCtx: FXImplementationContext,
 {
-    fn field_proxy_type(&self, span: Span) -> TokenStream {
+    fn field_simple_proxy_type(&self, span: Span) -> TokenStream {
         quote_spanned![span=> ::fieldx::plain::OnceCell]
+    }
+
+    fn field_lock_proxy_type(&self, span: Span) -> Result<TokenStream> {
+        Err(darling::Error::custom("Lock proxy type is not supported for plain fields").with_span(&span))
     }
 
     fn ref_count_strong(&self, span: Span) -> TokenStream {

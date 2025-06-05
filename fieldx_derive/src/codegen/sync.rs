@@ -171,7 +171,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
 
             let lazy = fctx.lazy();
             if *lazy {
-                let proxy_type = fctx.impl_details().field_proxy_type(lazy.final_span());
+                let proxy_type = fctx.impl_details().field_lock_proxy_type(lazy.final_span())?;
                 let span = fctx.ty().span();
                 Ok(quote_spanned! [span=> #proxy_type<#builder_wrapper_type>])
             }

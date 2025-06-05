@@ -9,6 +9,8 @@ pub use fxproxy::FXBuilderInfallible;
 pub use fxproxy::FXProxySync;
 pub use fxproxy::FXWrLockGuardSync;
 #[doc(hidden)]
+pub use once_cell::sync::OnceCell;
+#[doc(hidden)]
 pub use parking_lot::MappedRwLockReadGuard;
 #[doc(hidden)]
 pub use parking_lot::MappedRwLockWriteGuard;

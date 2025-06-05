@@ -26,8 +26,12 @@ impl<ImplCtx> FXImplDetails<ImplCtx> for FXAsyncImplementor
 where
     ImplCtx: FXImplementationContext,
 {
-    fn field_proxy_type(&self, span: Span) -> TokenStream {
-        quote_spanned![span=> ::fieldx::r#async::FXProxyAsync]
+    fn field_simple_proxy_type(&self, span: Span) -> TokenStream {
+        quote_spanned![span=> ::fieldx::r#async::OnceCell]
+    }
+
+    fn field_lock_proxy_type(&self, span: Span) -> Result<TokenStream> {
+        Ok(quote_spanned![span=> ::fieldx::r#async::FXProxyAsync])
     }
 
     fn ref_count_strong(&self, span: Span) -> TokenStream {
