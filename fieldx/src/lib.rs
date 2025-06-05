@@ -534,6 +534,7 @@
 #[cfg(feature = "async")]
 pub mod r#async;
 pub mod error;
+pub mod plain;
 #[cfg(feature = "sync")]
 pub mod sync;
 pub mod traits;
@@ -542,17 +543,9 @@ pub mod traits;
 pub use fieldx_aux::FXOrig;
 #[doc(inline)]
 pub use fieldx_derive::fxstruct;
-#[doc(hidden)]
-pub use once_cell::unsync::OnceCell;
 #[cfg(feature = "async")]
 #[doc(inline)]
 pub use r#async::FXProxyAsync;
-#[doc(hidden)]
-pub use std::cell::Ref;
-#[doc(hidden)]
-pub use std::cell::RefCell;
-#[doc(hidden)]
-pub use std::cell::RefMut;
 #[doc(hidden)]
 pub use std::fmt;
 #[doc(hidden)]

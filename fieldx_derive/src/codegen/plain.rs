@@ -36,10 +36,10 @@ impl<'a> FXCodeGenPlain<'a> {
 
     fn inner_mut_ref_type(&self, mutable: bool, span: Span) -> TokenStream {
         if mutable {
-            quote_spanned![span=> ::fieldx::RefMut]
+            quote_spanned![span=> ::fieldx::plain::RefMut]
         }
         else {
-            quote_spanned![span=> ::fieldx::Ref]
+            quote_spanned![span=> ::fieldx::plain::Ref]
         }
     }
 
@@ -89,7 +89,7 @@ impl<'a> FXCodeGenPlain<'a> {
         if *inner_mut {
             let span = inner_mut.orig_span().unwrap_or_else(|| expr.span());
             expr.clone()
-                .replace(quote_spanned! {span=> ::fieldx::RefCell::new(#expr)})
+                .replace(quote_spanned! {span=> ::fieldx::plain::RefCell::new(#expr)})
                 .mark_as(FXValueFlag::ContainerWrapped)
         }
         else {
@@ -160,7 +160,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
 
             if *inner_mut {
                 let span = inner_mut.final_span();
-                ty_tok = quote_spanned![span=> ::fieldx::RefCell<#ty_tok>];
+                ty_tok = quote_spanned![span=> ::fieldx::plain::RefCell<#ty_tok>];
             }
 
             Ok(ty_tok)
@@ -173,7 +173,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         mc: &mut FXFnConstructor,
     ) -> darling::Result<TokenStream> {
         let lazy_name = fctx.lazy_ident();
-        let span = mc.span(); // fctx.lazy().final_span();
+        let span = mc.span();
         let init_method = self.get_or_init_method(fctx, &span);
         self.maybe_ref_counted_self(fctx, mc)?;
         let builder_self = mc.self_maybe_rc();
@@ -310,7 +310,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                     let inner_mut_span = inner_mut.final_span();
                     let lifetime = quote_spanned! {inner_mut_span=> 'fx_reader_lifetime};
                     mc.set_self_lifetime(lifetime.clone());
-                    mc.set_ret_type(quote_spanned! {inner_mut_span=> ::fieldx::RefMut<#lifetime, #ty>});
+                    mc.set_ret_type(quote_spanned! {inner_mut_span=> ::fieldx::plain::RefMut<#lifetime, #ty>});
                     mc.set_ret_stmt(quote_spanned! {inner_mut_span=> self.#ident.borrow_mut() });
                 }
                 else {
@@ -332,6 +332,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         let span = builder.final_span();
         let field_ident = fctx.ident();
         let field_default = self.field_default_wrap(fctx)?;
+        let implementor = fctx.impl_details();
 
         Ok(if !*builder {
             quote_spanned![span=> #field_ident: #field_default]
@@ -343,7 +344,8 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
             let as_optional = *optional && !*fctx.builder_required();
             if *lazy || as_optional {
                 let mut field_value = if *lazy {
-                    quote_spanned! {lazy.final_span()=> ::fieldx::OnceCell::from(self.#field_ident.take().unwrap()) }
+                    let wrapper_type = implementor.field_proxy_type(lazy.final_span());
+                    quote_spanned! {lazy.final_span()=> #wrapper_type::from(self.#field_ident.take().unwrap()) }
                 }
                 else {
                     // as_optional
@@ -351,7 +353,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                 };
 
                 if *inner_mut {
-                    field_value = quote_spanned! {inner_mut.final_span()=> ::fieldx::RefCell::new(#field_value)};
+                    field_value = quote_spanned! {inner_mut.final_span()=> ::fieldx::plain::RefCell::new(#field_value)};
                 }
 
                 quote_spanned! {span=>
@@ -516,6 +518,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         let lazy = fctx.lazy();
         let optional = fctx.optional();
         let is_inner_mut = *fctx.inner_mut();
+        let wrapper_type = fctx.impl_details().field_proxy_type(lazy.final_span());
 
         Ok(match value {
             FXValueRepr::Exact(v) => v,
@@ -523,7 +526,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                 if *lazy {
                     let value_toks = v.to_token_stream();
                     v = v
-                        .replace(quote_spanned![lazy.final_span()=> ::fieldx::OnceCell::from(#value_toks)])
+                        .replace(quote_spanned![lazy.final_span()=> #wrapper_type::from(#value_toks)])
                         .mark_as(FXValueFlag::ContainerWrapped);
                 }
                 else if *optional {
@@ -537,10 +540,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
             }
             FXValueRepr::None => {
                 if *lazy {
-                    self.maybe_inner_mut_wrap(
-                        fctx,
-                        quote_spanned![lazy.final_span()=> ::fieldx::OnceCell::new()].into(),
-                    )
+                    self.maybe_inner_mut_wrap(fctx, quote_spanned![lazy.final_span()=> #wrapper_type::new()].into())
                 }
                 else if *optional || is_inner_mut {
                     let mut value_tok = quote![];

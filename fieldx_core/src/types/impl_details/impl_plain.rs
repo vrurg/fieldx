@@ -18,7 +18,7 @@ where
     ImplCtx: FXImplementationContext,
 {
     fn field_proxy_type(&self, span: Span) -> TokenStream {
-        quote_spanned![span=> ::fieldx::OnceCell]
+        quote_spanned![span=> ::fieldx::plain::OnceCell]
     }
 
     fn ref_count_strong(&self, span: Span) -> TokenStream {
