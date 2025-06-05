@@ -136,7 +136,7 @@ where
 {
     fallback_prop! {
         accessor, bool, default {
-            self.clearer().or(self.predicate()).or(self.lazy()).or(self.inner_mut())
+            self.lazy()
         };
 
         accessor_mode,
