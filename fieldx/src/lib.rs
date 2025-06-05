@@ -486,7 +486,7 @@
 //! | Field Parameters | Plain Type | Sync Type | Async Type |
 //! |------------------|---------------|-----------|-----------|
 //! | `lazy` | `OnceCell<T>` | [`FXProxySync<O, T>`] | [`FXProxyAsync<O,T>`] |
-//! | `optional` (also activated with `clearer` and `proxy`) | `Option<T>` | [`FXRwLockSync<Option<T>>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<Option<T>>`][`async::FXRwLockAsync`] |
+//! | `optional` (also activated with `clearer` and `predicate`) | `Option<T>` | [`FXRwLockSync<Option<T>>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<Option<T>>`][`async::FXRwLockAsync`] |
 //! | `lock`, `reader` and/or `writer` | N/A | [`FXRwLockSync<T>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<T>`][`async::FXRwLockAsync`] |
 //!
 //! Apparently, skipped fields retain their original type. Sure enough, if such a field is of non-`Send` or non-`Sync`
