@@ -112,7 +112,7 @@
 //!
 //! - Locked fields: `RwLock` types from the [`parking_lot`](https://crates.io/crates/parking_lot) crate for sync structs or from
 //!   [`tokio`](https://docs.rs/tokio/latest/tokio/sync/index.html) for async structs. Note that the lock itself is wrapped in
-//!   zero-cost abstraction types: [`FXRwLockSync`] and [`FXRwLockAsync`].
+//!   zero-cost abstraction types: [`FXRwLockSync`](sync::FXRwLockSync) and [`FXRwLockAsync`](async::FXRwLockAsync).
 //! - Lazy fields: `OnceCell` types from the [`once_cell`](https://crates.io/crates/once_cell) crate, or from
 //!   [`tokio`](https://docs.rs/tokio/latest/tokio/sync/index.html) for async structs.
 //! - Locked lazy fields: [`FXProxySync`] and [`FXProxyAsync`] types.
@@ -324,9 +324,9 @@
 //! Since the only `fieldx`-related failure that may happen when building a new object instance is a required field not
 //! given a value, the `build()` method would return [`FieldXError`](error::FieldXError) if this happens.
 //!
-//! # Crate Features
+//! # Crate Feature Flags
 //!
-//! The following featues are supported by this crate:
+//! The following featue flags are supported by this crate:
 //!
 //! | *Feature* | *Description* |
 //! |-|-|
@@ -488,8 +488,8 @@
 //! |------------------|---------------|-----------|-----------|
 //! | `lazy` | [`once_cell::unsync::OnceCell<T>`](crate::plain::OnceCell) | [`once_cell::sync::OnceCell<T>`](crate::sync::OnceCell) | [`tokio::sync::OnceCell<T>`](crate::async::OnceCell) |
 //! | `lazy` + `lock` | _N/A_ | [`FXProxySync<O, T>`] | [`FXProxyAsync<O,T>`] |
-//! | `optional` (also activated with `clearer` and `predicate`) | `Option<T>` | [`FXRwLockSync<Option<T>>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<Option<T>>`][`async::FXRwLockAsync`] |
-//! | `lock`, `reader` and/or `writer` | _N/A_ | [`FXRwLockSync<T>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<T>`][`async::FXRwLockAsync`] |
+//! | `optional` (also activated with `clearer` and `predicate`) | `Option<T>` | [`FXRwLockSync<Option<T>>`](`sync::FXRwLockSync`) | [`FXRwLockAsync<Option<T>>`](`async::FXRwLockAsync`) |
+//! | `lock`, `reader` and/or `writer` | _N/A_ | [`FXRwLockSync<T>`](`sync::FXRwLockSync`) | [`FXRwLockAsync<T>`](`async::FXRwLockAsync`) |
 //!
 //! Apparently, skipped fields retain their original type. Sure enough, if such a field is of non-`Send` or non-`Sync`
 //! type the entire struct would be missing these traits despite all the efforts from the `fxstruct` macro.
