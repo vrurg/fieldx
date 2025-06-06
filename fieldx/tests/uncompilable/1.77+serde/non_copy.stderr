@@ -1,9 +1,3 @@
-error[E0601]: `main` function not found in crate `$CRATE`
- --> tests/uncompilable/non_copy.rs
-  |
-  | }
-  |  ^ consider adding a `main` function to `$DIR/tests/uncompilable/non_copy.rs`
-
 error[E0277]: the trait bound `String: Copy` is not satisfied
  --> tests/uncompilable/non_copy.rs
   |

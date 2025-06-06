@@ -2,6 +2,9 @@ use fieldx::fxstruct;
 
 #[fxstruct]
 struct Foo {
-    #[fieldx(copy, clearer)]
+    #[fieldx(copy, get, clearer)]
     foo: String,
 }
+
+#[cfg(not(test))]
+fn main() {}
