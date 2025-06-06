@@ -1,6 +1,19 @@
 # Changelog
 
-## [0.1.18] - 2025-06-06
+## [unreleased]
+
+### Bug Fixes
+
+- Quick fix for an overlooked case with fallible
+
+    The `fallible` argument makes sense when used with `lazy`,
+    which can now be used with both `lock` and `inner_mut`. However, the
+    combination of `fallible` with these two was unconditionally prohibited.
+ 
+- Take care of new warnings from the nightly compiler 
+- One more location where the new lifetime warning springs up 
+
+## [v0.1.18] - 2025-06-06
 
 ### Features
 
