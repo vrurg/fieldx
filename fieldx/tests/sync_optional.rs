@@ -6,13 +6,21 @@ struct Foo {
     #[fieldx(get(as_ref), set(into), reader(off))]
     foo: String,
 
+    // Meaning "not explicitly declared as optional"
     #[fieldx(lazy, get(copy), set, clearer)]
     non_optional: i32,
+
+    #[fieldx(lazy, inner_mut, clearer, set)]
+    mutable: String,
 }
 
 impl Foo {
     fn build_non_optional(&self) -> i32 {
         42
+    }
+
+    fn build_mutable(&self) -> String {
+        "mutable default".to_string()
     }
 }
 
@@ -51,4 +59,16 @@ fn non_optional() {
     assert_eq!(foo.non_optional(), 666);
     foo.clear_non_optional();
     assert_eq!(foo.non_optional(), 42);
+}
+
+#[test]
+fn mutable() {
+    let foo = Foo::new();
+    assert_eq!(*foo.mutable(), "mutable default".to_string());
+    foo.clear_mutable();
+    assert_eq!(*foo.mutable(), "mutable default".to_string());
+    foo.set_mutable("manual".to_string());
+    assert_eq!(*foo.mutable(), "manual".to_string());
+    foo.clear_mutable();
+    assert_eq!(*foo.mutable(), "mutable default".to_string());
 }

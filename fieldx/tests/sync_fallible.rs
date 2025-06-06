@@ -12,6 +12,9 @@ struct Foo<const FAIL: bool = false> {
 
     #[fieldx(lazy, fallible, get(clone))]
     shared: Arc<String>,
+
+    #[fieldx(lazy, lock, reader, writer, fallible, get)]
+    locked: i32,
 }
 
 impl<const FAIL: bool> Foo<FAIL> {
@@ -41,6 +44,15 @@ impl<const FAIL: bool> Foo<FAIL> {
             Ok(Arc::new("shared".to_string()))
         }
     }
+
+    fn build_locked(&self) -> Result<i32, String> {
+        if FAIL {
+            Err("no way this will work for you!".to_string())
+        }
+        else {
+            Ok(100)
+        }
+    }
 }
 
 #[test]
@@ -54,6 +66,8 @@ fn fallible_ok() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(foo.writable()?, 42);
 
     assert_eq!(*foo.shared()?, "shared".to_string());
+
+    assert_eq!(*foo.locked()?, 100);
 
     Ok(())
 }
@@ -72,6 +86,12 @@ fn fallible_error() -> Result<(), Box<dyn std::error::Error>> {
 
     assert!(foo.shared().is_err());
     assert_eq!(*foo.shared().unwrap_err(), String::from("this is a failed outcome"));
+
+    assert!(foo.locked().is_err());
+    assert_eq!(
+        *foo.locked().unwrap_err(),
+        String::from("no way this will work for you!")
+    );
 
     Ok(())
 }

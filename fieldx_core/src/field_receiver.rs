@@ -166,7 +166,6 @@ impl FXFieldReceiver {
     validate_exclusives! {
         "accessor mode": copy; clone;
         "field mode":  lazy; optional;
-        "in-/fallible mode": fallible; lock, optional, inner_mut;
         "concurrency mode": mode_sync as "sync"; mode_async as "async"; mode;
         "visibility": private; visibility as "vis";
     }
@@ -200,12 +199,12 @@ impl FXFieldReceiver {
         }
 
         // XXX Make it a warning when possible.
-        // if self.is_fallible().unwrap_or(false) && !self.is_lazy().unwrap_or(false) {
-        //     return Err(
-        //         darling::Error::custom("Parameter 'fallible' only makes sense when 'lazy' is set too")
-        //             .with_span(&self.fallible().fx_span()),
-        //     );
-        // }
+        if self.fallible().is_set_bool() && !self.lazy().is_set_bool() {
+            acc.push(
+                darling::Error::custom("Parameter 'fallible' only makes sense when 'lazy' is set too")
+                    .with_span(&self.fallible().final_span()),
+            );
+        }
 
         #[cfg(not(feature = "sync"))]
         if let Some(err) = crate::util::feature_required("sync", &self.mode_sync) {
