@@ -234,6 +234,10 @@ use syn::DeriveInput;
 ///
 /// Enables lazy mode for all fields except those marked with `lazy(off)`.
 ///
+/// **Note:** Using this attribute automatically enables the [`get`](#get) functionality. This is because
+/// lazy initialization is typically initiated by the accessor method, so it makes little sense to have lazy
+/// fields without accessors.
+///
 /// ## **`fallible`**
 ///
 /// **Type**: <a href="#list_arg">function</a>
@@ -386,10 +390,10 @@ use syn::DeriveInput;
 ///
 /// Additionally to the standard helper arguments accessors can also be configured as:
 ///
-/// - **`clone`** - cloning, i.e. returning a clone of the field value (must implement [`Clone`])
-/// - **`copy`** - copying, i.e. returning a copy of the field value (must implement [`Copy`])
-/// - **`as_ref`** – only applicable if field value is optional; it makes the accessor to return an `Option<&T>`
-///   instead of `&Option<T>`
+/// - **`clone`** – returns a clone of the field value (the field type must implement [`Clone`]).
+/// - **`copy`** – returns a copy of the field value (the field type must implement [`Copy`]).
+/// - **`as_ref`** – only applicable if the field value is optional; it forces the accessor to have an `Option<&T>`
+///   return type instead of `&Option<T>`.
 ///
 /// ## **`get_mut`**
 ///
@@ -618,6 +622,9 @@ use syn::DeriveInput;
 /// **Type**: <a href="#helper_arg">helper</a>
 ///
 /// Mark field as lazy.
+///
+/// **Note:** Same as the [struct-level `lazy`](#lazy) attribute, this enables the [`get`](#get) functionality but for
+/// the current field only.
 ///
 /// ## **`fallible`**
 ///
