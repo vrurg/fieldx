@@ -1,8 +1,8 @@
 [![Rust](https://github.com/vrurg/fieldx/actions/workflows/fieldx.yml/badge.svg)](https://github.com/vrurg/fieldx/actions/workflows/fieldx.yml)
-![License](https://img.shields.io/github/license/vrurg/fieldx)
-![Crates.io Version](https://img.shields.io/crates/v/fieldx)
+![[License](https://img.shields.io/github/license/vrurg/fieldx)](https://github.com/vrurg/fieldx/blob/main/LICENSE)
+![[Crates.io Version](https://img.shields.io/crates/v/fieldx)](https://crates.io/crates/fieldx)
 
-# fieldx v0.1.19
+# fieldx v0.1.20-beta.1
 
 ## FieldX
 
@@ -89,8 +89,8 @@ additions:
 
 - field types may be be wrapped into container types (see [The Inner Workings](#inner_workings))
 
-  In the above example `foo` and `count` become [`OnceCell<String>`][OnceCell] and `OnceCell<usize>`, whereas
-  `order` remains unchanged.
+  In the [quick start](#quick-start) example `foo` and `count` become
+  [`OnceCell<String>`](crate::plain::OnceCell) and `OnceCell<usize>`, whereas `order` remains unchanged.
 
 - a partial implementation of `Foo` is added with helper and special methods and associated functions ([Field Or
   Method](#field_or_method) in this section)
@@ -104,14 +104,24 @@ additions:
 <a id="field_or_method"></a>
 ### Field Or Method?
 
-Normally it is recommended to use module-generated helper methods to access, modify, or otherwise interact with
-struct fields. Use of the methods provides both better code readability and, sometimes, better functionality. Like,
-for example, marking a field as `#[fieldx(get(clone))` would always be returning a plain cloned instance of the
-field value.
+Normally, it is recommended to use module-generated helper methods to access, modify, or otherwise interact with
+struct fields. Using these methods provides better code readability and, in some cases, enhanced functionality.  For
+example, accessor method of a field marked with `#[fieldx(get(clone))]` will always return a plain cloned instance
+of the field value.
 
-But when there is a need to work with a field directly (for example, to implement own accessor with additional
-functionality) `fieldx` provides own container types that are aimed at providing necessary API. See [`FXProxySync`]
-and [`FXProxyAsync`] container types.
+However, when there is a need to work with a field directly (for instance, to implement your own accessor with additional
+functionality), `fieldx` uses various container types to wrap the field value. These containers include:
+
+- Locked fields: `RwLock` types from the [`parking_lot`](https://crates.io/crates/parking_lot) crate for sync structs or from
+  [`tokio`](https://docs.rs/tokio/latest/tokio/sync/index.html) for async structs. Note that the lock itself is wrapped in
+  zero-cost abstraction types: [`FXRwLockSync`](sync::FXRwLockSync) and [`FXRwLockAsync`](async::FXRwLockAsync).
+- Lazy fields: `OnceCell` types from the [`once_cell`](https://crates.io/crates/once_cell) crate, or from
+  [`tokio`](https://docs.rs/tokio/latest/tokio/sync/index.html) for async structs.
+- Locked lazy fields: [`FXProxySync`] and [`FXProxyAsync`] types.
+- Inner mutability: For plain fields, [`RefCell`](std::cell::RefCell) from the standard library is used; for
+  sync/async fields, inner mutability serves as an alias for locking.
+
+There is also [a table](#lazy_field_wrappers) that summarizes the types used for lazy fields.
 
 ## Sync, Async, And Plain Structs
 
@@ -225,31 +235,21 @@ new builder for it.
 ## Laziness Protocol
 
 Though being very simple concept, laziness has its own peculiarities. The basics, as shown above, are such that when
-we declare a field as `lazy` the macro wraps it into some kind of proxy container type ([`OnceCell`] for plain
-fields). The first read[^only_via_method] from an uninitialized field will result in the lazy builder method to be
-invoked and the value it returns to be stored in the field.
+we declare a field as `lazy` the macro wraps it into some kind of proxy container type (like
+[`OnceCell`](crate::plain::OnceCell) for plain fields; see more in [the table](#lazy_field_wrappers)). The first
+read[^only_via_method] from an uninitialized field will result in the lazy builder method to be invoked and the
+value it returns to be stored in the field.
 
-Here come the caveats:
-
-1. A builder is expected to be infallible. This requirement comes from the fact that when we call field's accessor
-   we expect a value of field's type to be returned. Since Rust requires errors to be handled semi-in-place (contrary
-   to exceptions in many other languages) there is no way for us to overcome this limitation. The builder could panic,
-   but this is rarely a good option.
-
-   For cases when it is important to have controllable error handling, one could give the field a [`Result`] type.
-   Then `obj.field()?` could be a way to take care of errors. But this approach has its own complications,
-   especially for sync fields.
-
-1. Field builder methods cannot mutate their objects. This limitation also comes from the fact that a typical
-   accessor method doesn't need and must not use mutable `&self`. Of course, it is always possible to use internal
-   mutability, as in the first example here.
+Here come a caveat: field builder methods cannot mutate their objects. This limitation comes from the fact that a
+typical accessor method doesn't need and must not use mutable `&self`. Of course, it is always possible to use
+internal mutability, as in the first example here, but this is not the recommended way.
 
 [^only_via_method]: Apparently, the access has to be made by calling a corresponding method. Mostly it'd be field's
 accessor, but for `sync` structs it's more likely to be a reader.
 
 ## Field Interior Mutability
 
-Marking fields with `inner_mut` flag is a shortcut for using [`RefCell`] wrapper. This effectively turns such fields
+Marking fields with `inner_mut` flag is a shortcut for using [`RefCell`](std::cell::RefCell) wrapper. This effectively turns such fields
 to be plain ones.
 
 ```rust
@@ -317,9 +317,9 @@ assert_eq!( obj.description(), &String::from("count is ignored") );
 Since the only `fieldx`-related failure that may happen when building a new object instance is a required field not
 given a value, the `build()` method would return [`FieldXError`](error::FieldXError) if this happens.
 
-## Crate Features
+## Crate Feature Flags
 
-The following featues are supported by this crate:
+The following featue flags are supported by this crate:
 
 | *Feature* | *Description* |
 |-|-|
@@ -464,17 +464,20 @@ As it was mentioned in the [Basics](#basics) section, `fieldx` rewrites structur
 following table reveals the final types of fields. `T` in the table represents the original field type, as specified
 by the user; `O` is the original struct type.
 
+<a id="lazy_field_wrappers"></a>
 | Field Parameters | Plain Type | Sync Type | Async Type |
 |------------------|---------------|-----------|-----------|
-| `lazy` | `OnceCell<T>` | [`FXProxySync<O, T>`] | [`FXProxyAsync<O,T>`] |
-| `optional` (also activated with `clearer` and `predicate`) | `Option<T>` | [`FXRwLockSync<Option<T>>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<Option<T>>`][`async::FXRwLockAsync`] |
-| `lock`, `reader` and/or `writer` | N/A | [`FXRwLockSync<T>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<T>`][`async::FXRwLockAsync`] |
+| `lazy` | [`once_cell::unsync::OnceCell<T>`](crate::plain::OnceCell) | [`once_cell::sync::OnceCell<T>`](crate::sync::OnceCell) | [`tokio::sync::OnceCell<T>`](crate::async::OnceCell) |
+| `lazy` + `lock` | _N/A_ | [`FXProxySync<O, T>`] | [`FXProxyAsync<O,T>`] |
+| `optional` (also activated with `clearer` and `predicate`) | `Option<T>` | [`FXRwLockSync<Option<T>>`](`sync::FXRwLockSync`) | [`FXRwLockAsync<Option<T>>`](`async::FXRwLockAsync`) |
+| `lock`, `reader` and/or `writer` | _N/A_ | [`FXRwLockSync<T>`](`sync::FXRwLockSync`) | [`FXRwLockAsync<T>`](`async::FXRwLockAsync`) |
 
 Apparently, skipped fields retain their original type. Sure enough, if such a field is of non-`Send` or non-`Sync`
 type the entire struct would be missing these traits despite all the efforts from the `fxstruct` macro.
 
-There is also a difference in how the initialization of `lazy` fields is implemented. For plain fields this is done
-directly in their accessor methods. Sync structs delegate this functionality to the [`FXProxySync`] type.
+There is also a difference in how the initialization of `lazy` fields is implemented. For non-locked (simple) fields
+the lazy builder method is called directly from the accessor method. For locked fields, however, the lazy
+builder is invoked by the implementation of the proxy type.
 
 ### Traits
 
