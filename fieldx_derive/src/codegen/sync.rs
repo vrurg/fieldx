@@ -389,10 +389,12 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 if *lock {
                     let lock_span = lock.final_span();
                     let wrguard = implementor.rwlock_write_guard(lock_span)?;
+                    let lifetime = quote_spanned! {lock_span=> 'fx_mut_lifetime};
 
-                    mc.set_async(fctx.mode_async());
-                    mc.set_ret_type(quote_spanned! [lock_span=> #wrguard<#ty_toks>]);
-                    mc.set_ret_stmt(quote_spanned! [lock_span=> self.#ident.write() #await_call]);
+                    mc.set_async(fctx.mode_async())
+                        .set_self_lifetime(lifetime.clone())
+                        .set_ret_type(quote_spanned! [lock_span=> #wrguard<#lifetime, #ty_toks>])
+                        .set_ret_stmt(quote_spanned! [lock_span=> self.#ident.write() #await_call]);
                 }
                 else {
                     // Bare field
