@@ -49,7 +49,7 @@ impl<'a> FXCodeGenSync<'a> {
         helper_ident: &syn::Ident,
         helper_vis: &syn::Visibility,
         attributes_fn: TokenStream,
-        no_lifetime: bool,
+        with_lifetime: bool,
         span: Span,
     ) -> darling::Result<FXFnConstructor> {
         let mut helper_ident = helper_ident.clone();
@@ -61,11 +61,12 @@ impl<'a> FXCodeGenSync<'a> {
         let rwlock_guard = implementor.rwlock_read_guard(span)?;
         let await_call = implementor.await_call(span);
         let read_method = self.read_method_name(fctx, false, span);
-        let lifetime = if no_lifetime {
-            quote![]
-        }
-        else {
-            quote_spanned! {span=> 'fx_reader_lifetime}
+        let mut lock_guard_params = Vec::new();
+
+        if with_lifetime {
+            let lifetime = quote_spanned! {span=> 'fx_read_lifetime};
+            mc.set_self_lifetime(lifetime.clone());
+            lock_guard_params.push(lifetime);
         };
 
         mc.set_vis(helper_vis.clone())
@@ -89,20 +90,23 @@ impl<'a> FXCodeGenSync<'a> {
                         .with_span(&span),
                 )?;
 
-            mc.set_self_lifetime(lifetime.clone());
-            mc.set_ret_type(fctx.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard<#lifetime, #ty> })?);
-            mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method(#self_rc)#await_call});
+            lock_guard_params.push(ty.to_token_stream());
+            mc.set_ret_type(
+                fctx.fallible_return_type(fctx, quote_spanned! {span=> #mapped_guard< #(#lock_guard_params),* > })?,
+            )
+            .set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method(#self_rc)#await_call});
         }
         else if *optional {
             let opt_span = optional.final_span();
             let ty = quote_spanned![opt_span=> ::std::option::Option<#ty>];
-            mc.set_ret_type(quote_spanned! {span=> #rwlock_guard<#lifetime, #ty> });
-            mc.set_self_lifetime(lifetime);
-            mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method()#await_call});
+            lock_guard_params.push(ty);
+            mc.set_ret_type(quote_spanned! {span=> #rwlock_guard< #(#lock_guard_params),* > })
+                .set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method()#await_call});
         }
         else {
-            mc.set_ret_type(quote_spanned! {span=> #rwlock_guard<#ty> });
-            mc.set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method()#await_call});
+            lock_guard_params.push(ty.to_token_stream());
+            mc.set_ret_type(quote_spanned! {span=> #rwlock_guard< #(#lock_guard_params),* > })
+                .set_ret_stmt(quote_spanned! {span=> self.#ident.#read_method()#await_call});
         }
 
         Ok(mc)
@@ -262,7 +266,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                     fctx.accessor_ident(),
                     fctx.accessor_visibility(),
                     fctx.helper_attributes_fn(FXHelperKind::Accessor, FXInlining::Always, span),
-                    is_copy || is_clone,
+                    !(is_copy || is_clone),
                     lock.final_span(),
                 )?
             }
@@ -529,7 +533,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 fctx.reader_ident(),
                 fctx.reader_visibility(),
                 fctx.helper_attributes_fn(FXHelperKind::Reader, FXInlining::Always, span),
-                false,
+                true,
                 span,
             )
             .map(Some)
@@ -548,32 +552,29 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
             let mut ret_ty = fctx.ty().to_token_stream();
             let implementor = fctx.impl_details();
             let await_call = implementor.await_call(span);
+            let lifetime = quote_spanned! {span=> 'fx_writer_lifetime};
 
             mc.set_vis(fctx.writer_visibility())
                 .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Writer, FXInlining::Always, span))?
-                .set_async(fctx.mode_async());
+                .set_async(fctx.mode_async())
+                .set_self_lifetime(lifetime.clone());
 
             let lazy = fctx.lazy();
 
             if *lazy {
                 let lazy_span = lazy.final_span();
-                let lifetime = quote_spanned! {lazy_span=> 'fx_writer_lifetime};
                 let fx_wrlock_guard = implementor.fx_mapped_write_guard(lazy_span)?;
                 let builder_wrapper_type = self.builder_wrapper_type(fctx, false)?;
 
-                mc.set_self_lifetime(lifetime.clone());
                 mc.set_ret_type(quote_spanned! {span=> #fx_wrlock_guard<#lifetime, #builder_wrapper_type>});
                 mc.set_ret_stmt(quote_spanned! {span=> self.#ident.write()#await_call});
             }
             else {
                 let wrlock_guard = implementor.rwlock_write_guard(span)?;
-                let optional = fctx.optional();
 
-                if *optional {
-                    ret_ty = quote_spanned! {optional.final_span()=> ::std::option::Option<#ret_ty>};
-                }
+                ret_ty = self.maybe_optional(fctx, ret_ty);
 
-                mc.set_ret_type(quote_spanned! {span=> #wrlock_guard<#ret_ty>});
+                mc.set_ret_type(quote_spanned! {span=> #wrlock_guard<#lifetime, #ret_ty>});
                 mc.set_ret_stmt(quote_spanned! {span=> self.#ident.write()#await_call});
             }
 
