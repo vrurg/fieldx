@@ -113,11 +113,11 @@ where
         })
     }
 
-    pub fn user_struct(&self) -> Ref<FXStructConstructor> {
+    pub fn user_struct<'a>(&'a self) -> Ref<'a, FXStructConstructor> {
         self.user_struct.borrow()
     }
 
-    pub fn user_struct_mut(&self) -> RefMut<FXStructConstructor> {
+    pub fn user_struct_mut<'a>(&'a self) -> RefMut<'a, FXStructConstructor> {
         self.user_struct.borrow_mut()
     }
 
@@ -127,11 +127,11 @@ where
             .expect("Context object is gone while trying to upgrade a weak reference")
     }
 
-    pub fn impl_ctx(&self) -> Ref<ImplCtx> {
+    pub fn impl_ctx<'a>(&'a self) -> Ref<'a, ImplCtx> {
         self.impl_ctx.borrow()
     }
 
-    pub fn impl_ctx_mut(&self) -> RefMut<ImplCtx> {
+    pub fn impl_ctx_mut<'a>(&'a self) -> RefMut<'a, ImplCtx> {
         self.impl_ctx.borrow_mut()
     }
 

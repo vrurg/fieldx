@@ -61,7 +61,7 @@ impl FXDeriveMacroCtx {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn shadow_struct(&self) -> darling::Result<Ref<FXStructConstructor>> {
+    pub(crate) fn shadow_struct<'a>(&'a self) -> darling::Result<Ref<'a, FXStructConstructor>> {
         let sstruct = self.shadow_struct.borrow();
         if sstruct.is_none() {
             return Err(darling::Error::custom("Shadow struct is not set yet"));
@@ -70,7 +70,7 @@ impl FXDeriveMacroCtx {
     }
 
     #[cfg(feature = "serde")]
-    pub(crate) fn shadow_struct_mut(&self) -> darling::Result<RefMut<FXStructConstructor>> {
+    pub(crate) fn shadow_struct_mut<'a>(&'a self) -> darling::Result<RefMut<'a, FXStructConstructor>> {
         let sstruct = self.shadow_struct.borrow_mut();
         if sstruct.is_none() {
             return Err(darling::Error::custom("Shadow struct is not set yet"));
@@ -79,7 +79,7 @@ impl FXDeriveMacroCtx {
     }
 
     #[inline(always)]
-    pub(crate) fn copyable_types(&self) -> std::cell::Ref<Vec<syn::Type>> {
+    pub(crate) fn copyable_types<'a>(&'a self) -> std::cell::Ref<'a, Vec<syn::Type>> {
         self.copyable_types.borrow()
     }
 
@@ -124,11 +124,11 @@ impl FXDeriveMacroCtx {
         Ok(self)
     }
 
-    pub(crate) fn builder_struct(&self) -> darling::Result<Ref<FXStructConstructor>> {
+    pub(crate) fn builder_struct<'a>(&'a self) -> darling::Result<Ref<'a, FXStructConstructor>> {
         Ok(self._builder_struct()?.borrow())
     }
 
-    pub(crate) fn builder_struct_mut(&self) -> darling::Result<RefMut<FXStructConstructor>> {
+    pub(crate) fn builder_struct_mut<'a>(&'a self) -> darling::Result<RefMut<'a, FXStructConstructor>> {
         Ok(self._builder_struct()?.borrow_mut())
     }
 

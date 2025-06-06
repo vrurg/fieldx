@@ -304,7 +304,7 @@ where
         *self.default_expr.borrow_mut() = Some(expr.into());
     }
 
-    pub fn default_expr(&self) -> Ref<Option<FXToksMeta>> {
+    pub fn default_expr<'a>(&'a self) -> Ref<'a, Option<FXToksMeta>> {
         self.default_expr.borrow()
     }
 
@@ -314,7 +314,7 @@ where
     }
 
     #[cfg(feature = "serde")]
-    pub fn shadow_default_expr(&self) -> Ref<Option<FXToksMeta>> {
+    pub fn shadow_default_expr<'a>(&'a self) -> Ref<'a, Option<FXToksMeta>> {
         self.shadow_default_expr.borrow()
     }
 
