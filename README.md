@@ -2,7 +2,7 @@
 ![License](https://img.shields.io/github/license/vrurg/fieldx)
 ![Crates.io Version](https://img.shields.io/crates/v/fieldx)
 
-# fieldx v0.1.17
+# fieldx v0.1.18
 
 ## FieldX
 
@@ -467,7 +467,7 @@ by the user; `O` is the original struct type.
 | Field Parameters | Plain Type | Sync Type | Async Type |
 |------------------|---------------|-----------|-----------|
 | `lazy` | `OnceCell<T>` | [`FXProxySync<O, T>`] | [`FXProxyAsync<O,T>`] |
-| `optional` (also activated with `clearer` and `proxy`) | `Option<T>` | [`FXRwLockSync<Option<T>>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<Option<T>>`][`async::FXRwLockAsync`] |
+| `optional` (also activated with `clearer` and `predicate`) | `Option<T>` | [`FXRwLockSync<Option<T>>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<Option<T>>`][`async::FXRwLockAsync`] |
 | `lock`, `reader` and/or `writer` | N/A | [`FXRwLockSync<T>`][`sync::FXRwLockSync`] | [`FXRwLockAsync<T>`][`async::FXRwLockAsync`] |
 
 Apparently, skipped fields retain their original type. Sure enough, if such a field is of non-`Send` or non-`Sync`
