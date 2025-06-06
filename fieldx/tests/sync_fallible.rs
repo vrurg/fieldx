@@ -45,7 +45,7 @@ impl<const FAIL: bool> Foo<FAIL> {
 
 #[test]
 fn fallible_ok() -> Result<(), Box<dyn std::error::Error>> {
-    let foo = Foo::<false>::new();
+    let mut foo = Foo::<false>::new();
 
     assert!(*foo.ok()? == -42);
 
@@ -60,7 +60,7 @@ fn fallible_ok() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn fallible_error() -> Result<(), Box<dyn std::error::Error>> {
-    let foo = Foo::<true>::new();
+    let mut foo = Foo::<true>::new();
 
     assert!(foo.ok().is_err());
     assert_eq!(*foo.ok().unwrap_err(), String::from("will never be there"));

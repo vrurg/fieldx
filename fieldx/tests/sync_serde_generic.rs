@@ -90,7 +90,7 @@ where
 
 #[test]
 fn basics() {
-    let foo = Foo::builder().simple(666.13).build().expect("Foo builder failed");
+    let mut foo = Foo::builder().simple(666.13).build().expect("Foo builder failed");
 
     let json = serde_json::to_string(&foo).expect("Foo serialization failure");
 

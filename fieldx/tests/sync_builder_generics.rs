@@ -55,7 +55,7 @@ impl Newish for String {
 
 #[test]
 fn basics() {
-    let foo = Foo::<String>::builder()
+    let mut foo = Foo::<String>::builder()
         .foo("це користувацьке значення".into())
         .real(12u16)
         .build()

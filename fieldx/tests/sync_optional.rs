@@ -43,7 +43,7 @@ fn it_is_optional() {
 
 #[test]
 fn non_optional() {
-    let foo = Foo::new();
+    let mut foo = Foo::new();
     assert_eq!(foo.non_optional(), 42);
     foo.clear_non_optional();
     assert_eq!(foo.non_optional(), 42);

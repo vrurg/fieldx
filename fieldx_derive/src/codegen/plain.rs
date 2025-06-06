@@ -119,15 +119,6 @@ impl<'a> FXCodeGenPlain<'a> {
             ret_type
         }
     }
-
-    fn get_or_init_method(&self, fctx: &FXDeriveFieldCtx, span: &Span) -> TokenStream {
-        if *fctx.fallible() {
-            quote_spanned! {*span=> get_or_try_init}
-        }
-        else {
-            quote_spanned! {*span=> get_or_init}
-        }
-    }
 }
 
 impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
@@ -167,17 +158,13 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         })
     }
 
+    #[inline(always)]
     fn field_lazy_initializer(
         &self,
         fctx: &FXDeriveFieldCtx,
         mc: &mut FXFnConstructor,
     ) -> darling::Result<TokenStream> {
-        let lazy_name = fctx.lazy_ident();
-        let span = mc.span();
-        let init_method = self.get_or_init_method(fctx, &span);
-        self.maybe_ref_counted_self(fctx, mc)?;
-        let builder_self = mc.self_maybe_rc();
-        Ok(quote_spanned! {span=> .#init_method (|| #builder_self.#lazy_name() ) })
+        self.field_simple_lazy_initializer(fctx, mc)
     }
 
     fn field_accessor(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
@@ -221,7 +208,16 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                     fctx.fallible_return_type(fctx, quote_spanned! {span=> #reference #ty})?
                 };
                 mc.set_ret_type(ret_type);
-                mc.set_ret_stmt(fctx.fallible_ok_return(&quote_spanned! {span=> #dereference #ret #shortcut #method}));
+                if accessor_mode.is_none() {
+                    // When no accessor mode is set by user there is no need to wrap the return expression into Ok()
+                    // for fallibles because the return error type is what the builder method would return.
+                    mc.set_ret_stmt(quote_spanned! {span=> #ret});
+                }
+                else {
+                    mc.set_ret_stmt(
+                        fctx.fallible_ok_return(&quote_spanned! {span=> #dereference #ret #shortcut #method}),
+                    );
+                }
             }
             else {
                 let mut ty = fctx.ty().to_token_stream();
@@ -232,7 +228,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                     let inner_mut_span = inner_mut.final_span();
                     let (deref, ty_tok) = if is_clone || is_copy {
                         // With copy/clone we don't return Ref
-                        (quote![*], quote_spanned![inner_mut_span=> #ty])
+                        (quote_spanned![inner_mut_span=> *], quote_spanned![inner_mut_span=> #ty])
                     }
                     else {
                         (quote![], self.inner_mut_return_type(fctx, &mut mc, ty))
@@ -274,18 +270,13 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                 self.maybe_ref_counted_self(fctx, &mut mc)?;
                 let lazy_init = self.field_lazy_initializer(fctx, &mut mc)?;
                 let accessor = self.maybe_inner_mut_accessor(fctx, &mut mc);
-                let mut return_stmt = self.maybe_inner_mut_map(
+                let return_stmt = self.maybe_inner_mut_map(
                     fctx,
                     &mc,
                     accessor.clone(),
                     Some(quote_spanned! {span=> .get_mut().unwrap()}),
                 );
-                let mut shortcut = quote![];
-
-                if *fctx.fallible() {
-                    return_stmt = quote_spanned! {span=> Ok(#return_stmt) };
-                    shortcut = quote_spanned![span=> ?];
-                }
+                let shortcut = fctx.fallible_shortcut();
 
                 mc.add_statement(quote_spanned! {span=>
                     let _ = #accessor #lazy_init #shortcut;
@@ -301,7 +292,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                     fctx.fallible_return_type(fctx, quote_spanned! {span=> &mut #ty})?
                 };
                 mc.set_ret_type(ret_type);
-                mc.set_ret_stmt(quote_spanned! {span=> #return_stmt });
+                mc.set_ret_stmt(fctx.fallible_ok_return(&return_stmt));
             }
             else {
                 let ty = self.maybe_optional(fctx, ty);
@@ -391,6 +382,7 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                 .add_attribute_toks(fctx.helper_attributes_fn(FXHelperKind::Setter, FXInlining::Always, span))?;
 
             if *lazy {
+                let lazy_span = lazy.final_span();
                 let accessor = if *inner_mut {
                     let inner_mut_span = inner_mut.final_span();
                     let accessor_name = format_ident!("{}_ref", ident, span = inner_mut_span);
@@ -404,12 +396,12 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                 };
 
                 mc.set_self_mut(true);
-                mc.set_ret_type(quote_spanned! {span=> ::std::option::Option<#ty>});
+                mc.set_ret_type(quote_spanned! {lazy_span=> ::std::option::Option<#ty>});
                 mc.add_statement(quote_spanned! {span=>
                     let old = #accessor.take();
                     let _ = #accessor.set(#value_tok);
                 });
-                mc.set_ret_stmt(quote_spanned! {span=> old });
+                mc.set_ret_stmt(quote_spanned! {span=> old});
             }
             else {
                 mc.set_ret_type(self.maybe_optional(fctx, ty));

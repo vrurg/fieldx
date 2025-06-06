@@ -4,6 +4,9 @@ use fieldx::fxstruct;
 struct Foo {
     #[fieldx(get(as_ref), set(into))]
     foo: String,
+
+    #[fieldx(get(as_ref), default("default".to_string()))]
+    with_default: String,
 }
 
 #[fxstruct]
@@ -18,6 +21,7 @@ fn it_is_optional() {
     assert_eq!(foo.foo(), None);
     foo.set_foo("manual");
     assert_eq!(foo.foo(), Some(&"manual".to_string()));
+    assert_eq!(foo.with_default(), Some(&"default".to_string()));
 
     let mut bar = Bar::new();
     assert_eq!(bar.bar(), None);

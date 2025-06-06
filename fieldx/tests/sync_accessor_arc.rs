@@ -33,7 +33,7 @@ struct Foo {
     #[fieldx(reader, writer("write_lb"), default(String::from("protected")), builder(off))]
     locked_bar: String,
 
-    #[fieldx(lazy, get_mut, builder(off))]
+    #[fieldx(lazy, inner_mut, get_mut, builder(off))]
     queue: Vec<String>,
 }
 

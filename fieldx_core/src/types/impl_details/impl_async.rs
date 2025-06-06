@@ -26,6 +26,12 @@ impl<ImplCtx> FXImplDetails<ImplCtx> for FXAsyncImplementor
 where
     ImplCtx: FXImplementationContext,
 {
+    fn fieldx_impl_mod(&self, span: Span) -> TokenStream {
+        quote_spanned! {span=>
+            ::fieldx::r#async
+        }
+    }
+
     fn field_simple_proxy_type(&self, span: Span) -> TokenStream {
         quote_spanned![span=> ::fieldx::r#async::OnceCell]
     }

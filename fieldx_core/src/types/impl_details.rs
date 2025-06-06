@@ -16,6 +16,7 @@ pub trait FXImplDetails<ImplCtx>: Debug
 where
     ImplCtx: FXImplementationContext,
 {
+    fn fieldx_impl_mod(&self, span: Span) -> TokenStream;
     fn await_call(&self, span: Span) -> TokenStream;
     fn ref_count_strong(&self, span: Span) -> TokenStream;
     fn ref_count_weak(&self, span: Span) -> TokenStream;
@@ -37,6 +38,10 @@ impl<ImplCtx> FXImplDetails<ImplCtx> for Box<dyn FXImplDetails<ImplCtx>>
 where
     ImplCtx: FXImplementationContext,
 {
+    fn fieldx_impl_mod(&self, span: Span) -> TokenStream {
+        self.as_ref().fieldx_impl_mod(span)
+    }
+
     fn await_call(&self, span: Span) -> TokenStream {
         self.as_ref().await_call(span)
     }

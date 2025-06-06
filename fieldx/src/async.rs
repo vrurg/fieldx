@@ -18,3 +18,13 @@ pub use tokio::sync::RwLockMappedWriteGuard;
 pub use tokio::sync::RwLockReadGuard;
 #[doc(hidden)]
 pub use tokio::sync::RwLockWriteGuard;
+
+#[inline(always)]
+pub fn new_lazy_container<T>(value: Option<T>) -> OnceCell<T> {
+    if let Some(v) = value {
+        OnceCell::from(v)
+    }
+    else {
+        OnceCell::new()
+    }
+}

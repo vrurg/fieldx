@@ -57,7 +57,7 @@ impl Foo {
 
 #[tokio::test]
 async fn non_threaded() {
-    let foo_async = Foo::new();
+    let mut foo_async = Foo::new();
 
     assert!(!foo_async.has_foo(), "foo is not initialized yet");
     assert_eq!(*foo_async.foo().await, "Foo with bar=42".to_string(), "built foo");

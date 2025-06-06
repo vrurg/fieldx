@@ -5,7 +5,7 @@ struct Foo {
     #[fieldx(lazy, predicate)]
     lazish: String,
 
-    #[fieldx(predicate)]
+    #[fieldx(predicate, get)]
     std: String,
 
     #[fieldx(lazy, inner_mut)]

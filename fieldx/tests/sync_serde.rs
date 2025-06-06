@@ -75,7 +75,7 @@ impl Foo {
 
 #[test]
 fn basics() {
-    let foo = Foo::builder()
+    let mut foo = Foo::builder()
         .simple(666.13)
         .modifiable("from builder".to_string())
         .build()

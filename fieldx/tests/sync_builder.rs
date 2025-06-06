@@ -43,7 +43,7 @@ mod foo {
 
 #[test]
 fn basics() {
-    let foo = foo::Foo::builder()
+    let mut foo = foo::Foo::builder()
         .foo("це користувацьке значення".to_string())
         .real(1u16)
         .locked_bar("custom set")
@@ -103,7 +103,7 @@ fn empties() {
         "lazy field gets a default if not set"
     );
 
-    let foo = foo::Foo::builder()
+    let mut foo = foo::Foo::builder()
         .lazy_default("non-lazy, non-default".to_string())
         .modifiable("non-skippable")
         .build()

@@ -34,6 +34,8 @@ use syn::parse_quote_spanned;
 use syn::spanned::Spanned;
 pub(crate) use sync::FXCodeGenSync;
 
+#[allow(unused)]
+use crate::util::dump_tt;
 use crate::util::std_default_expr_toks;
 
 #[derive(PartialEq, Clone, Debug)]

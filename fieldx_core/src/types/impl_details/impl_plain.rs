@@ -17,6 +17,12 @@ impl<ImplCtx> FXImplDetails<ImplCtx> for FXPlainImplementor
 where
     ImplCtx: FXImplementationContext,
 {
+    fn fieldx_impl_mod(&self, span: Span) -> TokenStream {
+        quote_spanned! {span=>
+            ::fieldx::plain
+        }
+    }
+
     fn field_simple_proxy_type(&self, span: Span) -> TokenStream {
         quote_spanned![span=> ::fieldx::plain::OnceCell]
     }

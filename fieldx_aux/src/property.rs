@@ -372,3 +372,12 @@ impl FXSetState for FXProp<bool> {
         *self
     }
 }
+
+impl<T> FXSetState for FXProp<T>
+where
+    T: FXSetState,
+{
+    fn is_set(&self) -> FXProp<bool> {
+        self.value.is_set().respan(self.span)
+    }
+}

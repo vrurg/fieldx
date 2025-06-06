@@ -12,7 +12,7 @@ struct Bar {
 
 #[fxstruct(sync, rc, builder)]
 struct Foo {
-    #[fieldx(lazy, get, get_mut)]
+    #[fieldx(lazy, lock, get, get_mut)]
     bar: Arc<Bar>,
 }
 

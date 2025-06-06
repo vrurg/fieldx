@@ -15,7 +15,7 @@ where
     pub pi: f32,
 
     // Let's try a charged but not lazy field
-    #[fieldx(clearer, predicate, set, default("bazzification".into()))]
+    #[fieldx(clearer, predicate, get, set, default("bazzification".into()))]
     baz: String,
 
     #[fieldx(lazy, clearer, rename("piquant"))]

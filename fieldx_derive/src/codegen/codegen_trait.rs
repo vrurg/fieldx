@@ -277,7 +277,9 @@ pub(crate) trait FXCodeGenContextual {
 
     fn accessor_elements(&self, fctx: &FXDeriveFieldCtx) -> FXAccessorElements {
         let accessor_mode = fctx.accessor_mode();
-        let span = accessor_mode.final_span();
+        let span = accessor_mode
+            .orig_span()
+            .unwrap_or_else(|| fctx.accessor().final_span());
         match **accessor_mode {
             FXAccessorMode::Copy => FXAccessorElements {
                 dereference: quote_spanned![span=> *],
@@ -297,6 +299,19 @@ pub(crate) trait FXCodeGenContextual {
                 ..Default::default()
             },
         }
+    }
+
+    fn field_simple_lazy_initializer(
+        &self,
+        fctx: &FXDeriveFieldCtx,
+        mc: &mut FXFnConstructor,
+    ) -> darling::Result<TokenStream> {
+        let lazy_name = fctx.lazy_ident();
+        let span = mc.span();
+        let init_method = self.get_or_init_method(fctx, &span);
+        self.maybe_ref_counted_self(fctx, mc)?;
+        let builder_self = mc.self_maybe_rc();
+        Ok(quote_spanned! {span=> .#init_method (|| #builder_self.#lazy_name() ) })
     }
 
     fn field_builder(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>> {
@@ -464,6 +479,15 @@ pub(crate) trait FXCodeGenContextual {
                 fctx,
                 FXValueRepr::Versatile(quote_spanned![span=> self.#field_ident.take().unwrap()].into()),
             ))
+        }
+    }
+
+    fn get_or_init_method(&self, fctx: &FXDeriveFieldCtx, span: &Span) -> TokenStream {
+        if *fctx.fallible() {
+            quote_spanned! {*span=> get_or_try_init}
+        }
+        else {
+            quote_spanned! {*span=> get_or_init}
         }
     }
 

@@ -15,7 +15,7 @@ struct Dummy;
 
 #[test]
 fn non_threaded() {
-    let sync = Foo::<Dummy>::new();
+    let mut sync = Foo::<Dummy>::new();
 
     assert!(!sync.has_foo(), "foo is not initialized yet");
     assert_eq!(*sync.foo(), "Foo with bar=42".to_string(), "built foo");

@@ -18,3 +18,13 @@ pub use parking_lot::MappedRwLockWriteGuard;
 pub use parking_lot::RwLockReadGuard;
 #[doc(hidden)]
 pub use parking_lot::RwLockWriteGuard;
+
+#[inline(always)]
+pub fn new_lazy_container<T>(value: Option<T>) -> OnceCell<T> {
+    if let Some(v) = value {
+        OnceCell::from(v)
+    }
+    else {
+        OnceCell::new()
+    }
+}

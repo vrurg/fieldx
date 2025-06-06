@@ -113,7 +113,9 @@ impl FXFnConstructor {
     }
 
     pub fn add_lifetime(&mut self, lifetime: TokenStream) -> &mut Self {
-        self.lifetimes.push(lifetime);
+        if !lifetime.is_empty() {
+            self.lifetimes.push(lifetime);
+        }
         self
     }
 

@@ -20,13 +20,14 @@ struct Plain {
     #[fieldx(
         clearer,
         predicate,
+        get,
         set,
         default("bazzification".to_string()),
         builder(attributes_fn(allow(dead_code)))
     )]
     baz: String,
 
-    #[fieldx(clearer, predicate, set)]
+    #[fieldx(clearer, predicate, get, set)]
     fubar: f32,
 
     #[fieldx(lazy, clearer, default(Self::default_string()))]
@@ -34,6 +35,9 @@ struct Plain {
 
     #[fieldx(inner_mut, set, get, into)]
     modifiable: String,
+
+    #[fieldx(optional, get, default("all good".to_string()))]
+    optional_default: String,
 }
 
 impl Plain {
@@ -86,6 +90,12 @@ fn basic() {
         plain.lazy_default(),
         "this is default string value",
         "lazy field gets a default if not set"
+    );
+
+    assert_eq!(
+        plain.optional_default(),
+        &Some("all good".to_string()),
+        "optional field gets a default if not set"
     );
 
     let mut plain = Plain::builder()
