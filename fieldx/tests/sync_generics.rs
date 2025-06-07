@@ -85,7 +85,7 @@ fn non_lazy() {
 fn threaded() {
     thread::scope(|s| {
         let thread_count = num_cpus::get() * 2;
-        let sync = Arc::new(Foo::<Dummy>::new());
+        let foo = Arc::new(Foo::<Dummy>::new());
         let wg = sync::WaitGroup::new();
         let stop = Arc::new(AtomicBool::new(false));
         let next_bar = Arc::new(Mutex::new(100));
@@ -94,7 +94,7 @@ fn threaded() {
         let mut thandles: Vec<thread::ScopedJoinHandle<()>> = vec![];
 
         for thread_id in 0..thread_count {
-            let scopy = Arc::clone(&sync);
+            let thread_foo = Arc::clone(&foo);
             let twg = wg.clone();
             let tstop = stop.clone();
             let texpect = expected_foo.clone();
@@ -104,23 +104,33 @@ fn threaded() {
             thandles.push(s.spawn(move |_| {
                 twg.wait();
                 let mut i = 0;
-                while !tstop.load(Ordering::SeqCst) {
+                'main: loop {
                     i += 1;
-                    eprintln!("[{:>4}] {:?}", thread_id, scopy.foo().clone());
-                    assert_eq!(*scopy.foo(), (*texpect.lock()).clone(), "foo value");
+                    eprintln!("[{:>4}] {:?}", thread_id, thread_foo.foo().clone());
+                    assert_eq!(*thread_foo.foo(), (*texpect.lock().clone()), "foo value");
                     if (i % 13) == 0 {
-                        eprintln!("Time to clear for {} since {} % 13 == {}", thread_id, i, i % 13);
-                        // Prevent other threads from accessing foo untils we're done updating bar
-                        let lock_foo = scopy.write_foo();
+                        // Prevent other threads from accessing foo until we're done updating bar
+                        let lock_foo = thread_foo.write_foo();
+                        eprintln!("[{:>4}] Time to clear since {} % 13 == {}", thread_id, i, i % 13);
                         let mut wnext = tnext_bar.lock();
                         *wnext += 1;
-                        scopy.set_next_bar(*wnext);
-                        scopy.clear_bar();
-                        assert!(!scopy.has_bar(), "bar is cleared and stays so until foo is unlocked");
+                        thread_foo.set_next_bar(*wnext);
+                        thread_foo.clear_bar();
                         tcleared.fetch_add(1, Ordering::SeqCst);
                         *texpect.lock() = format!("Foo with bar={}", *wnext).to_string();
                         lock_foo.clear();
-                        eprintln!("Now should expect for '{}' // {}", *texpect.lock(), scopy.has_foo());
+                        eprintln!(
+                            "[{:>4}] Now should expect for '{}' // {}",
+                            thread_id,
+                            *texpect.lock(),
+                            thread_foo.has_foo()
+                        );
+
+                        // Ensure that we always perform at least one clear after a build.  This guarantee holds only if
+                        // we check the stop flag here, after incrementing the clear counter.
+                        if tstop.load(Ordering::SeqCst) {
+                            break 'main;
+                        }
                     }
                 }
                 eprintln!("[{thread_id:>4}] done");
@@ -128,17 +138,24 @@ fn threaded() {
         }
 
         wg.wait();
-        std::thread::sleep(time::Duration::from_millis(100));
+
+        // Wait until each thread has performed at least 50 clears on average.
+        // Avoid using exact numbers to introduce more randomness.
+        while cleared.load(Ordering::Relaxed) < thread_count as i32 * 50 {
+            std::thread::sleep(time::Duration::from_millis(10));
+        }
+
         stop.store(true, Ordering::SeqCst);
         for thandle in thandles {
-            thandle.join().expect("Thread join failed");
+            thandle.join().expect("thread join failed");
         }
         // There is a chance for two or more consecutive clears to take place before a build is invoked.
-        let cleared = cleared.load(Ordering::SeqCst);
-        let built = sync.bar_builds();
+        let clear_count = cleared.load(Ordering::SeqCst);
+        let build_count = foo.bar_builds();
+        eprintln!("clears: {clear_count}, builds: {build_count}");
         assert!(
-            cleared >= built,
-            "there were no more builds than clears ({built} vs. {cleared})",
+            clear_count >= build_count,
+            "there were less clears than builds ({clear_count} < {build_count}) - this must not happen."
         );
     })
     .unwrap();

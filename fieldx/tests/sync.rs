@@ -139,7 +139,7 @@ fn threaded() {
         wg.wait();
 
         // Wait until each thread has performed at least 50 clears on average.
-        // Avoid using exact numbers to introduce randomness.
+        // Avoid using exact numbers to introduce more randomness.
         while cleared.load(Ordering::Relaxed) < thread_count as i32 * 50 {
             std::thread::sleep(time::Duration::from_millis(10));
         }
