@@ -71,7 +71,7 @@ impl<S: FXStruct, T, E: Debug> FXBuilderWrapperSync for FXBuilderFallible<S, T, 
 }
 
 /// Container type for lazy fields
-pub struct FXProxySync<B>
+pub struct FXProxy<B>
 where
     B: FXBuilderWrapperSync,
 {
@@ -80,19 +80,19 @@ where
     builder: RwLock<Option<B>>,
 }
 
-/// Write-lock returned by [`FXProxySync::write`] method
+/// Write-lock returned by [`FXProxy::write`] method
 ///
-/// This type, in cooperation with the [`FXProxySync`] type, takes care of safely updating lazy field status when data
+/// This type, in cooperation with the [`FXProxy`] type, takes care of safely updating lazy field status when data
 /// is being stored.
-pub struct FXWrLockGuardSync<'a, B>
+pub struct FXWriter<'a, B>
 where
     B: FXBuilderWrapperSync,
 {
     lock:    RefCell<RwLockWriteGuard<'a, Option<B::Value>>>,
-    fxproxy: &'a FXProxySync<B>,
+    fxproxy: &'a FXProxy<B>,
 }
 
-impl<B, V> Debug for FXProxySync<B>
+impl<B, V> Debug for FXProxy<B>
 where
     B: FXBuilderWrapperSync<Value = V>,
     V: Debug,
@@ -106,7 +106,7 @@ where
     }
 }
 
-impl<B> FXProxySync<B>
+impl<B> FXProxy<B>
 where
     B: FXBuilderWrapperSync,
 {
@@ -199,8 +199,8 @@ where
     }
 
     /// Provides write-lock to directly store the value. Never calls the lazy builder.
-    pub fn write<'a>(&'a self) -> FXWrLockGuardSync<'a, B> {
-        FXWrLockGuardSync::<'a, B>::new(self.value.write(), self)
+    pub fn write<'a>(&'a self) -> FXWriter<'a, B> {
+        FXWriter::<'a, B>::new(self.value.write(), self)
     }
 
     fn clear_with_lock(&self, wguard: &mut RwLockWriteGuard<Option<B::Value>>) -> Option<B::Value> {
@@ -216,12 +216,12 @@ where
 }
 
 #[allow(private_bounds)]
-impl<'a, B> FXWrLockGuardSync<'a, B>
+impl<'a, B> FXWriter<'a, B>
 where
     B: FXBuilderWrapperSync,
 {
     #[doc(hidden)]
-    pub(crate) fn new(lock: RwLockWriteGuard<'a, Option<B::Value>>, fxproxy: &'a FXProxySync<B>) -> Self {
+    pub(crate) fn new(lock: RwLockWriteGuard<'a, Option<B::Value>>, fxproxy: &'a FXProxy<B>) -> Self {
         let lock = RefCell::new(lock);
         Self { lock, fxproxy }
     }
@@ -238,7 +238,7 @@ where
     }
 }
 
-impl<B, V> Clone for FXProxySync<B>
+impl<B, V> Clone for FXProxy<B>
 where
     B: FXBuilderWrapperSync<Value = V> + Clone,
     V: Clone,
@@ -254,7 +254,7 @@ where
     }
 }
 
-impl<B, V> PartialEq for FXProxySync<B>
+impl<B, V> PartialEq for FXProxy<B>
 where
     B: FXBuilderWrapperSync<Value = V>,
     V: PartialEq,
@@ -266,7 +266,7 @@ where
     }
 }
 
-impl<B, V> Eq for FXProxySync<B>
+impl<B, V> Eq for FXProxy<B>
 where
     B: FXBuilderWrapperSync<Value = V>,
     V: Eq,

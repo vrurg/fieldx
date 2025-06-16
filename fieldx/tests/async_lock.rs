@@ -1,9 +1,9 @@
 #![cfg(feature = "async")]
-use fieldx::r#async::FXRwLockAsync;
+use fieldx::r#async::FXRwLock;
 
 #[tokio::test]
 async fn rwlock() {
-    let rwlock = FXRwLockAsync::new("initial".to_string());
+    let rwlock = FXRwLock::new("initial".to_string());
 
     assert_eq!(*rwlock.read().await, "initial");
 

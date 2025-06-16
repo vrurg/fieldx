@@ -1,15 +1,15 @@
 mod fxlock;
 mod fxproxy;
 
-pub use fxlock::FXRwLockAsync;
+pub use fxlock::FXRwLock;
 #[doc(hidden)]
 pub use fxproxy::FXBuilderFallible;
 #[doc(hidden)]
 pub use fxproxy::FXBuilderInfallible;
-pub use fxproxy::FXProxyAsync;
+pub use fxproxy::FXProxy;
 pub use fxproxy::FXProxyReadGuard;
 pub use fxproxy::FXProxyWriteGuard;
-pub use fxproxy::FXWrLockGuardAsync;
+pub use fxproxy::FXWriter;
 pub use tokio::sync::OnceCell;
 #[doc(hidden)]
 pub use tokio::sync::RwLock;

@@ -1,15 +1,15 @@
 pub mod fxlock;
 pub mod fxproxy;
 
-pub use fxlock::FXRwLockSync;
+pub use fxlock::FXRwLock;
 #[doc(hidden)]
 pub use fxproxy::FXBuilderFallible;
 #[doc(hidden)]
 pub use fxproxy::FXBuilderInfallible;
+pub use fxproxy::FXProxy;
 pub use fxproxy::FXProxyReadGuard;
-pub use fxproxy::FXProxySync;
 pub use fxproxy::FXProxyWriteGuard;
-pub use fxproxy::FXWrLockGuardSync;
+pub use fxproxy::FXWriter;
 pub use once_cell::sync::OnceCell;
 #[doc(hidden)]
 pub use parking_lot::MappedRwLockReadGuard;

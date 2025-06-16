@@ -28,7 +28,7 @@ where
     }
 
     fn field_lock_proxy_type(&self, span: Span) -> Result<TokenStream> {
-        Ok(quote_spanned![span=> ::fieldx::sync::FXProxySync])
+        Ok(quote_spanned![span=> ::fieldx::sync::FXProxy])
     }
 
     fn ref_count_strong(&self, span: Span) -> TokenStream {
@@ -40,7 +40,7 @@ where
     }
 
     fn fx_mapped_write_guard(&self, span: Span) -> Result<TokenStream> {
-        Ok(quote_spanned![span=> ::fieldx::sync::FXWrLockGuardSync])
+        Ok(quote_spanned![span=> ::fieldx::sync::FXWriter])
     }
 
     fn fx_fallible_builder_wrapper(&self, span: Span) -> Result<TokenStream> {
@@ -68,7 +68,7 @@ where
     }
 
     fn rwlock(&self, span: Span) -> Result<TokenStream> {
-        Ok(quote_spanned![span=> ::fieldx::sync::FXRwLockSync])
+        Ok(quote_spanned![span=> ::fieldx::sync::FXRwLock])
     }
 
     fn rwlock_read_guard(&self, span: Span) -> Result<TokenStream> {

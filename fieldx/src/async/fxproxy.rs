@@ -85,7 +85,7 @@ where
 }
 
 /// Container type for lazy fields
-pub struct FXProxyAsync<B>
+pub struct FXProxy<B>
 where
     B: FXBuilderWrapperAsync,
 {
@@ -94,19 +94,19 @@ where
     builder: RwLock<Option<B>>,
 }
 
-/// Write-lock returned by [`FXProxyAsync::write`] method
+/// Write-lock returned by [`FXProxy::write`] method
 ///
-/// This type, in cooperation with the [`FXProxyAsync`] type, takes care of safely updating lazy field status when data
+/// This type, in cooperation with the [`FXProxy`] type, takes care of safely updating lazy field status when data
 /// is being stored.
-pub struct FXWrLockGuardAsync<'a, B>
+pub struct FXWriter<'a, B>
 where
     B: FXBuilderWrapperAsync,
 {
     lock:    RefCell<RwLockWriteGuard<'a, Option<B::Value>>>,
-    fxproxy: &'a FXProxyAsync<B>,
+    fxproxy: &'a FXProxy<B>,
 }
 
-impl<B, V> Debug for FXProxyAsync<B>
+impl<B, V> Debug for FXProxy<B>
 where
     B: FXBuilderWrapperAsync<Value = V>,
     V: Debug,
@@ -120,7 +120,7 @@ where
     }
 }
 
-impl<B, E> FXProxyAsync<B>
+impl<B, E> FXProxy<B>
 where
     B: FXBuilderWrapperAsync<Error = E>,
     E: Debug,
@@ -200,8 +200,8 @@ where
     }
 
     /// Provides write-lock to directly store the value. Never calls the lazy builder.
-    pub async fn write<'a>(&'a self) -> FXWrLockGuardAsync<'a, B> {
-        FXWrLockGuardAsync::<'a, B>::new(self.value.write().await, self)
+    pub async fn write<'a>(&'a self) -> FXWriter<'a, B> {
+        FXWriter::<'a, B>::new(self.value.write().await, self)
     }
 
     fn clear_with_lock(&self, wguard: &mut RwLockWriteGuard<Option<B::Value>>) -> Option<B::Value> {
@@ -217,12 +217,12 @@ where
 }
 
 #[allow(private_bounds)]
-impl<'a, B> FXWrLockGuardAsync<'a, B>
+impl<'a, B> FXWriter<'a, B>
 where
     B: FXBuilderWrapperAsync,
 {
     #[doc(hidden)]
-    pub fn new(lock: RwLockWriteGuard<'a, Option<B::Value>>, fxproxy: &'a FXProxyAsync<B>) -> Self {
+    pub fn new(lock: RwLockWriteGuard<'a, Option<B::Value>>, fxproxy: &'a FXProxy<B>) -> Self {
         let lock = RefCell::new(lock);
         Self { lock, fxproxy }
     }
@@ -239,7 +239,7 @@ where
     }
 }
 
-impl<B> Clone for FXProxyAsync<B>
+impl<B> Clone for FXProxy<B>
 where
     B: FXBuilderWrapperAsync + Clone,
     B::Value: Clone,

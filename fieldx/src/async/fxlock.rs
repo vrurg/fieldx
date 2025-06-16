@@ -8,9 +8,9 @@ use tokio::sync::RwLock;
 ///
 /// This is a wrapper around [`RwLock`] sync primitive. It provides safe means of cloning the lock
 /// and the data it protects. No other additional functionality is provided.
-pub struct FXRwLockAsync<T>(RwLock<T>);
+pub struct FXRwLock<T>(RwLock<T>);
 
-impl<T> FXRwLockAsync<T> {
+impl<T> FXRwLock<T> {
     #[doc(hidden)]
     pub fn new(value: T) -> Self {
         Self(RwLock::new(value))
@@ -22,7 +22,7 @@ impl<T> FXRwLockAsync<T> {
     }
 }
 
-impl<T> PartialEq for FXRwLockAsync<T>
+impl<T> PartialEq for FXRwLock<T>
 where
     T: PartialEq,
 {
@@ -34,13 +34,13 @@ where
     }
 }
 
-impl<T> From<T> for FXRwLockAsync<T> {
+impl<T> From<T> for FXRwLock<T> {
     fn from(value: T) -> Self {
         Self(RwLock::new(value))
     }
 }
 
-impl<T> Deref for FXRwLockAsync<T> {
+impl<T> Deref for FXRwLock<T> {
     type Target = RwLock<T>;
 
     fn deref(&self) -> &Self::Target {
@@ -48,19 +48,19 @@ impl<T> Deref for FXRwLockAsync<T> {
     }
 }
 
-impl<T> AsRef<RwLock<T>> for FXRwLockAsync<T> {
+impl<T> AsRef<RwLock<T>> for FXRwLock<T> {
     fn as_ref(&self) -> &RwLock<T> {
         &self.0
     }
 }
 
-impl<T> Borrow<RwLock<T>> for FXRwLockAsync<T> {
+impl<T> Borrow<RwLock<T>> for FXRwLock<T> {
     fn borrow(&self) -> &RwLock<T> {
         &self.0
     }
 }
 
-impl<T> Clone for FXRwLockAsync<T>
+impl<T> Clone for FXRwLock<T>
 where
     T: Clone,
 {
@@ -70,7 +70,7 @@ where
     }
 }
 
-impl<T> Debug for FXRwLockAsync<T>
+impl<T> Debug for FXRwLock<T>
 where
     T: Debug,
 {
@@ -79,7 +79,7 @@ where
     }
 }
 
-impl<T: Default> Default for FXRwLockAsync<T> {
+impl<T: Default> Default for FXRwLock<T> {
     fn default() -> Self {
         Self(RwLock::new(T::default()))
     }
