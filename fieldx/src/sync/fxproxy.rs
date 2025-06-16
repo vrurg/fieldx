@@ -1,7 +1,5 @@
 use crate::traits::FXBuilderWrapper;
 use crate::traits::FXStruct;
-use parking_lot::MappedRwLockReadGuard;
-use parking_lot::MappedRwLockWriteGuard;
 use parking_lot::RwLock;
 use parking_lot::RwLockReadGuard;
 use parking_lot::RwLockUpgradableReadGuard;
@@ -13,6 +11,9 @@ use std::fmt::Formatter;
 use std::fmt::{self};
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
+
+pub type FXProxyReadGuard<'a, T> = crate::lock_guards::FXProxyReadGuard<RwLockReadGuard<'a, Option<T>>, T>;
+pub type FXProxyWriteGuard<'a, T> = crate::lock_guards::FXProxyWriteGuard<RwLockWriteGuard<'a, Option<T>>, T>;
 
 #[doc(hidden)]
 pub trait FXBuilderWrapperSync: FXBuilderWrapper {
@@ -168,41 +169,33 @@ where
     /// Lazy-initialize the field if necessary and return lock read guard for the inner value.
     ///
     /// Panics if fallible field builder returns an error.
-    pub fn read<'a>(&'a self, owner: &B::Owner) -> MappedRwLockReadGuard<'a, B::Value> {
-        RwLockReadGuard::map(
-            RwLockUpgradableReadGuard::downgrade(self.read_or_init(owner).unwrap()),
-            |data: &Option<B::Value>| data.as_ref().unwrap(),
-        )
+    pub fn read<'a>(&'a self, owner: &B::Owner) -> FXProxyReadGuard<'a, B::Value> {
+        FXProxyReadGuard::new(RwLockUpgradableReadGuard::downgrade(self.read_or_init(owner).unwrap()))
     }
 
     /// Lazy-initialize the field if necessary and return lock write guard for the inner value.
     ///
     /// Panics if fallible field builder returns an error.
-    pub fn read_mut<'a>(&'a self, owner: &B::Owner) -> MappedRwLockWriteGuard<'a, B::Value> {
-        RwLockWriteGuard::map(
-            RwLockUpgradableReadGuard::upgrade(self.read_or_init(owner).unwrap()),
-            |data: &mut Option<B::Value>| data.as_mut().unwrap(),
-        )
+    pub fn read_mut<'a>(&'a self, owner: &B::Owner) -> FXProxyWriteGuard<'a, B::Value> {
+        FXProxyWriteGuard::new(RwLockUpgradableReadGuard::upgrade(self.read_or_init(owner).unwrap()))
     }
 
     /// Lazy-initialize the field if necessary and return lock read guard for the inner value.
     ///
     /// Return the same error, as fallible field builder if it errors out.
-    pub fn try_read<'a>(&'a self, owner: &B::Owner) -> Result<MappedRwLockReadGuard<'a, B::Value>, B::Error> {
-        Ok(RwLockReadGuard::map(
-            RwLockUpgradableReadGuard::downgrade(self.read_or_init(owner)?),
-            |data: &Option<B::Value>| data.as_ref().unwrap(),
-        ))
+    pub fn try_read<'a>(&'a self, owner: &B::Owner) -> Result<FXProxyReadGuard<'a, B::Value>, B::Error> {
+        Ok(FXProxyReadGuard::new(RwLockUpgradableReadGuard::downgrade(
+            self.read_or_init(owner)?,
+        )))
     }
 
     /// Lazy-initialize the field if necessary and return lock write guard for the inner value.
     ///
     /// Return the same error, as fallible field builder if it errors out.
-    pub fn try_read_mut<'a>(&'a self, owner: &B::Owner) -> Result<MappedRwLockWriteGuard<'a, B::Value>, B::Error> {
-        Ok(RwLockWriteGuard::map(
-            RwLockUpgradableReadGuard::upgrade(self.read_or_init(owner)?),
-            |data: &mut Option<B::Value>| data.as_mut().unwrap(),
-        ))
+    pub fn try_read_mut<'a>(&'a self, owner: &B::Owner) -> Result<FXProxyWriteGuard<'a, B::Value>, B::Error> {
+        Ok(FXProxyWriteGuard::new(RwLockUpgradableReadGuard::upgrade(
+            self.read_or_init(owner)?,
+        )))
     }
 
     /// Provides write-lock to directly store the value. Never calls the lazy builder.
@@ -228,7 +221,7 @@ where
     B: FXBuilderWrapperSync,
 {
     #[doc(hidden)]
-    pub fn new(lock: RwLockWriteGuard<'a, Option<B::Value>>, fxproxy: &'a FXProxySync<B>) -> Self {
+    pub(crate) fn new(lock: RwLockWriteGuard<'a, Option<B::Value>>, fxproxy: &'a FXProxySync<B>) -> Self {
         let lock = RefCell::new(lock);
         Self { lock, fxproxy }
     }

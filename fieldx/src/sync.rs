@@ -6,7 +6,9 @@ pub use fxlock::FXRwLockSync;
 pub use fxproxy::FXBuilderFallible;
 #[doc(hidden)]
 pub use fxproxy::FXBuilderInfallible;
+pub use fxproxy::FXProxyReadGuard;
 pub use fxproxy::FXProxySync;
+pub use fxproxy::FXProxyWriteGuard;
 pub use fxproxy::FXWrLockGuardSync;
 pub use once_cell::sync::OnceCell;
 #[doc(hidden)]
