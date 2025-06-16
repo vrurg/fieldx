@@ -11,9 +11,11 @@ use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 use tokio::sync::RwLock;
-use tokio::sync::RwLockMappedWriteGuard;
 use tokio::sync::RwLockReadGuard;
 use tokio::sync::RwLockWriteGuard;
+
+pub type FXProxyReadGuard<'a, T> = crate::lock_guards::FXProxyReadGuard<RwLockReadGuard<'a, Option<T>>, T>;
+pub type FXProxyWriteGuard<'a, T> = crate::lock_guards::FXProxyWriteGuard<RwLockWriteGuard<'a, Option<T>>, T>;
 
 type FXCallback<S, T> = Box<dyn Fn(&S) -> Pin<Box<dyn Future<Output = T> + Send + '_>> + Send + Sync>;
 
@@ -172,44 +174,29 @@ where
     /// Lazy-initialize the field if necessary and return lock read guard for the inner value.
     ///
     /// Panics if fallible field builder returns an error.
-    pub async fn read<'a>(&'a self, owner: &B::Owner) -> RwLockReadGuard<'a, B::Value> {
-        RwLockReadGuard::map(
-            RwLockWriteGuard::downgrade(self.read_or_init(owner).await.unwrap()),
-            |data: &Option<B::Value>| data.as_ref().unwrap(),
-        )
+    pub async fn read<'a>(&'a self, owner: &B::Owner) -> FXProxyReadGuard<'a, B::Value> {
+        FXProxyReadGuard::new(self.read_or_init(owner).await.unwrap().downgrade())
     }
 
     /// Lazy-initialize the field if necessary and return lock write guard for the inner value.
     ///
     /// Panics if fallible field builder returns an error.
-    pub async fn read_mut<'a>(&'a self, owner: &B::Owner) -> RwLockMappedWriteGuard<'a, B::Value> {
-        RwLockWriteGuard::map(
-            self.read_or_init(owner).await.unwrap(),
-            |data: &mut Option<B::Value>| data.as_mut().unwrap(),
-        )
+    pub async fn read_mut<'a>(&'a self, owner: &B::Owner) -> FXProxyWriteGuard<'a, B::Value> {
+        FXProxyWriteGuard::new(self.read_or_init(owner).await.unwrap())
     }
 
     /// Lazy-initialize the field if necessary and return lock read guard for the inner value.
     ///
     /// Return the same error, as fallible field builder if it errors out.
-    pub async fn try_read<'a>(&'a self, owner: &B::Owner) -> Result<RwLockReadGuard<'a, B::Value>, B::Error> {
-        Ok(RwLockReadGuard::map(
-            RwLockWriteGuard::downgrade(self.read_or_init(owner).await?),
-            |data: &Option<B::Value>| data.as_ref().unwrap(),
-        ))
+    pub async fn try_read<'a>(&'a self, owner: &B::Owner) -> Result<FXProxyReadGuard<'a, B::Value>, B::Error> {
+        Ok(FXProxyReadGuard::new(self.read_or_init(owner).await?.downgrade()))
     }
 
     /// Lazy-initialize the field if necessary and return lock write guard for the inner value.
     ///
     /// Return the same error, as fallible field builder if it errors out.
-    pub async fn try_read_mut<'a>(
-        &'a self,
-        owner: &B::Owner,
-    ) -> Result<RwLockMappedWriteGuard<'a, B::Value>, B::Error> {
-        Ok(RwLockWriteGuard::map(
-            self.read_or_init(owner).await?,
-            |data: &mut Option<B::Value>| data.as_mut().unwrap(),
-        ))
+    pub async fn try_read_mut<'a>(&'a self, owner: &B::Owner) -> Result<FXProxyWriteGuard<'a, B::Value>, B::Error> {
+        Ok(FXProxyWriteGuard::new(self.read_or_init(owner).await?))
     }
 
     /// Provides write-lock to directly store the value. Never calls the lazy builder.

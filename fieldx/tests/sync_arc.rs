@@ -26,7 +26,7 @@ impl Foo {
 fn type_check() {
     let foo: Arc<Foo> = Foo::new();
     {
-        let bar: parking_lot::lock_api::MappedRwLockReadGuard<parking_lot::RawRwLock, Arc<Bar>> = foo.bar();
+        let bar: fieldx::sync::FXProxyReadGuard<Arc<Bar>> = foo.bar();
         let _bar_copy: Weak<Bar> = bar.myself_downgrade();
         assert_eq!(Arc::weak_count(&bar), 2);
     }

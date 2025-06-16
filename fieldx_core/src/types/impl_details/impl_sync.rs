@@ -80,10 +80,10 @@ where
     }
 
     fn rwlock_mapped_read_guard(&self, span: Span) -> Result<TokenStream> {
-        Ok(quote_spanned![span=> ::fieldx::sync::MappedRwLockReadGuard])
+        Ok(quote_spanned![span=> ::fieldx::sync::FXProxyReadGuard])
     }
 
     fn rwlock_mapped_write_guard(&self, span: Span) -> Result<TokenStream> {
-        Ok(quote_spanned![span=> ::fieldx::sync::MappedRwLockWriteGuard])
+        Ok(quote_spanned![span=> ::fieldx::sync::FXProxyWriteGuard])
     }
 }

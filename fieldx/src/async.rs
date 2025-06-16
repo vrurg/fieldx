@@ -7,6 +7,8 @@ pub use fxproxy::FXBuilderFallible;
 #[doc(hidden)]
 pub use fxproxy::FXBuilderInfallible;
 pub use fxproxy::FXProxyAsync;
+pub use fxproxy::FXProxyReadGuard;
+pub use fxproxy::FXProxyWriteGuard;
 pub use fxproxy::FXWrLockGuardAsync;
 pub use tokio::sync::OnceCell;
 #[doc(hidden)]

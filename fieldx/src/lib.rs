@@ -537,6 +537,7 @@
 #[cfg(feature = "async")]
 pub mod r#async;
 pub mod error;
+pub mod lock_guards;
 pub mod plain;
 #[cfg(feature = "sync")]
 pub mod sync;
