@@ -1,6 +1,16 @@
 # Changelog
 
-## [0.1.19] - 2025-06-06
+## [0.2.0-beta.1] - 2025-06-16
+
+### Documentation
+
+- Reflect some of the previous versions changes 
+
+### Testing
+
+- Propagate reace condition fix from sync.rs test to sync_generics.rs 
+
+## [v0.1.19] - 2025-06-06
 
 ### Bug Fixes
 
