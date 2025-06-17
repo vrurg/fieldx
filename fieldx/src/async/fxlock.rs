@@ -2,8 +2,8 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::fmt::Debug;
 use std::ops::Deref;
-use tokio::sync::RwLock;
 
+use super::RwLock;
 /// Lock-protected container
 ///
 /// This is a wrapper around [`RwLock`] sync primitive. It provides safe means of cloning the lock
@@ -27,8 +27,15 @@ where
     T: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
+        #[cfg(feature = "async-tokio")]
         let myguard = self.0.blocking_read();
+        #[cfg(feature = "async-tokio")]
         let otherguard = other.0.blocking_read();
+
+        #[cfg(feature = "async-lock")]
+        let myguard = self.0.read_blocking();
+        #[cfg(feature = "async-lock")]
+        let otherguard = other.0.read_blocking();
 
         myguard.eq(&otherguard)
     }
@@ -65,7 +72,12 @@ where
     T: Clone,
 {
     fn clone(&self) -> Self {
+        #[cfg(feature = "async-tokio")]
         let vguard = self.0.blocking_read();
+
+        #[cfg(feature = "async-lock")]
+        let vguard = self.0.read_blocking();
+
         Self(RwLock::new((*vguard).clone()))
     }
 }

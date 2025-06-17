@@ -7,10 +7,7 @@
 
 echo Testing feature sets with toolchain '${__FIELDX_DEFAULT_TOOLCHAIN__}'
 
-features = array sync async serde
-#if eq ${__FIELDX_DEFAULT_TOOLCHAIN__} "nightly"
-#    array_push ${features} diagnostics
-#end
+features = array sync serde
 feature_sets = generate_power_set ${features}
 
 for fs in ${feature_sets}
@@ -18,10 +15,22 @@ for fs in ${feature_sets}
     echo "Testing feature set '${fs}'"
     set_env __FIELDX_FEATURE_SET__ ${fs}
     cm_run_task test-with-features
+    cm_run_task test-with-features-async
 end
 '''
     script_runner = "@duckscript"
     toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
+
+[tasks.test-with-features-async]
+    run_task = { name = ["test-async-lock", "test-async-tokio"], fork = true }
+
+[tasks.test-async-lock]
+    env      = { __FIELDX_FEATURE_SET__ = "${__FIELDX_FEATURE_SET__},async-lock" }
+    run_task = "test-with-features"
+
+[tasks.test-async-tokio]
+    env      = { __FIELDX_FEATURE_SET__ = "${__FIELDX_FEATURE_SET__},async-tokio" }
+    run_task = "test-with-features"
 
 [tasks.test-with-features]
     args        = ["test", "--features", "${__FIELDX_FEATURE_SET__}"]
@@ -41,7 +50,7 @@ end
 echo Testing compilability with toolchain '${__FIELDX_DEFAULT_TOOLCHAIN__}'
 cm_run_task compile-default-features
 
-features = array sync async serde
+features = array sync serde
 feature_sets = generate_power_set ${features}
 
 for fs in ${feature_sets}
@@ -67,3 +76,11 @@ end
     command     = "cargo"
     description = "Test code compilability with '${__FIELDX_FEATURE_SET__}' features"
     toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
+
+[tasks.compile-async-lock]
+    env      = { __FIELDX_FEATURE_SET__ = "${__FIELDX_FEATURE_SET__},async-lock" }
+    run_task = "compile-with-features"
+
+[tasks.compile-async-tokio]
+    env      = { __FIELDX_FEATURE_SET__ = "${__FIELDX_FEATURE_SET__},async-tokio" }
+    run_task = "compile-with-features"

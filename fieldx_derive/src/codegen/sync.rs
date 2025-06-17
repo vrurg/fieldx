@@ -617,11 +617,18 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                     mc.set_ret_stmt(quote_spanned! {lazy_span=> self.#ident.write()#await_call.store(#value_toks)});
                 }
                 else {
+                    // async-lock .set() returns a future.
+                    let set_await = if cfg!(feature = "async-lock") {
+                        await_call
+                    }
+                    else {
+                        quote![]
+                    };
                     mc.set_self_mut(true);
                     mc.set_ret_type(quote_spanned! {lazy_span=> ::std::option::Option<#ty>});
                     mc.add_statement(quote_spanned! {span=>
                         let old = self.#ident.take();
-                        let _ = self.#ident.set(#value_toks);
+                        let _ = self.#ident.set(#value_toks)#set_await;
                     });
                     mc.set_ret_stmt(quote_spanned! {span=> old});
                 }

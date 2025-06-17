@@ -40,6 +40,7 @@
 
 [features]
     async       = ["fieldx_core/async"]
+    async-lock  = []
     diagnostics = ["darling/diagnostics"]
     serde       = ["dep:serde", "fieldx_aux/serde", "fieldx_core/serde"]
     sync        = ["fieldx_core/sync"]

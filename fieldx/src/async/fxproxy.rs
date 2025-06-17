@@ -10,14 +10,20 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
-use tokio::sync::RwLock;
-use tokio::sync::RwLockReadGuard;
-use tokio::sync::RwLockWriteGuard;
+
+use super::RwLock;
+use super::RwLockReadGuard;
+use super::RwLockWriteGuard;
 
 pub type FXProxyReadGuard<'a, T> = crate::lock_guards::FXProxyReadGuard<RwLockReadGuard<'a, Option<T>>, T>;
 pub type FXProxyWriteGuard<'a, T> = crate::lock_guards::FXProxyWriteGuard<RwLockWriteGuard<'a, Option<T>>, T>;
 
 type FXCallback<S, T> = Box<dyn Fn(&S) -> Pin<Box<dyn Future<Output = T> + Send + '_>> + Send + Sync>;
+
+#[cfg(feature = "async-tokio")]
+type ReadOrInitGuard<'a, T> = tokio::sync::RwLockWriteGuard<'a, T>;
+#[cfg(feature = "async-lock")]
+type ReadOrInitGuard<'a, T> = async_lock::RwLockUpgradableReadGuard<'a, T>;
 
 #[doc(hidden)]
 #[async_trait]
@@ -112,7 +118,11 @@ where
     V: Debug,
 {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        #[cfg(feature = "async-tokio")]
         let vlock = self.value.blocking_read();
+        #[cfg(feature = "async-lock")]
+        let vlock = self.value.read_blocking();
+
         formatter
             .debug_struct(any::type_name::<Self>())
             .field("value", &*vlock)
@@ -156,9 +166,15 @@ where
         let _ = self.read_or_init(owner).await;
     }
 
-    async fn read_or_init<'a>(&'a self, owner: &B::Owner) -> Result<RwLockWriteGuard<'a, Option<B::Value>>, B::Error> {
+    async fn read_or_init<'a>(&'a self, owner: &B::Owner) -> Result<ReadOrInitGuard<'a, Option<B::Value>>, B::Error> {
+        #[cfg(feature = "async-tokio")]
         let mut guard = self.value.write().await;
+        #[cfg(feature = "async-lock")]
+        let guard = self.value.upgradable_read().await;
+
         if (*guard).is_none() {
+            #[cfg(feature = "async-lock")]
+            let mut guard = ReadOrInitGuard::upgrade(guard).await;
             // No value has been set yet
             match *self.builder.read().await {
                 Some(ref builder_cb) => {
@@ -167,6 +183,8 @@ where
                 }
                 None => panic!("Builder is not set"),
             }
+            #[cfg(feature = "async-lock")]
+            return Ok(RwLockWriteGuard::downgrade_to_upgradable(guard));
         }
         Ok(guard)
     }
@@ -175,28 +193,41 @@ where
     ///
     /// Panics if fallible field builder returns an error.
     pub async fn read<'a>(&'a self, owner: &B::Owner) -> FXProxyReadGuard<'a, B::Value> {
-        FXProxyReadGuard::new(self.read_or_init(owner).await.unwrap().downgrade())
+        FXProxyReadGuard::new(ReadOrInitGuard::downgrade(self.read_or_init(owner).await.unwrap()))
     }
 
     /// Lazy-initialize the field if necessary and return lock write guard for the inner value.
     ///
     /// Panics if fallible field builder returns an error.
     pub async fn read_mut<'a>(&'a self, owner: &B::Owner) -> FXProxyWriteGuard<'a, B::Value> {
-        FXProxyWriteGuard::new(self.read_or_init(owner).await.unwrap())
+        #[cfg(feature = "async-tokio")]
+        return FXProxyWriteGuard::new(self.read_or_init(owner).await.unwrap());
+        #[cfg(feature = "async-lock")]
+        return FXProxyWriteGuard::new(ReadOrInitGuard::upgrade(self.read_or_init(owner).await.unwrap()).await);
     }
 
     /// Lazy-initialize the field if necessary and return lock read guard for the inner value.
     ///
     /// Return the same error, as fallible field builder if it errors out.
     pub async fn try_read<'a>(&'a self, owner: &B::Owner) -> Result<FXProxyReadGuard<'a, B::Value>, B::Error> {
-        Ok(FXProxyReadGuard::new(self.read_or_init(owner).await?.downgrade()))
+        #[cfg(feature = "async-tokio")]
+        return Ok(FXProxyReadGuard::new(self.read_or_init(owner).await?.downgrade()));
+        #[cfg(feature = "async-lock")]
+        return Ok(FXProxyReadGuard::new(ReadOrInitGuard::downgrade(
+            self.read_or_init(owner).await?,
+        )));
     }
 
     /// Lazy-initialize the field if necessary and return lock write guard for the inner value.
     ///
     /// Return the same error, as fallible field builder if it errors out.
     pub async fn try_read_mut<'a>(&'a self, owner: &B::Owner) -> Result<FXProxyWriteGuard<'a, B::Value>, B::Error> {
-        Ok(FXProxyWriteGuard::new(self.read_or_init(owner).await?))
+        #[cfg(feature = "async-tokio")]
+        return Ok(FXProxyWriteGuard::new(self.read_or_init(owner).await?));
+        #[cfg(feature = "async-lock")]
+        return Ok(FXProxyWriteGuard::new(
+            ReadOrInitGuard::upgrade(self.read_or_init(owner).await?).await,
+        ));
     }
 
     /// Provides write-lock to directly store the value. Never calls the lazy builder.
@@ -245,8 +276,16 @@ where
     B::Value: Clone,
 {
     fn clone(&self) -> Self {
+        #[cfg(feature = "async-tokio")]
         let vguard = self.value.blocking_read();
+        #[cfg(feature = "async-tokio")]
         let bguard = self.builder.blocking_read();
+
+        #[cfg(feature = "async-lock")]
+        let vguard = self.value.read_blocking();
+        #[cfg(feature = "async-lock")]
+        let bguard = self.builder.read_blocking();
+
         Self {
             value:   RwLock::new((*vguard).as_ref().cloned()),
             is_set:  AtomicBool::new(self.is_set()),

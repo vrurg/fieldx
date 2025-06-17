@@ -16,6 +16,7 @@
     # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+    async-lock    = { workspace = true, optional = true }
     async-trait   = { workspace = true, optional = true }
     fieldx_aux    = { workspace = true }
     fieldx_derive = { workspace = true, features = ["tracing"] }
@@ -27,21 +28,31 @@
 
 [dev-dependencies]
     cargo-toolchain = { workspace = true }
-    crossbeam       = { workspace = true }
-    num_cpus        = { workspace = true }
-    parking_lot     = { workspace = true }
-    rustc_version   = { workspace = true }
-    serde           = { workspace = true }
-    serde_json      = { workspace = true }
-    tokio           = { workspace = true, default-features = false, features = ["macros", "rt", "rt-multi-thread", "time"] }
-    trybuild        = { workspace = true }
+    crossbeam = { workspace = true }
+    num_cpus = { workspace = true }
+    parking_lot = { workspace = true }
+    rustc_version = { workspace = true }
+    serde = { workspace = true }
+    serde_json = { workspace = true }
+    tokio = { workspace = true, default-features = false, features = [
+        "macros",
+        "rt",
+        "rt-multi-thread",
+        "time",
+        "sync",
+    ] }
+    trybuild = { workspace = true }
 
 [features]
-    async       = ["fieldx_derive/async", "dep:tokio", "dep:async-trait"]
-    diagnostics = ["fieldx_derive/diagnostics"]
-    send_guard  = ["parking_lot/send_guard"]
-    serde       = ["fieldx_derive/serde", "parking_lot/serde", "dep:serde"]
-    sync        = ["fieldx_derive/sync", "dep:parking_lot"]
+    async              = ["fieldx_derive/async", "dep:async-trait"]
+    async-lock         = ["async", "async-lock-backend"]
+    async-lock-backend = ["dep:async-lock", "fieldx_derive/async-lock"]
+    async-tokio        = ["async", "tokio-backend"]
+    diagnostics        = ["fieldx_derive/diagnostics"]
+    send_guard         = ["parking_lot/send_guard"]
+    serde              = ["fieldx_derive/serde", "parking_lot/serde", "dep:serde"]
+    sync               = ["fieldx_derive/sync", "dep:parking_lot"]
+    tokio-backend      = ["dep:tokio"]
 
 [package.metadata.docs.rs]
     all-features = true
