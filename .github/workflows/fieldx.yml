@@ -17,18 +17,22 @@ jobs:
       matrix:
         os: [ubuntu, macos, windows]
         toolchain:
-          - 1.77
+          - 1.78
           - stable
           - beta
           - nightly
         include:
-          - feature: async
+          - feature: async-tokio
+          - feature: async-lock
           - feature: sync
           - feature: serde
-          - feature: async,sync
-          - feature: async,serde
+          - feature: async-tokio,sync
+          - feature: async-lock,sync
+          - feature: async-tokio,serde
+          - feature: async-lock,serde
           - feature: sync,serde
-          - feature: async,sync,serde
+          - feature: async-tokio,sync,serde
+          - feature: async-lock,sync,serde
         exclude:
           - os: windows
             toolchain: nightly

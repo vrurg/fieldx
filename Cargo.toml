@@ -8,7 +8,7 @@
     license       = "BSD-3-Clause"
     license-file  = "LICENSE"
     repository    = "https://github.com/vrurg/fieldx.git"
-    rust-version  = "1.77"
+    rust-version  = "1.78"
 
 [workspace]
     members  = ["fieldx", "fieldx_aux", "fieldx_derive", "fieldx_core", "fieldx_derive_support"]
