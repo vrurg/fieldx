@@ -62,18 +62,27 @@ async fn fallible_ok() -> Result<(), Box<dyn std::error::Error>> {
 async fn fallible_error() -> Result<(), Box<dyn std::error::Error>> {
     let mut foo = Foo::<true>::new();
 
-    assert!(foo.ok().await.is_err());
-    assert_eq!(*foo.ok().await.unwrap_err(), String::from("will never be there"));
+    assert!(foo.ok().await.is_err(), "Expected error for ok field");
+    assert_eq!(
+        *foo.ok().await.unwrap_err(),
+        String::from("will never be there"),
+        "Unexpected error message for ok field"
+    );
 
-    assert!(foo.writable().await.is_err());
-    assert_eq!(foo.writable().await.unwrap_err(), "no value".to_string());
+    assert!(foo.writable().await.is_err(), "Expected error for writable field");
+    assert_eq!(
+        foo.writable().await.unwrap_err(),
+        "no value".to_string(),
+        "Unexpected error message for writable field"
+    );
     foo.set_writable(42).await;
-    assert_eq!(foo.writable().await?, 42);
+    assert_eq!(foo.writable().await, Ok(42), "Expected writable field to be set to 42");
 
-    assert!(foo.shared().await.is_err());
+    assert!(foo.shared().await.is_err(), "Expected error for shared field");
     assert_eq!(
         *foo.shared().await.unwrap_err(),
-        String::from("this is a failed outcome")
+        String::from("this is a failed outcome"),
+        "Unexpected error message for shared field"
     );
 
     Ok(())
