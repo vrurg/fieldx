@@ -58,24 +58,28 @@ for fs in ${feature_sets}
     echo "Testing feature set '${fs}'"
     set_env __FIELDX_FEATURE_SET__ ${fs}
     cm_run_task compile-with-features
+    cm_run_task compile-with-features-async
 end
 '''
     script_runner = "@duckscript"
     toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
 [tasks.compile-default-features]
-    args        = ["test", "--test", "compilation"]
+    args        = ["test", "--test", "compilation", "--", "--nocapture"]
     category    = "Test"
     command     = "cargo"
     description = "Test code compilability with default feature set"
     toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
 [tasks.compile-with-features]
-    args        = ["test", "--test", "compilation", "--features", "${__FIELDX_FEATURE_SET__}"]
+    args        = ["test", "--test", "compilation", "--features", "${__FIELDX_FEATURE_SET__}", "--", "--nocapture"]
     category    = "Test"
     command     = "cargo"
     description = "Test code compilability with '${__FIELDX_FEATURE_SET__}' features"
     toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
+
+[tasks.compile-with-features-async]
+    run_task = { name = ["compile-async-lock", "compile-async-tokio"], fork = true }
 
 [tasks.compile-async-lock]
     env      = { __FIELDX_FEATURE_SET__ = "${__FIELDX_FEATURE_SET__},async-lock" }

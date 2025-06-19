@@ -1,0 +1,7 @@
+/target
+*.ipynb
+.vscode/launch.json
+.vscode/settings.json
+.release-tested
+.release-notes.md
+*.code-workspace

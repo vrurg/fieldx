@@ -1,60 +1,70 @@
+
 [env]
     CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
     __FIELDX_DEFAULT_TOOLCHAIN__         = { value = "nightly", condition = { env_not_set = ["__FIELDX_DEFAULT_TOOLCHAIN__"] } }
+    __FIELDX_PREV_RELEASE_TESTING__      = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.release-tested"
     __FIELDX_TASK__                      = { value = "test", condition = { env_not_set = ["__FIELDX_TASK__"] } }
     __FIELDX_TOOLCHAINS__                = "nightly stable 1.78"
-    __PREV_RELEASE_TESTING__             = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.release-tested"
 
 [config]
     default_to_workspace = false
-
-[tasks.init]
-    args    = ["-f", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/Cargo.lock"]
-    command = "rm"
-
-[tasks.end]
-    args    = ["-f", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/Cargo.lock"]
-    command = "rm"
+    on_error_task        = "on_failure"
 
 [tasks.test]
     category     = "Test"
     clear        = true
-    dependencies = ["test-default", "test-feature-sets"]
+    dependencies = ["test-feature-sets"]
     description  = "Extensive testing"
     workspace    = true
 
+[tasks.test-docker]
+    category = "Test"
+    env      = { __FIELDX_TASK__ = { value = "test", condition = { env_not_set = ["__FIELDX_TASK__"] } } }
+    run_task = "dockerize"
+
 [tasks.test-versions]
-    description = "TESTING SUPPORTED Rust VERSIONS"
+    dependencies = ["test-versions-docker"]
+    description  = "TESTING SUPPORTED Rust VERSIONS"
+    run_task     = { name = "post-test-versions" }
+
+[tasks.test-versions-docker]
+    run_task = { name = [
+        "test-nightly-docker",
+        "test-stable-docker",
+        "test-1_78-docker",
+    ], parallel = true, fork = true }
+
+[tasks.test-nightly-docker]
+    description = "Test with nightly toolchain"
+    env         = { __FIELDX_DEFAULT_TOOLCHAIN__ = "nightly", __FIELDX_DOCKER_LOG__ = "test-nightly" }
+    run_task    = "test-docker"
+
+[tasks.test-stable-docker]
+    description = "Test with stable toolchain"
+    env         = { __FIELDX_DEFAULT_TOOLCHAIN__ = "stable", __FIELDX_DOCKER_LOG__ = "test-stable" }
+    run_task    = "test-docker"
+
+[tasks.test-1_78-docker]
+    description = "Test with Rust 1.78 toolchain"
+    env         = { __FIELDX_DEFAULT_TOOLCHAIN__ = "1.78", __FIELDX_DOCKER_LOG__ = "test-1_78" }
+    run_task    = "test-docker"
+
+[tasks.post-test-versions]
+    description = "Post-test-versions task"
     script = '''
-toolchain_list = array %{__FIELDX_TOOLCHAINS__}
-
-set_env RUSTFLAGS "-D warnings"
-
-for toolchain in ${toolchain_list}
-    echo "Testing toolchain '${toolchain}'"
-    set_env __FIELDX_DEFAULT_TOOLCHAIN__ ${toolchain}
-    echo Removing ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/Cargo.lock
-    rm -f ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/Cargo.lock
-    cm_run_task ${__FIELDX_TASK__}
-end
-
 # If successfully done then record last commit
+print -c bright_green "INFO"
 commit = exec git describe HEAD
-writefile ${__PREV_RELEASE_TESTING__} ${commit.stdout}
+echo " - Recording ${commit.stdout} as tested for release"
+writefile ${__FIELDX_PREV_RELEASE_TESTING__} ${commit.stdout}
 '''
     script_runner = "@duckscript"
 
+# If successfully done then record last commit
 [tasks.update-versions]
     description = "Updating .stderr for all versions"
     env         = { TRYBUILD = "overwrite", __FIELDX_TASK__ = "test-compilation" }
     run_task    = { name = ["test-versions"] }
-
-[tasks.test-default]
-    args        = ["test", "--workspace"]
-    category    = "Test"
-    command     = "cargo"
-    description = "Test with only the default features"
-    toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
 [tasks.test-diagnostics]
     args = ["test", "--workspace", "--features", "diagnostics"]
@@ -135,8 +145,8 @@ end
     clear = true
     condition = { fail_message = "No release testing is needed, has been done for this commit already" }
     condition_script = ['''
-if is_path_exists ${__PREV_RELEASE_TESTING__}
-    prev = readfile ${__PREV_RELEASE_TESTING__}
+if is_path_exists ${__FIELDX_PREV_RELEASE_TESTING__}
+    prev = readfile ${__FIELDX_PREV_RELEASE_TESTING__}
     prev = trim ${prev}
     out = exec git describe HEAD
     now = trim ${out.stdout}
@@ -208,5 +218,43 @@ if eq ${reply} "y"
 else
     echo "Won't publish."
 end
+'''
+    script_runner = "@duckscript"
+
+[tasks.dockerize]
+    script = '''
+if is_empty ${__FIELDX_TASK__}
+    echo "Containerized task name is not set, __FIELDX_TASK__ is required"
+    exit 1
+end
+
+docker_volume = set "fieldx-rustup-data"
+temp_env = set "./docker/${__FIELDX_TASK__}-${__FIELDX_DEFAULT_TOOLCHAIN__}.env"
+
+writefile ${temp_env} "__FIELDX_MAKEFILE__=${makefile}\n__FIELDX_MAKE_PROFILE__=${CARGO_MAKE_PROFILE}\n"
+exec --fail-on-error sh -c "env | grep -E '^(CARGO_MAKE_|__FIELDX_|TRYBUILD)' >> ${temp_env}"
+
+if is_empty ${__FIELDX_DOCKER_LOG__}
+    exec --fail-on-error docker compose -f ./docker/compose.yml up --build --no-log-prefix --exit-code-from fieldx-make
+else
+    exec --fail-on-error sh -c "docker compose -f ./docker/compose.yml up --build --no-log-prefix --exit-code-from fieldx-make >./docker/${__FIELDX_DOCKER_LOG__}.log 2>&1"
+end
+exec --fail-on-error docker compose -f ./docker/compose.yml down
+
+rm -f ${temp_env}
+
+print -s bold -c bright_green "OK"
+echo " - Dockerized task '${__FIELDX_TASK__}' for ${__FIELDX_DEFAULT_TOOLCHAIN__} completed."
+'''
+    script_runner = "@duckscript"
+
+[tasks.on_failure]
+    description = "On failure task"
+    script = '''
+print -s bold -c bright_red "FAIL"
+print " - Task "
+print -s bold -s underline ${__FIELDX_TASK__}
+print " for "
+println -s underline ${__FIELDX_DEFAULT_TOOLCHAIN__}
 '''
     script_runner = "@duckscript"

@@ -1,0 +1,18 @@
+name: fieldx-make-${__FIELDX_DEFAULT_TOOLCHAIN__:-nightly}
+
+services:
+  fieldx-make:
+    image: "vrurg:fieldx-make-rust-${__FIELDX_DEFAULT_TOOLCHAIN__:-nightly}"
+    container_name: "fieldx-make-${__FIELDX_DEFAULT_TOOLCHAIN__:-nightly}"
+    env_file:
+      - ${__FIELDX_TASK__}-${__FIELDX_DEFAULT_TOOLCHAIN__}.env
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+      target: fieldx-make
+      args:
+        - RUST_VERSION=${__FIELDX_DEFAULT_TOOLCHAIN__:-nightly}
+    volumes:
+      - type: bind
+        source: ../fieldx/tests/uncompilable
+        target: /fieldx-host/tests/uncompilable
