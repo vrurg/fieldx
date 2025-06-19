@@ -1,0 +1,35 @@
+error[E0601]: `main` function not found in crate `$CRATE`
+ --> tests/uncompilable/post_build_span.rs
+  |
+  | }
+  |  ^ consider adding a `main` function to `$DIR/tests/uncompilable/post_build_span.rs`
+
+error[E0308]: mismatched types
+ --> tests/uncompilable/post_build_span.rs
+  |
+  |   #[fxstruct(builder(post_build))]
+  |  ____________________^
+  | | struct Foo {
+  | |        --^
+  | |________|_|
+  |          | expected `Foo`, found `()`
+  |          expected due to this
+  |
+note: method `post_build` modifies its receiver in-place
+ --> tests/uncompilable/post_build_span.rs
+  |
+  | #[fxstruct(builder(post_build))]
+  |                    ^^^^^^^^^^ this call modifies its receiver in-place
+  | struct Foo {
+  |        --- you probably want to use this value after calling the method...
+  = note: ...instead of the `()` output of method `post_build`
+
+error[E0277]: the `?` operator can only be applied to values that implement `Try`
+ --> tests/uncompilable/post_build_span.rs
+  |
+  |   #[fxstruct(builder(error(my::Error), post_build))]
+  |  ______________________________________^
+  | | struct Bar {
+  | |__________^ the `?` operator cannot be applied to type `()`
+  |
+  = help: the trait `Try` is not implemented for `()`

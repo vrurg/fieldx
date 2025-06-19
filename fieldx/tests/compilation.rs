@@ -110,10 +110,7 @@ impl UncompEnv {
         let full_version = rustc_version::version().expect("Rust Compiler Version");
         // Still, if the version has any pre-release then remove it
         let version = Version::new(full_version.major, full_version.minor, full_version.patch);
-        (if version < Version::new(1, 78, 0) {
-            "1.77"
-        }
-        else if version == Version::new(1, 78, 0) {
+        (if version == Version::new(1, 78, 0) {
             "1.78"
         }
         else if version <= Version::new(1, 80, 0) {
@@ -139,8 +136,13 @@ impl UncompEnv {
         #[cfg(feature = "sync")]
         groups.push("sync".into());
 
-        #[cfg(feature = "async")]
-        groups.push("async".into());
+        if cfg!(feature = "async") {
+            #[cfg(feature = "async-lock-backend")]
+            groups.push("async-lock".into());
+
+            #[cfg(feature = "tokio-backend")]
+            groups.push("async-tokio".into());
+        }
 
         #[cfg(feature = "diagnostics")]
         groups.push("diagnostics".into());
