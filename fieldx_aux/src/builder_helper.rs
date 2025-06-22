@@ -175,6 +175,12 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
                         .with_span(&self.opt_in.final_span()),
                 );
             }
+            if self.prefix().is_some() {
+                return Err(
+                    darling::Error::custom("parameter 'prefix' is only supported at struct level".to_string())
+                        .with_span(&self.prefix.final_span()),
+                );
+            }
         }
         Ok(())
     }
