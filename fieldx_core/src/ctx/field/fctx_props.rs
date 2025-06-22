@@ -332,10 +332,12 @@ where
 
     pub fn builder_ident(&self) -> &syn::Ident {
         self.builder_ident.get_or_init(|| {
-            self.field_props()
-                .builder_ident()
-                .unwrap_or_else(|| self.base_name())
-                .clone()
+            let base_ident = self.field_props().builder_ident().unwrap_or_else(|| self.base_name());
+            let prefix = self
+                .arg_props()
+                .builder_prefix()
+                .map_or("".to_string(), |p| p.to_string());
+            format_ident!("{}{}", prefix, base_ident, span = base_ident.span())
         })
     }
 
