@@ -12,9 +12,7 @@ RUN apt-get update && \
     apt-get install -y rsync && \
     rm -rf /var/lib/apt/lists/*
 
-RUN (wget -O - https://sh.rustup.rs | sh -s -- -y) \
-    && mount \
-    && rustup toolchain install ${RUST_VERSION} \
+RUN (wget -O - https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain ${RUST_VERSION}) \
     && rustup default ${RUST_VERSION} \
     && cargo +stable install cargo-make
 
