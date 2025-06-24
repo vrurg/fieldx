@@ -5,7 +5,6 @@ use darling::FromField;
 use darling::FromMeta;
 use fieldx_aux::to_tokens_vec;
 use fieldx_aux::validate_exclusives;
-use fieldx_aux::validate_no_macro_args;
 use fieldx_aux::FXAccessor;
 use fieldx_aux::FXAttributes;
 use fieldx_aux::FXBool;
@@ -179,23 +178,6 @@ impl FXFieldReceiver {
 
         if let Err(err) = self.validate_exclusives() {
             acc.push(err);
-        }
-
-        #[cfg(feature = "serde")]
-        validate_no_macro_args! {
-            "field", self, acc:
-                serde.shadow_name,
-                serde.orig_visibility as visibility,
-                serde.private,
-        }
-
-        validate_no_macro_args! {
-            "field", self, acc:
-                builder.prefix,
-                builder.method_doc,
-                builder.attributes_impl,
-                builder.post_build,
-                builder.opt_in,
         }
 
         // XXX Make it a warning when possible.

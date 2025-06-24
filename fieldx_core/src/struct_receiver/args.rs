@@ -4,7 +4,7 @@ use darling::FromMeta;
 use fieldx_aux::join_token_list;
 use fieldx_aux::to_tokens_vec;
 use fieldx_aux::validate_exclusives;
-use fieldx_aux::validate_no_macro_args;
+use fieldx_aux::validate_no_subarg_at_level;
 use fieldx_aux::FXAccessor;
 use fieldx_aux::FXAttributes;
 use fieldx_aux::FXBool;
@@ -74,7 +74,7 @@ pub struct FXStructArgs {
     copy:         Option<FXBool>,
     lock:         Option<FXBool>,
     inner_mut:    Option<FXBool>,
-    serde:        Option<FXSerde>,
+    serde:        Option<FXSerde<true>>,
 }
 
 impl FXStructArgs {
@@ -94,8 +94,8 @@ impl FXStructArgs {
             acc.push(err);
         }
 
-        validate_no_macro_args! {
-            "struct", self, acc:
+        validate_no_subarg_at_level! {
+            self, "struct", acc:
                 accessor as get.doc,
                 accessor_mut as get_mut.doc,
                 clearer.doc,

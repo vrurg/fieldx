@@ -1,5 +1,6 @@
 //! Parameters of builder pattern and builder object.
 use crate::set_literals;
+use crate::validate_no_subarg_at_level;
 use crate::FXAttributes;
 use crate::FXBool;
 use crate::FXDoc;
@@ -156,32 +157,11 @@ impl<const STRUCT: bool> FXBuilderHelper<STRUCT> {
 
     #[doc(hidden)]
     pub fn validate(&self) -> darling::Result<()> {
+        let mut acc = darling::Error::accumulator();
         if !STRUCT {
-            if self.error.is_some() {
-                return Err(
-                    darling::Error::custom("parameter 'error' is only supported at struct level".to_string())
-                        .with_span(&self.error.final_span()),
-                );
-            }
-            if self.post_build.is_some() {
-                return Err(darling::Error::custom(
-                    "parameter 'post_build' is only supported at struct level".to_string(),
-                )
-                .with_span(&self.post_build.final_span()));
-            }
-            if self.opt_in.is_some() {
-                return Err(
-                    darling::Error::custom("parameter 'opt_in' is only supported at struct level".to_string())
-                        .with_span(&self.opt_in.final_span()),
-                );
-            }
-            if self.prefix().is_some() {
-                return Err(
-                    darling::Error::custom("parameter 'prefix' is only supported at struct level".to_string())
-                        .with_span(&self.prefix.final_span()),
-                );
-            }
+            validate_no_subarg_at_level!( self, "builder", "field", acc: error, post_build, opt_in, prefix );
         }
+        acc.finish()?;
         Ok(())
     }
 }

@@ -1,6 +1,7 @@
 use crate::join_token_list;
 use crate::set_literals;
 use crate::to_tokens_vec;
+use crate::validate_no_subarg_at_level;
 use crate::FXAttributes;
 use crate::FXBool;
 use crate::FXDefault;
@@ -98,7 +99,7 @@ impl ToTokens for FXSerdeRename {
 #[derive(Default, Debug, Getters, FromMeta, Clone)]
 #[getset(get = "pub")]
 #[darling(and_then = Self::validate)]
-pub struct FXSerdeHelper {
+pub struct FXSerdeHelper<const STRUCT: bool = false> {
     off:           Flag,
     attributes:    Option<FXAttributes>,
     serialize:     Option<FXBool>,
@@ -121,7 +122,7 @@ pub struct FXSerdeHelper {
     doc:           Option<FXDoc>,
 }
 
-impl FromNestAttr for FXSerdeHelper {
+impl<const STRUCT: bool> FromNestAttr for FXSerdeHelper<STRUCT> {
     set_literals! {serde, .. 1 => rename}
 
     fn for_keyword(_path: &syn::Path) -> darling::Result<Self> {
@@ -129,7 +130,7 @@ impl FromNestAttr for FXSerdeHelper {
     }
 }
 
-impl FXSetState for FXSerdeHelper {
+impl<const STRUCT: bool> FXSetState for FXSerdeHelper<STRUCT> {
     fn is_set(&self) -> FXProp<bool> {
         if self.off.is_present() {
             FXProp::from(&self.off).not()
@@ -144,10 +145,13 @@ impl FXSetState for FXSerdeHelper {
     }
 }
 
-impl FXSerdeHelper {
+impl<const STRUCT: bool> FXSerdeHelper<STRUCT> {
     fn validate(self) -> darling::Result<Self> {
-        // self.validate_exclusives()
-        //     .map_err(|err| err.with_span(&Span::call_site()))?;
+        let mut acc = darling::Error::accumulator();
+        if !STRUCT {
+            validate_no_subarg_at_level!(self, "serde", "field", acc: visibility, private, shadow_name);
+        }
+        acc.finish()?;
         Ok(self)
     }
 
@@ -249,7 +253,7 @@ impl FXSerdeHelper {
     }
 }
 
-impl ToTokens for FXSerdeHelper {
+impl<const STRUCT: bool> ToTokens for FXSerdeHelper<STRUCT> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let mut toks = vec![];
         if self.off.is_present() {
@@ -300,7 +304,7 @@ mod tests {
             )
         })
         .unwrap();
-        let helper = FXSerdeHelper::from_meta(&input).unwrap();
+        let helper = FXSerdeHelper::<true>::from_meta(&input).unwrap();
         let expected = quote! {
             off,
             serialize(off),

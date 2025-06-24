@@ -138,10 +138,10 @@ macro_rules! validate_exclusives {
     };
 }
 
-/// Generate function to produce errors on sub-arguments that won't be used in certain context.
+/// Generate code error out on sub-arguments that are invalid at a given level.
 #[macro_export]
-macro_rules! validate_no_macro_args {
-    ($level:literal, $self:ident , $accumulator:ident :
+macro_rules! validate_no_subarg_at_level {
+    ($self:ident, $level:literal, $accumulator:ident :
         $(
             $arg:ident $( as $alias:ident )? . $subarg:ident $( as $sub_alias:ident )?
         ),+
@@ -154,9 +154,9 @@ macro_rules! validate_no_macro_args {
                         $accumulator.push(
                             darling::Error::custom(
                                 format!(
-                                    "'{}' has no effect in '{}' context at {} level",
-                                    $crate::ident_or_alias!($subarg $(, $sub_alias )?),
+                                    "{} subargument '{}' is not supported at {} level",
                                     $crate::ident_or_alias!($arg $(, $alias)?),
+                                    $crate::ident_or_alias!($subarg $(, $sub_alias )?),
                                     $level,
                                 )
                             )
@@ -166,6 +166,22 @@ macro_rules! validate_no_macro_args {
                 }
             )+
     };
+    ($self:ident, $arg:literal, $level:literal, $accumulator:ident : $( $subarg:ident ),+ ) => {
+        $(
+            if $self.$subarg.is_some() {
+                $accumulator.push(
+                    darling::Error::custom(
+                        format!(
+                            "{} subargument '{}' is not supported at {} level",
+                            $arg,
+                            stringify!($subarg),
+                            $level,
+                        )
+                    ).with_span(&$self.$subarg.as_ref().final_span())
+                )
+            }
+        )+
+    }
 }
 
 #[macro_export]
