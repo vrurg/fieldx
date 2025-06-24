@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::join_token_list;
 use crate::set_literals;
 use crate::to_tokens_vec;
@@ -207,10 +209,10 @@ impl<const STRUCT: bool> FXSerdeHelper<STRUCT> {
     }
 
     #[inline]
-    pub fn accepts_attr(&self, attr: &syn::Attribute) -> bool {
+    pub fn forward_attrs_set(&self) -> HashSet<syn::Path> {
         self.forward_attrs
             .as_ref()
-            .map_or(true, |fa| fa.iter().any(|p| p == attr.path()))
+            .map_or_else(HashSet::new, |fa| fa.iter().cloned().collect())
     }
 
     #[inline]

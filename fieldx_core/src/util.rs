@@ -310,6 +310,19 @@ macro_rules! common_prop_impl {
                 })
                 .as_ref()
         }
+
+        #[cfg(feature = "serde")]
+        pub fn serde_forward_attrs(&self) -> Option<&HashSet<syn::Path>> {
+            self.serde_forward_attrs
+                .get_or_init(|| {
+                    self.source.serde.as_ref().and_then(|s| {
+                        s.forward_attrs()
+                            .as_ref()
+                            .map(|fa| fa.value().iter().cloned().collect::<HashSet<syn::Path>>())
+                    })
+                })
+                .as_ref()
+        }
     };
 }
 

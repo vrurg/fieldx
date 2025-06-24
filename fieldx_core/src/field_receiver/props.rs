@@ -1,3 +1,6 @@
+#[cfg(feature = "serde")]
+use std::collections::HashSet;
+
 use crate::doc_props;
 use crate::simple_type_prop;
 use crate::types::helper::FXHelperKind;
@@ -112,6 +115,8 @@ pub struct FXFieldProps {
     serde_rename_serialize:   OnceCell<Option<FXProp<String>>>,
     #[cfg(feature = "serde")]
     serde_rename_deserialize: OnceCell<Option<FXProp<String>>>,
+    #[cfg(feature = "serde")]
+    serde_forward_attrs:      OnceCell<Option<HashSet<syn::Path>>>,
 }
 
 impl FXFieldProps {
@@ -206,6 +211,8 @@ impl FXFieldProps {
             serde_rename_serialize:                             OnceCell::new(),
             #[cfg(feature = "serde")]
             serde_rename_deserialize:                           OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_forward_attrs:                                OnceCell::new(),
         }
     }
 

@@ -9,6 +9,8 @@ use fieldx_aux::FXSetState;
 use fieldx_derive_support::fallback_prop;
 use once_cell::sync::OnceCell;
 use quote::format_ident;
+#[cfg(feature = "serde")]
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -128,6 +130,8 @@ where
     serde_rename_serialize:   OnceCell<Option<FXProp<String>>>,
     #[cfg(feature = "serde")]
     serde_rename_deserialize: OnceCell<Option<FXProp<String>>>,
+    #[cfg(feature = "serde")]
+    serde_forward_attrs:      OnceCell<Option<HashSet<syn::Path>>>,
 }
 
 impl<EXTRA> FieldCTXProps<EXTRA>
@@ -183,6 +187,11 @@ where
         setter, false;
         setter_into, false;
         writer, false;
+    }
+
+    #[cfg(feature = "serde")]
+    fallback_prop! {
+        serde_forward_attrs, Option<&HashSet<syn::Path>>, cloned, as_ref;
     }
 
     helper_ident_method! { accessor, accessor_mut, clearer, lazy, predicate, reader, setter, writer }
@@ -249,6 +258,8 @@ where
             serde_rename_serialize: OnceCell::new(),
             #[cfg(feature = "serde")]
             serde_rename_deserialize: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_forward_attrs: OnceCell::new(),
         }
     }
 

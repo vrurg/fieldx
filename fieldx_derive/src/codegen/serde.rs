@@ -42,18 +42,21 @@ fn serde_rename_attr(
 }
 
 pub(crate) trait FXCGenSerde: FXCodeGenContextual {
-    fn filter_shadow_attributes<'a>(&'a self, fctx: &'a FXDeriveFieldCtx) -> impl Iterator<Item = &'a syn::Attribute> {
-        // Only use `serde` attribute and those listed in forward_attrs
-        let serde_helper = fctx
-            .field()
-            .serde()
-            .as_ref()
-            .or_else(|| self.ctx().args().serde().as_ref());
-
-        fctx.field()
-            .attrs()
-            .iter()
-            .filter(move |a| a.path().is_ident("serde") || serde_helper.is_some_and(|sh| sh.accepts_attr(a)))
+    fn filter_shadow_attributes<'a>(
+        &'a self,
+        fctx: &'a FXDeriveFieldCtx,
+    ) -> Box<dyn Iterator<Item = &'a syn::Attribute> + 'a> {
+        if let Some(forward_attrs) = fctx.props().serde_forward_attrs() {
+            Box::new(
+                fctx.field()
+                    .attrs()
+                    .iter()
+                    .filter(move |a| a.path().is_ident("serde") || forward_attrs.contains(a.path())),
+            )
+        }
+        else {
+            Box::new(fctx.field().attrs().iter())
+        }
     }
 
     fn serde_skip_toks(&self, fctx: &FXDeriveFieldCtx) -> Option<TokenStream> {

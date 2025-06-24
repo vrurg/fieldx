@@ -1,3 +1,5 @@
+#[cfg(feature = "serde")]
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::rc::Rc;
 use std::rc::Weak;
@@ -140,6 +142,8 @@ where
     serde_rename_deserialize: OnceCell<Option<FXProp<String>>>,
     #[cfg(feature = "serde")]
     serde_doc:                OnceCell<Option<FXProp<Vec<syn::LitStr>>>>,
+    #[cfg(feature = "serde")]
+    serde_forward_attrs:      OnceCell<Option<HashSet<syn::Path>>>,
 }
 
 impl<ImplCtx> FXStructArgProps<ImplCtx>
@@ -254,6 +258,8 @@ where
             serde_rename_deserialize: OnceCell::new(),
             #[cfg(feature = "serde")]
             serde_doc: OnceCell::new(),
+            #[cfg(feature = "serde")]
+            serde_forward_attrs: OnceCell::new(),
         }
     }
 
