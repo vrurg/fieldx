@@ -8,12 +8,12 @@
 [changelog]
     body = """
 {% if version %}\
-    ## {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
+## {{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else %}\
-    ## *<unreleased>*
+## *<unreleased>*
 {% endif %}\
 {% for group, commits in commits | group_by(attribute="group") %}
-    ### {{ group | striptags | trim | upper_first }}
+### {{ group | striptags | trim | upper_first }}
     {% for commit in commits %}
         - {% if commit.scope %}*({{ commit.scope }})* {% endif %}\
             {% if commit.breaking %}️‼️ **breaking** {% endif %}\
@@ -25,7 +25,7 @@
                 {% endif %}\
             {% endfor %} \
             {% for footer in commit.footers %}\
-                {% if footer.breaking %}\n{{ "    - ⚠️  " }}{{ footer.value | indent(prefix="         ") }}{% endif %}\
+                {% if footer.breaking %}\n{{"    - ⚠️  "}}{{ footer.value | indent(prefix="         ") }}{% endif %}\
             {% endfor %}\
     {% endfor %}
 {% endfor %}\n
