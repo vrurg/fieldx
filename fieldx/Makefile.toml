@@ -65,6 +65,7 @@ end
     toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
 [tasks.compile-default-features]
+    condition   = { env_not = { __FIELDX_DEFAULT_TOOLCHAIN__ = "nightly" } }
     args        = ["test", "--test", "compilation", "--", "--nocapture"]
     category    = "Test"
     command     = "cargo"
@@ -72,6 +73,7 @@ end
     toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
 [tasks.compile-with-features]
+    condition   = { env_not = { __FIELDX_DEFAULT_TOOLCHAIN__ = "nightly" } }
     args        = ["test", "--test", "compilation", "--features", "${__FIELDX_FEATURE_SET__}", "--", "--nocapture"]
     category    = "Test"
     command     = "cargo"
