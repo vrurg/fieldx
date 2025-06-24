@@ -426,6 +426,8 @@ where
                         .or(field_props.mode_plain().as_ref())
                         .not()
                 })
+                // If neither async nor plain then if lock is set
+                .or_else(|| field_props.lock())
                 .or_else(|| self.arg_props().mode_sync())
                 .unwrap_or_else(|| FXProp::new(false, *self.field_props.field().fieldx_attr_span()))
         })
@@ -459,6 +461,7 @@ where
                     field_props
                         .mode_sync()
                         .as_ref()
+                        .or(field_props.lock().as_ref())
                         .or(field_props.mode_async().as_ref())
                         .not()
                 })
