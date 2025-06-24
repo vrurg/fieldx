@@ -376,6 +376,7 @@ enum FallbackParam {
     Or(syn::Expr),
     Else(syn::Block),
     Clone(Span),
+    AsRef(Span),
 }
 
 impl FallbackParam {
@@ -383,6 +384,7 @@ impl FallbackParam {
         match self {
             FallbackParam::Or(_) | FallbackParam::Else(_) => 0,
             FallbackParam::Clone(_) => 1,
+            FallbackParam::AsRef(_) => 2,
         }
     }
 
@@ -390,6 +392,7 @@ impl FallbackParam {
         match idx {
             0 => "default",
             1 => "cloned",
+            2 => "as_ref",
             _ => panic!("Invalid index"),
         }
     }
@@ -399,6 +402,7 @@ impl FallbackParam {
             FallbackParam::Or(expr) => expr.span(),
             FallbackParam::Else(block) => block.span(),
             FallbackParam::Clone(span) => *span,
+            FallbackParam::AsRef(span) => *span,
         }
     }
 }
@@ -420,7 +424,8 @@ impl Parse for FallbackParam {
                     }
                 }
                 "cloned" => Ok(Self::Clone(ident.span())),
-                _ => Err(input.error("Expected `default` or `cloned`")),
+                "as_ref" => Ok(Self::AsRef(ident.span())),
+                _ => Err(input.error("Expected `default`, `cloned`, or `as_ref` keyword")),
             }
         }
         else {
@@ -433,10 +438,13 @@ impl Parse for FallbackParam {
 struct FallbackArg {
     method_name: syn::Ident,
     return_type: syn::Type,
-    as_ref:      bool,
-    as_ref_span: Option<proc_macro2::Span>,
+    is_ref:      bool,
+    ref_span:    Option<proc_macro2::Span>,
     params:      Vec<FallbackParam>,
     span:        proc_macro2::Span,
+    /// If this property is final its return type is `FXProp<T>` and never `Option<T>`. For now the final status is
+    /// defined by the implicity of the bool return type.
+    is_final:    bool,
 }
 
 impl Parse for FallbackArg {
@@ -456,17 +464,18 @@ impl Parse for FallbackArg {
             return Ok(Self {
                 method_name,
                 return_type: parse_quote! { bool },
-                as_ref: false,
-                as_ref_span: None,
+                is_ref: false,
+                ref_span: None,
                 params: vec![FallbackParam::Else(block)],
                 span,
+                is_final: true,
             });
         }
 
-        let mut as_ref_span = None;
-        let as_ref = if input.peek(syn::Token![&]) {
+        let mut ref_span = None;
+        let is_ref = if input.peek(syn::Token![&]) {
             let t: syn::Token![&] = input.parse()?;
-            as_ref_span = Some(t.span);
+            ref_span = Some(t.span);
             true
         }
         else {
@@ -491,10 +500,11 @@ impl Parse for FallbackArg {
         Ok(Self {
             method_name,
             return_type,
-            as_ref,
-            as_ref_span,
+            is_ref,
+            ref_span,
             params,
             span,
+            is_final: false,
         })
     }
 }
@@ -503,15 +513,10 @@ impl ToTokens for FallbackArg {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let span = self.span;
         let prop_name = &self.method_name;
-        let return_type = &self.return_type;
-        let (as_ref, deref) = if self.as_ref {
-            (quote_spanned![self.as_ref_span.unwrap_or(span)=> &], quote![])
-        }
-        else {
-            (quote![], quote_spanned![span=> *])
-        };
+        let mut return_type = self.return_type.to_token_stream();
         let mut or_else = None;
         let mut clone = None;
+        let mut as_ref = None;
 
         for param in self.params.iter() {
             let param_span = param.span();
@@ -525,14 +530,30 @@ impl ToTokens for FallbackArg {
                 FallbackParam::Clone(_) => {
                     clone = Some(quote_spanned! {param_span=> .cloned()});
                 }
+                FallbackParam::AsRef(_) => {
+                    as_ref = Some(quote_spanned! {param_span=> .as_ref()});
+                }
             }
         }
 
-        let ret_type = quote_spanned! {return_type.span()=> #as_ref FXProp<#return_type> };
+        let (ref_sym, deref) = if self.is_ref {
+            (quote_spanned![self.ref_span.unwrap_or(span)=> &], quote![])
+        }
+        else if as_ref.is_some() {
+            (quote![], quote![])
+        }
+        else {
+            (quote![], quote_spanned![span=> *])
+        };
+
+        if self.is_final {
+            return_type = quote_spanned! {return_type.span()=> FXProp<#return_type> };
+        }
+        return_type = quote_spanned! {return_type.span()=> #ref_sym #return_type };
 
         let tt = quote_spanned! {span=>
             #[inline]
-            pub fn #prop_name(&self) -> #ret_type {
+            pub fn #prop_name(&self) -> #return_type {
                 let field_props = self.field_props();
                 let arg_props = self.arg_props();
                 #deref self.#prop_name
@@ -542,7 +563,7 @@ impl ToTokens for FallbackArg {
                             #clone
                             .or_else(|| arg_props.#prop_name() #clone)
                             #or_else
-                    })
+                    }) #as_ref
             }
         };
         tokens.extend(tt);

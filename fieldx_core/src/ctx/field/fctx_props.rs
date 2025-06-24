@@ -135,18 +135,18 @@ where
     EXTRA: FXImplementationContext,
 {
     fallback_prop! {
-        accessor, bool, default {
+        accessor, FXProp<bool>, default {
             self.lazy()
         };
 
         accessor_mode,
-            &FXAccessorMode,
+            &FXProp<FXAccessorMode>,
             cloned, // Means that the value is cloned from the field or argument.
             default FXProp::new(FXAccessorMode::None, None);
 
         // Field is implicitly optional if either clearer or predicate are set, unless there is `lazy` which is then
         // taking over.
-        optional, bool, default {
+        optional, FXProp<bool>, default {
             if *self.lazy() {
                 false.into()
             }
@@ -161,7 +161,7 @@ where
             }
         };
 
-        lock, bool, default {
+        lock, FXProp<bool>, default {
             self.reader().or(self.writer()).or(
                 if *self.mode_sync() {
                     self.inner_mut()
