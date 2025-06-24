@@ -8,7 +8,7 @@
 
 [config]
     default_to_workspace = false
-    on_error_task        = "on_failure"
+    reduce_output = false
 
 [tasks.test]
     category     = "Test"
@@ -158,6 +158,21 @@ end
     run_task = "test-versions"
     script_runner = "@duckscript"
 
+[tasks.mdbook-serve]
+    command = "mdbook"
+    args = ["serve", "--open"]
+    cwd = "./fieldx/docs"
+
+[tasks.mdbook-doc-from-example]
+    cwd = "./fieldx/docs"
+    command = "/bin/sh"
+    args = ["-c", "./doc_sample.sh"]
+    watch = { watch = ["./fieldx/examples/book_doc.rs", "./fieldx/docs/doc_sample.sh"]  }
+
+[tasks.book-serve]
+    description = "Execute `mdbook serve`"
+    run_task = { name =["mdbook-serve", "mdbook-doc-from-example"], fork = true, parallel = true }
+
 [tasks.version-patch-bump]
     clear = true
     cwd = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}"
@@ -222,6 +237,7 @@ end
     script_runner = "@duckscript"
 
 [tasks.dockerize]
+    description = "Run the task ${__FIELDX_TASK__} in a docker container with toolchain ${__FIELDX_DEFAULT_TOOLCHAIN__}"
     script = '''
 if is_empty ${__FIELDX_TASK__}
     echo "Containerized task name is not set, __FIELDX_TASK__ is required"
@@ -234,27 +250,31 @@ temp_env = set "./docker/${__FIELDX_TASK__}-${__FIELDX_DEFAULT_TOOLCHAIN__}.env"
 writefile ${temp_env} "__FIELDX_MAKEFILE__=${makefile}\n__FIELDX_MAKE_PROFILE__=${CARGO_MAKE_PROFILE}\n"
 exec --fail-on-error sh -c "env | grep -E '^(CARGO_MAKE_|__FIELDX_|TRYBUILD)' >> ${temp_env}"
 
+exit_code = set 0
+
 if is_empty ${__FIELDX_DOCKER_LOG__}
-    exec --fail-on-error docker compose -f ./docker/compose.yml up --build --no-log-prefix --exit-code-from fieldx-make
+    exit_code = exec --get-exit-code docker compose -f ./docker/compose.yml up --build --no-log-prefix --exit-code-from fieldx-make
 else
-    exec --fail-on-error sh -c "docker compose -f ./docker/compose.yml up --build --no-log-prefix --exit-code-from fieldx-make >./docker/${__FIELDX_DOCKER_LOG__}.log 2>&1"
+    exit_code = exec --get-exit-code sh -c "docker compose -f ./docker/compose.yml up --build --no-log-prefix --exit-code-from fieldx-make >./docker/${__FIELDX_DOCKER_LOG__}.log 2>&1"
 end
-exec --fail-on-error docker compose -f ./docker/compose.yml down
+
+if not eq ${exit_code} 0
+    print -s bold -c bright_red "FAIL"
+    echo " - Task '${__FIELDX_TASK__}' with toolchain ${__FIELDX_DEFAULT_TOOLCHAIN__} failed; exit code ${exit_code}"
+    exit ${exit_code}
+end
+
+exit_code = exec --get-exit-code docker compose -f ./docker/compose.yml down
+
+if not eq ${exit_code} 0
+    print -s bold -c bright_red "FAIL"
+    echo " - Failed to `compose down` the docker container for task '${__FIELDX_TASK__}' with toolchain '${__FIELDX_DEFAULT_TOOLCHAIN__}'; exit code ${exit_code}"
+    exit ${exit_code}
+end
 
 rm -f ${temp_env}
 
 print -s bold -c bright_green "OK"
-echo " - Dockerized task '${__FIELDX_TASK__}' for ${__FIELDX_DEFAULT_TOOLCHAIN__} completed."
-'''
-    script_runner = "@duckscript"
-
-[tasks.on_failure]
-    description = "On failure task"
-    script = '''
-print -s bold -c bright_red "FAIL"
-print " - Task "
-print -s bold -s underline ${__FIELDX_TASK__}
-print " for "
-println -s underline ${__FIELDX_DEFAULT_TOOLCHAIN__}
+echo " - Dockerized task '${__FIELDX_TASK__}' with toolchain ${__FIELDX_DEFAULT_TOOLCHAIN__} completed."
 '''
     script_runner = "@duckscript"
