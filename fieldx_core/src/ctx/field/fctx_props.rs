@@ -171,7 +171,7 @@ where
                     self.inner_mut()
                 }
                 else {
-                    false.into()
+                    FXProp::new(false, *self.field_props.field().fieldx_attr_span())
                 }
             )
         };
@@ -424,22 +424,28 @@ where
             .as_ref()
     }
 
+    // To determine the final sync mode of the field, we take into consideration:
+    //
+    // 1. The field-level arguments by checking the field receiver's syncish status. This will give us dependency on the
+    //    field's sync, async, !plain, lock, reader, and writer arguments directly.
+    // 2. The same struct-level arguments. Note that we don't use the struct-level syncish because it relies on the sync
+    //    modes of the struct's fields.
     pub fn mode_sync(&self) -> FXProp<bool> {
         *self.mode_sync.get_or_init(|| {
             let field_props = self.field_props();
             field_props
                 .mode_sync()
-                .or_else(|| {
-                    // If either async or plain then not sync.
-                    field_props
-                        .mode_async()
-                        .as_ref()
-                        .or(field_props.mode_plain().as_ref())
-                        .not()
-                })
-                // If neither async nor plain then if lock is set
+                .or_else(|| field_props.mode_plain().not())
                 .or_else(|| field_props.lock())
-                .or_else(|| self.arg_props().mode_sync())
+                .or_else(|| field_props.reader().or(field_props.writer()))
+                .or_else(|| {
+                    let arg_props = self.arg_props();
+                    arg_props
+                        .mode_sync()
+                        .or_else(|| arg_props.mode_plain().not())
+                        .or_else(|| arg_props.lock())
+                        .or_else(|| arg_props.reader().or(arg_props.writer()))
+                })
                 .unwrap_or_else(|| FXProp::new(false, *self.field_props.field().fieldx_attr_span()))
         })
     }
@@ -464,25 +470,9 @@ where
 
     pub fn mode_plain(&self) -> FXProp<bool> {
         *self.mode_plain.get_or_init(|| {
-            let field_props = self.field_props();
-            field_props
+            self.field_props()
                 .mode_plain()
-                .or_else(|| {
-                    // If either sync or async then not plain.
-                    field_props
-                        .mode_sync()
-                        .as_ref()
-                        .or(field_props.lock().as_ref())
-                        .or(field_props.mode_async().as_ref())
-                        .not()
-                })
-                .or_else(|| {
-                    let arg_props = self.arg_props();
-                    arg_props
-                        .mode_plain()
-                        .or_else(|| arg_props.mode_sync().as_ref().or(arg_props.mode_async().as_ref()).not())
-                })
-                .unwrap_or_else(|| FXProp::new(true, *self.field_props.field().fieldx_attr_span()))
+                .unwrap_or_else(|| self.mode_sync().or(self.mode_async()).not())
         })
     }
 

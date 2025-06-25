@@ -449,7 +449,7 @@ where
     }
 
     // Try to infer which mode applies to the struct. If it is explicitly declared as "sync" or "async", there is no
-    // ambiguity.  Otherwise, check if any field explicitly requests sync mode.
+    // ambiguity. Otherwise, check if any field explicitly requests sync mode.
     pub fn syncish(&self) -> FXProp<bool> {
         *self.syncish.get_or_init(|| {
             self.mode_sync().unwrap_or_else(|| {

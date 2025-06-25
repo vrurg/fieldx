@@ -16,6 +16,7 @@ use fieldx_aux::FXFallible;
 use fieldx_aux::FXHelperTrait;
 use fieldx_aux::FXOrig;
 use fieldx_aux::FXProp;
+use fieldx_aux::FXPropBool;
 use fieldx_aux::FXSetState;
 use fieldx_aux::FXTrigger;
 use once_cell::unsync::OnceCell;
@@ -223,40 +224,18 @@ impl FXFieldProps {
 
     // Returns a true FXProp only if either `lock`, `writer`, or `reader` is set.
     // Otherwise, returns `None`.
+    //
+    // Note that this is a weak mode, meaning that it is inferred from the field's arguments only and doesn't take into
+    // account the struct-level. Consequently, its negative status doesn't mean that the final field mode is not sync.
     pub fn syncish(&self) -> FXProp<bool> {
         *self.syncish.get_or_init(|| {
-            self.source
-                .lock()
-                .as_ref()
-                .and_then(|l| {
-                    if *l.is_set() {
-                        Some(l.is_set())
-                    }
-                    else {
-                        None
-                    }
-                })
-                .or_else(|| {
-                    self.source.reader().as_ref().and_then(|r| {
-                        if *r.is_set() {
-                            Some(r.is_set())
-                        }
-                        else {
-                            None
-                        }
-                    })
-                })
-                .or_else(|| {
-                    self.source.writer().as_ref().and_then(|w| {
-                        if *w.is_set() {
-                            Some(w.is_set())
-                        }
-                        else {
-                            None
-                        }
-                    })
-                })
-                .unwrap_or_else(|| FXProp::new(false, None))
+            self.mode_sync()
+                .or(self.mode_async())
+                .or(self.mode_plain().not())
+                .or(self.lock())
+                .or(self.reader())
+                .or(self.writer())
+                .unwrap_or(FXProp::new(false, None))
         })
     }
 
