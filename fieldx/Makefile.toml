@@ -7,7 +7,7 @@
 
 echo Testing feature sets with toolchain '${__FIELDX_DEFAULT_TOOLCHAIN__}'
 
-features = array sync serde
+features = array sync serde clonable-lock
 feature_sets = generate_power_set ${features}
 
 for fs in ${feature_sets}
@@ -33,13 +33,13 @@ end
     run_task = "test-with-features"
 
 [tasks.test-with-features]
-    category    = "Test"
+    category = "Test"
     description = "Test code compilability with '${__FIELDX_FEATURE_SET__}' features"
-    script_runner = "@duckscript"
     script = '''
 exec --fail-on-error cargo +${__FIELDX_DEFAULT_TOOLCHAIN__} test --features ${__FIELDX_FEATURE_SET__}
 exec --fail-on-error cargo +${__FIELDX_DEFAULT_TOOLCHAIN__} test --features ${__FIELDX_FEATURE_SET__} --examples
 '''
+    script_runner = "@duckscript"
 
 # Compilation is useful for updating the error outputs per version+features
 [tasks.test-compilation]
@@ -52,7 +52,7 @@ exec --fail-on-error cargo +${__FIELDX_DEFAULT_TOOLCHAIN__} test --features ${__
 echo Testing compilability with toolchain '${__FIELDX_DEFAULT_TOOLCHAIN__}'
 cm_run_task compile-default-features
 
-features = array sync serde
+features = array sync serde clonable-lock
 feature_sets = generate_power_set ${features}
 
 for fs in ${feature_sets}
@@ -67,18 +67,18 @@ end
     toolchain = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
 [tasks.compile-default-features]
-    condition   = { env_not = { __FIELDX_DEFAULT_TOOLCHAIN__ = "nightly" } }
     args        = ["test", "--test", "compilation", "--", "--nocapture"]
     category    = "Test"
     command     = "cargo"
+    condition   = { env_not = { __FIELDX_DEFAULT_TOOLCHAIN__ = "nightly" } }
     description = "Test code compilability with default feature set"
     toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 
 [tasks.compile-with-features]
-    condition   = { env_not = { __FIELDX_DEFAULT_TOOLCHAIN__ = "nightly" } }
     args        = ["test", "--test", "compilation", "--features", "${__FIELDX_FEATURE_SET__}", "--", "--nocapture"]
     category    = "Test"
     command     = "cargo"
+    condition   = { env_not = { __FIELDX_DEFAULT_TOOLCHAIN__ = "nightly" } }
     description = "Test code compilability with '${__FIELDX_FEATURE_SET__}' features"
     toolchain   = "${__FIELDX_DEFAULT_TOOLCHAIN__}"
 

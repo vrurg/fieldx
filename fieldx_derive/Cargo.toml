@@ -45,3 +45,4 @@
     serde       = ["dep:serde", "fieldx_aux/serde", "fieldx_core/serde"]
     sync        = ["fieldx_core/sync"]
     tracing     = ["fieldx_core/tracing"]
+    clonable-lock = ["fieldx_core/clonable-lock"]

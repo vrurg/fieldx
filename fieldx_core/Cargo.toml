@@ -30,3 +30,4 @@
     serde       = []
     sync        = []
     tracing     = []
+    clonable-lock = []

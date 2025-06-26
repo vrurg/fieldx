@@ -1,0 +1,17 @@
+error: feature 'sync' is required
+ --> tests/uncompilable/private.rs
+  |
+  |     #[fxstruct(sync)]
+  |                ^^^^
+
+error[E0433]: failed to resolve: could not find `Inner` in `inner`
+ --> tests/uncompilable/private.rs
+  |
+  |     let inner = inner::Inner::new();
+  |                        ^^^^^ could not find `Inner` in `inner`
+
+error[E0412]: cannot find type `Inner` in this scope
+ --> tests/uncompilable/private.rs
+  |
+  |     impl Inner {
+  |          ^^^^^ not found in this scope

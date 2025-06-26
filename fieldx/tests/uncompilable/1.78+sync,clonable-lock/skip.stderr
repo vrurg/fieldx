@@ -1,0 +1,10 @@
+error[E0599]: no method named `bare_field` found for struct `Foo` in the current scope
+ --> tests/uncompilable/skip.rs
+  |
+  | struct Foo {
+  |        --- method `bare_field` not found for this struct
+...
+  |     println!("{:?}", foo.bare_field());
+  |                          ^^^^^^^^^^-- help: remove the arguments
+  |                          |
+  |                          field, not a method

@@ -1,3 +1,4 @@
+#[cfg(feature = "clonable-lock")]
 mod fxlock;
 mod fxproxy;
 
@@ -9,6 +10,7 @@ compile_error!(
 #[cfg(not(any(feature = "async-tokio", feature = "async-lock")))]
 compile_error!("Either `async-tokio` or `async-lock` feature must be enabled. Please, choose one of them.");
 
+#[cfg(feature = "clonable-lock")]
 pub use fxlock::FXRwLock;
 #[doc(hidden)]
 pub use fxproxy::FXBuilderFallible;

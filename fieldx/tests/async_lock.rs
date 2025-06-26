@@ -1,4 +1,4 @@
-#![cfg(feature = "async")]
+#![cfg(all(feature = "async", feature = "clonable-lock"))]
 use fieldx::r#async::FXRwLock;
 
 #[tokio::test]

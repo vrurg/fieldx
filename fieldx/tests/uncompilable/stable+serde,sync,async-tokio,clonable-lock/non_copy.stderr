@@ -1,0 +1,25 @@
+error[E0277]: the trait bound `String: Copy` is not satisfied
+ --> tests/uncompilable/non_copy.rs
+  |
+  |     foo: String,
+  |          ^^^^^^ the trait `Copy` is not implemented for `String`
+  |
+note: required by a bound in `__field_implements_copy`
+ --> tests/uncompilable/non_copy.rs
+  |
+  | #[fxstruct]
+  | ^^^^^^^^^^^ required by this bound in `__field_implements_copy`
+  = note: this error originates in the attribute macro `fxstruct` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0507]: cannot move out of `self.foo` which is behind a shared reference
+ --> tests/uncompilable/non_copy.rs
+  |
+  |       #[fieldx(copy, get, clearer)]
+  |  ____________________^
+  | |     foo: String,
+  | |_______^ move occurs because `self.foo` has type `Option<String>`, which does not implement the `Copy` trait
+  |
+help: consider cloning the value if the performance cost is acceptable
+  |
+6 |     foo.clone(): String,
+  |        ++++++++

@@ -48,9 +48,10 @@
     async-lock         = ["async", "async-lock-backend"]
     async-lock-backend = ["dep:async-lock", "fieldx_derive/async-lock"]
     async-tokio        = ["async", "tokio-backend"]
+    clonable-lock      = ["fieldx_derive/clonable-lock"]
     diagnostics        = ["fieldx_derive/diagnostics"]
     send_guard         = ["parking_lot/send_guard"]
-    serde              = ["fieldx_derive/serde", "parking_lot/serde", "dep:serde"]
+    serde              = ["clonable-lock", "fieldx_derive/serde", "parking_lot/serde", "dep:serde"]
     sync               = ["fieldx_derive/sync", "dep:parking_lot"]
     tokio-backend      = ["dep:tokio"]
 

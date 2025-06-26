@@ -87,8 +87,14 @@ where
         quote_spanned![span=> .await]
     }
 
+    #[cfg(feature = "clonable-lock")]
     fn rwlock(&self, span: Span) -> Result<TokenStream> {
         Ok(quote_spanned![span=> ::fieldx::r#async::FXRwLock])
+    }
+
+    #[cfg(not(feature = "clonable-lock"))]
+    fn rwlock(&self, span: Span) -> Result<TokenStream> {
+        Ok(quote_spanned![span=> ::fieldx::r#async::RwLock])
     }
 
     fn rwlock_read_guard(&self, span: Span) -> Result<TokenStream> {

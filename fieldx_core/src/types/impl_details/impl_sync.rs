@@ -67,8 +67,14 @@ where
         quote![]
     }
 
+    #[cfg(feature = "clonable-lock")]
     fn rwlock(&self, span: Span) -> Result<TokenStream> {
         Ok(quote_spanned![span=> ::fieldx::sync::FXRwLock])
+    }
+
+    #[cfg(not(feature = "clonable-lock"))]
+    fn rwlock(&self, span: Span) -> Result<TokenStream> {
+        Ok(quote_spanned![span=> ::fieldx::sync::RwLock])
     }
 
     fn rwlock_read_guard(&self, span: Span) -> Result<TokenStream> {

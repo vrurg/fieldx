@@ -10,10 +10,16 @@ error[E0412]: cannot find type `Foo` in this scope
   |     let _json = serde_json::from_str::<Foo>(r#"{"v": "whatever"}"#);
   |                                        ^^^ not found in this scope
 
-warning: unused imports: `Deserialize`, `Serialize`
+warning: unused import: `serde::Deserialize`
  --> tests/uncompilable/deserialize_off.rs
   |
-  | use serde::{Deserialize, Serialize};
-  |             ^^^^^^^^^^^  ^^^^^^^^^
+  | use serde::Deserialize;
+  |     ^^^^^^^^^^^^^^^^^^
   |
   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `serde::Serialize`
+ --> tests/uncompilable/deserialize_off.rs
+  |
+  | use serde::Serialize;
+  |     ^^^^^^^^^^^^^^^^

@@ -1,6 +1,8 @@
+#[cfg(feature = "clonable-lock")]
 pub mod fxlock;
 pub mod fxproxy;
 
+#[cfg(feature = "clonable-lock")]
 pub use fxlock::FXRwLock;
 #[doc(hidden)]
 pub use fxproxy::FXBuilderFallible;
@@ -15,6 +17,8 @@ pub use once_cell::sync::OnceCell;
 pub use parking_lot::MappedRwLockReadGuard;
 #[doc(hidden)]
 pub use parking_lot::MappedRwLockWriteGuard;
+#[cfg(not(feature = "clonable-lock"))]
+pub use parking_lot::RwLock;
 #[doc(hidden)]
 pub use parking_lot::RwLockReadGuard;
 #[doc(hidden)]
