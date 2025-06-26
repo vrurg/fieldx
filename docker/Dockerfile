@@ -6,11 +6,14 @@ WORKDIR /rust
 
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
+    TMPDIR=/usr/local/rustup/tmp \
     PATH=/usr/local/cargo/bin:$PATH
 
 RUN apt-get update && \
     apt-get install -y rsync && \
     rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /usr/local/rustup/tmp
 
 RUN (wget -O - https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain ${RUST_VERSION}) \
     && rustup default ${RUST_VERSION} \
