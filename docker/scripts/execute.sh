@@ -11,9 +11,3 @@ if [ $rc -ne 0 ]; then
     echo "Exiting with error code: $rc"
     exit $rc
 fi
-
-# If the original target is update-versions then updates the outputs of uncompilable tests
-if [ "${__FIELDX_TASK__}" = "test-compilation" -a "${TRYBUILD}" = "overwrite" ]; then
-    echo "Updating uncompilable tests outputs..."
-    rsync -av ./fieldx/tests/uncompilable/ /fieldx-host/tests/uncompilable/
-fi

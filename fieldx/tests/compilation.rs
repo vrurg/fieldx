@@ -10,20 +10,26 @@ use std::path::PathBuf;
 struct UncompEnv {
     // .0 is a path of .stderr under the version subdir, .1 is the one used for testing
     stderrs:     Vec<(PathBuf, PathBuf)>,
-    base_dir:    PathBuf,
+    // base_dir:    PathBuf, // Where we get the *.stderr from and where we return them back if requested
+    test_dir:    PathBuf, // Where we put the .stderr files for testing
     outputs_dir: PathBuf,
 }
 
 impl UncompEnv {
     fn new(subdir: &str) -> Self {
         let manifest_dir = env!("CARGO_MANIFEST_DIR").to_string();
-        let base_dir = PathBuf::from(format!("{manifest_dir}/tests/{subdir}"));
+        // Support for containerized tests where the entire source tree is copied into the container, but parts of
+        // the original source tree on the host are also accessible and referenced via the `__FIELDX_TESTS_DIR__`
+        // environment variable.
+        let root_dir = env::var("__FIELDX_TESTS_DIR__").unwrap_or(manifest_dir.clone());
+        let test_dir = PathBuf::from(format!("{manifest_dir}/tests/{subdir}"));
+        let base_dir = PathBuf::from(format!("{root_dir}/tests/{subdir}"));
         let outputs_dir = Self::outputs_dir(&base_dir).unwrap();
-        // stderrs.append(&mut Self::collect_stderrs(&outputs_dir));
         let mut me = Self {
             stderrs: Vec::new(),
-            base_dir,
+            // base_dir,
             outputs_dir,
+            test_dir,
         };
         me.collect_stderrs().unwrap();
         me
@@ -44,7 +50,7 @@ impl UncompEnv {
     fn copy_ok(from: &PathBuf, to: &PathBuf) -> bool {
         fs::copy(from, to).map_or_else(
             |err| {
-                eprintln!("!!! Failed to copy '{}' to '{}': {err}", from.display(), to.display());
+                eprintln!("!!! Failed to copy '{}' to '{}': {err:#}", from.display(), to.display());
                 false
             },
             |_| true,
@@ -62,7 +68,7 @@ impl UncompEnv {
     }
 
     fn collect_stderrs(&mut self) -> Result<(), io::Error> {
-        let dest_dir = &self.base_dir;
+        let dest_dir = &self.test_dir;
         let from_dir = &self.outputs_dir;
         let from_dir_display = from_dir.display();
 
@@ -79,8 +85,8 @@ impl UncompEnv {
             let fname = Self::stringify_fname(entry, from_dir);
 
             if fname.ends_with(".stderr") {
-                let dest_stderr = dest_dir.join(&fname);
                 let src_stderr = from_dir.join(&fname);
+                let dest_stderr = dest_dir.join(&fname);
                 eprintln!("+ {} -> {}", src_stderr.display(), dest_stderr.display());
                 let _ = Self::copy_ok(&src_stderr, &dest_stderr);
                 self.stderrs.push((src_stderr, dest_stderr));
@@ -144,6 +150,10 @@ impl UncompEnv {
             groups.push("async-tokio".into());
         }
 
+        if (cfg!(feature = "sync") || cfg!(feature = "async")) && cfg!(feature = "clonable-lock") {
+            groups.push("clonable-lock".into());
+        }
+
         #[cfg(feature = "diagnostics")]
         groups.push("diagnostics".into());
 
@@ -166,7 +176,7 @@ impl UncompEnv {
     }
 
     fn check_for_new(&self) -> Result<(), io::Error> {
-        let test_dir = PathBuf::from(&self.base_dir);
+        let test_dir = PathBuf::from(&self.test_dir);
         #[allow(clippy::expect_fun_call)]
         for entry in std::fs::read_dir(&test_dir).expect(&format!("Failed to read '{}' directory", test_dir.display()))
         {
@@ -217,7 +227,7 @@ fn failures() {
     {
         let test_env = UncompEnv::new("uncompilable");
         let t = trybuild::TestCases::new();
-        t.compile_fail(format!("{}/*.rs", test_env.base_dir.display()));
+        t.compile_fail(format!("{}/*.rs", test_env.test_dir.display()));
     }
 }
 

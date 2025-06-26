@@ -1,7 +1,6 @@
-// Make sure shadow struct is not produced if both serialize and deserialize arguments of struct `serde` argument are
-// disabled.
 use fieldx::fxstruct;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use serde_json;
 
 #[fxstruct(sync, serde(deserialize(off)))]

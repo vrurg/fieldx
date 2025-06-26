@@ -6,6 +6,8 @@ services:
     container_name: "fieldx-make-${__FIELDX_DEFAULT_TOOLCHAIN__:-nightly}"
     env_file:
       - ${__FIELDX_TASK__}-${__FIELDX_DEFAULT_TOOLCHAIN__}.env
+    environment:
+      - __FIELDX_TESTS_DIR__=/fieldx-host
     build:
       context: ..
       dockerfile: ./docker/Dockerfile
