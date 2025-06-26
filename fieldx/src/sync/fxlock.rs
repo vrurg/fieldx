@@ -6,8 +6,8 @@ use std::ops::Deref;
 
 /// Lock-protected container
 ///
-/// This is a wrapper around [`RwLock`] sync primitive. It provides safe means of cloning the lock
-/// and the data it protects. No other additional functionality is provided.
+/// This is a wrapper around the [`RwLock`] synchronization primitive. It provides a safe way to clone a lock
+/// and the data it protects, as well as compare two locked values. No additional functionality is provided.
 pub struct FXRwLock<T>(RwLock<T>);
 
 impl<T> FXRwLock<T> {
@@ -21,20 +21,6 @@ impl<T> FXRwLock<T> {
         self.0.into_inner()
     }
 }
-
-impl<T> PartialEq for FXRwLock<T>
-where
-    T: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        let myguard = self.0.read();
-        let otherguard = other.0.read();
-
-        myguard.eq(&otherguard)
-    }
-}
-
-impl<T> Eq for FXRwLock<T> where T: Eq {}
 
 impl<T> From<T> for FXRwLock<T> {
     fn from(value: T) -> Self {
