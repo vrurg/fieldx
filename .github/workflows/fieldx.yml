@@ -19,7 +19,6 @@ jobs:
         toolchain:
           - 1.78
           - stable
-          - beta
           - nightly
         feature:
           - "\"\""
