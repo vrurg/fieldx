@@ -1,4 +1,4 @@
-allow-branch = ["main", "!HEAD"]
+allow-branch = ["main", "v0.2", "!HEAD"]
 consolidate-commits = false
 dependent-version = "upgrade"
 enable-all-features = true
