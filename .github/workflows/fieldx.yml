@@ -22,6 +22,7 @@ jobs:
           - beta
           - nightly
         include:
+          - feature:
           - feature: async-tokio
           - feature: async-lock
           - feature: sync
@@ -44,50 +45,12 @@ jobs:
       - name: Show environment variables
         run: env
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo build --verbose --all --features ${{ matrix.feature }}
-      - run: cargo test --verbose --all --features ${{ matrix.feature }}
-      - run: cargo test --verbose --all --features ${{ matrix.feature }},send_guard
+      - run: cargo +${{ matrix.toolchain }} test --verbose --all --features ${{ matrix.feature }}
+      - run: cargo +${{ matrix.toolchain }} test --verbose --all --features ${{ matrix.feature }},send_guard
         if: matrix.feature == 'serde'
-  all_features:
-    runs-on: ${{ matrix.os }}-latest
-    strategy:
-      matrix:
-        os: [ubuntu, macos, windows]
-        toolchain:
-          - 1.78
-          - stable
-          - nightly
-    env:
-      __FIELDX_DEFAULT_TOOLCHAIN__: ${{ matrix.toolchain }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Show environment variables
-        run: env
-      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo build --verbose --all --features sync,async,serde,send_guard
-      - run: cargo test --verbose --all --features sync,async,serde,send_guard
-      - run: cargo test --verbose --all --features sync,async,serde
-  no_features:
-    runs-on: ${{ matrix.os }}-latest
-    strategy:
-      matrix:
-        os: [ubuntu, macos, windows]
-        toolchain:
-          - 1.78
-          - stable
-          - nightly
-    env:
-      __FIELDX_DEFAULT_TOOLCHAIN__: ${{ matrix.toolchain }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Show environment variables
-        run: env
-      - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo build --verbose --all
-      - name: Test all
-        env:
-          __FIELDX_DEFAULT_TOOLCHAIN__: ${{ matrix.toolchain }}
-        run: cargo test --verbose --all
+      - run: cargo +${{ matrix.toolchain }} test --verbose --all --examples --features ${{ matrix.feature }}
+      - run: cargo +${{ matrix.toolchain }} test --verbose --all --examples --features ${{ matrix.feature }},send_guard
+        if: matrix.feature == 'serde'
   build_docs:
     runs-on: ubuntu-latest
     steps:
