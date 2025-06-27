@@ -2,7 +2,7 @@
 mod fxlock;
 mod fxproxy;
 
-#[cfg(all(feature = "async-tokio", feature = "async-lock"))]
+#[cfg(all(feature = "async-tokio", feature = "async-lock", not(docsrs)))]
 compile_error!(
     "Both `async-tokio` and `async-lock` features cannot be enabled at the same time. Please, choose one of them."
 );
@@ -33,16 +33,16 @@ pub use tokio::sync::RwLockReadGuard;
 #[cfg_attr(feature = "async-tokio", doc(hidden))]
 pub use tokio::sync::RwLockWriteGuard;
 
-#[cfg(feature = "async-lock")]
+#[cfg(all(feature = "async-lock", not(docsrs)))]
 #[cfg_attr(feature = "async-lock", doc(hidden))]
 pub use async_lock::OnceCell;
-#[cfg(feature = "async-lock")]
+#[cfg(all(feature = "async-lock", not(docsrs)))]
 #[cfg_attr(feature = "async-lock", doc(hidden))]
 pub use async_lock::RwLock;
-#[cfg(feature = "async-lock")]
+#[cfg(all(feature = "async-lock", not(docsrs)))]
 #[cfg_attr(feature = "async-lock", doc(hidden))]
 pub use async_lock::RwLockReadGuard;
-#[cfg(feature = "async-lock")]
+#[cfg(all(feature = "async-lock", not(docsrs)))]
 #[cfg_attr(feature = "async-lock", doc(hidden))]
 pub use async_lock::RwLockWriteGuard;
 

@@ -22,7 +22,7 @@ type FXCallback<S, T> = Box<dyn Fn(&S) -> Pin<Box<dyn Future<Output = T> + Send 
 
 #[cfg(feature = "async-tokio")]
 type ReadOrInitGuard<'a, T> = tokio::sync::RwLockWriteGuard<'a, T>;
-#[cfg(feature = "async-lock")]
+#[cfg(all(feature = "async-lock", not(docsrs)))]
 type ReadOrInitGuard<'a, T> = async_lock::RwLockUpgradableReadGuard<'a, T>;
 
 #[doc(hidden)]
