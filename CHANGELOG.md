@@ -1,6 +1,73 @@
 # Changelog
 
-## [0.2.0-beta.1] - 2025-06-16
+## *<unreleased>*
+
+### Features
+
+- Allow optional alternative async-lock instead of tokio
+
+    It’s been long planned to relax the crate’s dependency on
+    `tokio`. You can now use the `async-lock` crate to implement `RwLock`
+    and `OnceCell`. This change also updates the feature flags: the `async`
+    feature must be paired with either `tokio-backend` or
+    `async-lock-backend`. Alternatively, enable async support and select an
+    implementation in one step with the umbrella flags `async-tokio` or
+    `async-lock`.
+
+    `tokio` remains in the requirements for tests.
+ 
+- Add support for `clonable-lock` feature flag
+
+    With this flag, `FXRwLock<T>` types from either `sync` or
+    `async` modules will be used instead of `RwLock<T>` from `parking_lot`,
+    `tokio`, or `async-lock` crates.
+ 
+
+### Bug Fixes
+
+- Don't use unsound mapped rwlock guards
+
+    Replace them with FXProxyReadGuard and FXProxyWriteGuard
+    wrappers.
+ 
+- Builder's `prefix` must be struct level only sub-argument 
+- `prefix` was disrespected for field builder method name 
+- Build Docker image for nightly Rust 
+- Sync mode is not set for a field when `lock` is used 
+
+### Refactor
+
+- ️‼️ **breaking** Get rid of Sync/Async suffixes in type names where possible
+
+    Use namespaces to address the types. I.e. `sync::FXProxy`,
+ 
+    - ⚠️  The last breaking change before the 0.2.0 release.
+
+### Documentation
+
+- Release the 'FieldX Object Manager' book 
+
+### Testing
+
+- Add some test descriptions 
+- Update compilation tests for changes in feature flags and MSRV 
+- Implement parallelized testing with Docker
+
+    `cargo make` targets `test-versions` and `update-versions`
+    are rather heavy both runtime- and space-wise. Now each version of Rust
+    toolchain we test for will be tests in its own Docker container and all
+    versions will be run in parallel.
+ 
+- Add examples to the testing 
+- Better support for containerization of update-versions target 
+
+### Maintenance
+
+- Bump MSRV to 1.78 
+- Another attempt to fix error reporting in the Makefile.toml 
+- Skip compilation tests for nightly at the earliest possible stage 
+
+## v0.2.0-beta.1 - 2025-06-16
 
 ### Documentation
 
@@ -10,7 +77,7 @@
 
 - Propagate reace condition fix from sync.rs test to sync_generics.rs 
 
-## [v0.1.19] - 2025-06-06
+## v0.1.19 - 2025-06-06
 
 ### Bug Fixes
 
@@ -23,11 +90,11 @@
 - Take care of new warnings from the nightly compiler 
 - One more location where the new lifetime warning springs up 
 
-## [v0.1.18] - 2025-06-06
+## v0.1.18 - 2025-06-06
 
 ### Features
 
-- [**breaking**] Getter is not give by default only with the `lazy` attribute 
+- ️‼️ **breaking** Getter is not give by default only with the `lazy` attribute 
     - ⚠️  The reasons why getter was given with `clearer`,
          `predicate`, and `inner_mut` are now less clear than they used to be.
          There is a good reason to get it with `lazy`: unless it combined with
@@ -56,7 +123,7 @@
 - Fix an autocompletion error 
 - Add notes on `lazy` enabling the accessor methods 
 
-## [v0.1.17] - 2025-06-01
+## v0.1.17 - 2025-06-01
 
 ### Features
 
@@ -97,7 +164,7 @@
     available via the `impl_ctx` field and corresponding method.
  
 
-## [v0.1.16] - 2025-04-30
+## v0.1.16 - 2025-04-30
 
 ### Features
 
@@ -121,7 +188,7 @@
 
 - Complete unfinished tests 
 
-## [v0.1.15] - 2025-04-23
+## v0.1.15 - 2025-04-23
 
 ### Features
 
@@ -139,13 +206,13 @@
 
 - Make clippy happy with its defaults 
 
-## [v0.1.14] - 2025-04-19
+## v0.1.14 - 2025-04-19
 
 ### Bug Fixes
 
 - Fix a regression that broke compatibility with fieldx_plus crate 
 
-## [v0.1.13] - 2025-04-18
+## v0.1.13 - 2025-04-18
 
 ### Features
 
@@ -197,7 +264,7 @@
 
 - Don't include release commit message in changelog 
 
-## [v0.1.12] - 2025-03-21
+## v0.1.12 - 2025-03-21
 
 ### Bug Fixes
 
@@ -207,7 +274,7 @@
 
 - Release fieldx version 0.1.12 
 
-## [v0.1.11] - 2025-03-21
+## v0.1.11 - 2025-03-21
 
 ### Features
 
@@ -244,7 +311,7 @@
 
 ### Refactor
 
-- [**breaking**] Improve how generated code is bound to the source
+- ️‼️ **breaking** Improve how generated code is bound to the source
 
     With this commit the following breaking changes are introduced:
  
@@ -268,7 +335,7 @@
 
 - Release fieldx version 0.1.11 
 
-## [fieldx-v0.1.10] - 2025-02-22
+## fieldx-v0.1.10 - 2025-02-22
 
 ### Features
 
@@ -279,7 +346,7 @@
 - Insufficiently strict handling of 'skip' 
 - Lazy fields picking up `optional` from struct level 
 
-## [fieldx-v0.1.9] - 2025-01-16
+## fieldx-v0.1.9 - 2025-01-16
 
 ### Features
 
@@ -297,7 +364,7 @@
 - Incorrect generic handling in Self fixup 
 - Sanitize the logic for choosing field concurrency mode 
 
-## [fieldx-v0.1.8] - 2024-12-05
+## fieldx-v0.1.8 - 2024-12-05
 
 ### Features
 
@@ -335,7 +402,7 @@
 
 - Format all sources 
 
-## [fieldx-v0.1.7] - 2024-11-22
+## fieldx-v0.1.7 - 2024-11-22
 
 ### Features
 
@@ -345,7 +412,7 @@
 
 - Document builder `init` argument 
 
-## [fieldx-v0.1.6] - 2024-10-19
+## fieldx-v0.1.6 - 2024-10-19
 
 ### Features
 
@@ -362,7 +429,7 @@
 
 - Release fieldx version 0.1.5 
 
-## [fieldx-v0.1.5] - 2024-10-03
+## fieldx-v0.1.5 - 2024-10-03
 
 ### Features
 
@@ -407,7 +474,7 @@
 - Release fieldx_derive version 0.1.5 
 - Release fieldx version 0.1.5 
 
-## [fieldx-v0.1.3] - 2024-08-02
+## fieldx-v0.1.3 - 2024-08-02
 
 ### Features
 
@@ -422,11 +489,11 @@
 
 - Release fieldx version 0.1.3 
 
-## [fieldx-v0.1.2] - 2024-06-19
+## fieldx-v0.1.2 - 2024-06-19
 
 ### Features
 
-- [**breaking**] Allow optional unlocked fields on sync structs 
+- ️‼️ **breaking** Allow optional unlocked fields on sync structs 
 - Add support for `attributes` and `attributes_impl` for `fxstruct` 
 
 ### Bug Fixes
@@ -458,11 +525,11 @@
 
 - Should've not use `publish` with `cargo release` 
 
-## [fieldx-v0.1.1] - 2024-06-02
+## fieldx-v0.1.1 - 2024-06-02
 
 ### Features
 
-- [**breaking**] Full support for accessors for sync structs and `lock` argument 
+- ️‼️ **breaking** Full support for accessors for sync structs and `lock` argument 
     - ⚠️  new accessors are incompatible with the previous approach
 
 ### Documentation
@@ -479,6 +546,6 @@
 - Fix generation of CHANGELOG by `cargo release` 
 - Use `cargo release` for the `publish` target 
 
-## [v0.1.0] - 2024-05-31
+## v0.1.0 - 2024-05-31
 
 <!-- generated by git-cliff -->
