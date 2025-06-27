@@ -54,7 +54,7 @@ jobs:
       matrix:
         os: [ubuntu, macos, windows]
         toolchain:
-          - 1.77
+          - 1.78
           - stable
           - nightly
     env:
@@ -73,7 +73,7 @@ jobs:
       matrix:
         os: [ubuntu, macos, windows]
         toolchain:
-          - 1.77
+          - 1.78
           - stable
           - nightly
     env:
