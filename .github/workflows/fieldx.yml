@@ -58,4 +58,7 @@ jobs:
       - run: rustup default nightly
       - run: cargo install cargo-docs-rs
       - run: cargo docs-rs -p fieldx
+      - run: cargo docs-rs -p fieldx_aux
+      - run: cargo docs-rs -p fieldx_core
+      - run: cargo docs-rs -p fieldx_derive
 
