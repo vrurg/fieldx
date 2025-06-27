@@ -1,0 +1,4 @@
+.markdownlint.json
+doctest_cache
+target-doc/
+book/

@@ -1,0 +1,21 @@
+/* :root {
+    --content-max-width: 1024px;
+} */
+
+@media (min-width: 1200px) {
+    :root {
+        --content-max-width: 1024px;
+    }
+}
+
+@media (max-width: 768px) {
+    :root {
+        --content-max-width: 90%;
+    }
+}
+
+@media (max-width: 480px) {
+    :root {
+        --content-max-width: 95%;
+    }
+}

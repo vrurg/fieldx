@@ -1,0 +1,77 @@
+[book]
+    authors  = ["Vadim Belman"]
+    language = "en"
+    src      = "src"
+    title    = "FieldX Object Manager"
+
+[rust]
+    edition = "2021"
+
+[preprocessor.keeper]
+    command      = "mdbook-keeper"
+    externs      = ["fieldx"]
+    manifest_dir = ".."
+
+[preprocessor.toc]
+    command = "mdbook-toc"
+
+[preprocessor.rustdoc-link]
+    # run after the built-in 'links' preprocessor
+    after          = ["links"]
+    cargo-features = ["sync", "async", "serde"]
+    manifest-dir   = ".."
+
+[preprocessor.indexing]
+    use_chapter_names = true
+
+[preprocessor.indexing.see_instead]
+    coercion   = "into"
+    conversion = "into"
+    helper     = "helper argument"
+    laziness   = "lazy field initialization"
+    off        = "argument disabler"
+    unsync     = "plain"
+
+[preprocessor.indexing.nest_under]
+    "`as_ref`"           = "accessor"
+    "`async-lock`"       = "feature flag"
+    "`async-tokio`"      = "feature flag"
+    "`clonable-lock`"    = "locks"
+    "`lock`"             = "locks"
+    "`mode`"             = "modes of operation"
+    "`reader`"           = "locks"
+    "`serde` argument"   = "serialization"
+    "`writer`"           = "locks"
+    "async"              = "modes of operation"
+    "builder type"       = "builder pattern"
+    "fallible builder"   = "lazy field initialization"
+    "field-level"        = "argument"
+    "immutable accessor" = "accessor"
+    "laziness protocol"  = "lazy field initialization"
+    "mutable accessor"   = "accessor"
+    "opt-in builder"     = "builder pattern"
+    "plain"              = "modes of operation"
+    "setter method"      = "builder pattern"
+    "shadow struct"      = "serialization"
+    "struct-level"       = "argument"
+    "sync"               = "modes of operation"
+    "unsync"             = "modes of operation"
+    "visibility level"   = "visibility"
+
+[preprocessor.admonish]
+    assets_version = "3.1.0"           # do not edit: managed by `mdbook-admonish install`
+    command        = "mdbook-admonish"
+
+[preprocessor.cmdrun]
+
+[output]
+
+[output.html]
+    additional-css = [
+        "./assets/css/mdbook-admonish.css",
+        "./assets/css/custom-variables.css",
+        "./assets/css/custom.css",
+    ]
+    site-url = "/fieldx/"
+
+[output.linkcheck]

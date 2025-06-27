@@ -8,7 +8,7 @@
 
 [config]
     default_to_workspace = false
-    reduce_output = false
+    reduce_output        = false
 
 [tasks.test]
     category     = "Test"
@@ -106,7 +106,7 @@ exec cargo install cargo-readme
     script_runner = "@duckscript"
 
 [tasks.docs]
-    args        = ["doc", "--workspace", "--all-features", "--no-deps"]
+    args        = ["doc", "--workspace", "--features", "async-tokio,sync,serde,clonable-lock", "--no-deps"]
     command     = "cargo"
     description = "Generate documentation"
 
@@ -159,19 +159,19 @@ end
     script_runner = "@duckscript"
 
 [tasks.mdbook-serve]
+    args    = ["serve", "--open"]
     command = "mdbook"
-    args = ["serve", "--open"]
-    cwd = "./fieldx/docs"
+    cwd     = "./fieldx/docs"
 
 [tasks.mdbook-doc-from-example]
-    cwd = "./fieldx/docs"
+    args    = ["-c", "./doc_sample.sh"]
     command = "/bin/sh"
-    args = ["-c", "./doc_sample.sh"]
-    watch = { watch = ["./fieldx/examples/book_doc.rs", "./fieldx/docs/doc_sample.sh"]  }
+    cwd     = "./fieldx/docs"
+    watch   = { watch = ["./fieldx/examples/book_doc.rs", "./fieldx/docs/doc_sample.sh"] }
 
 [tasks.book-serve]
     description = "Execute `mdbook serve`"
-    run_task = { name =["mdbook-serve", "mdbook-doc-from-example"], fork = true, parallel = true }
+    run_task    = { name = ["mdbook-serve", "mdbook-doc-from-example"], fork = true, parallel = true }
 
 [tasks.version-patch-bump]
     clear = true
