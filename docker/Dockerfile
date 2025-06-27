@@ -2,8 +2,6 @@ FROM buildpack-deps:bookworm AS fx-rust-base
 
 ARG RUST_VERSION
 
-WORKDIR /rust
-
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     TMPDIR=/usr/local/rustup/tmp \
