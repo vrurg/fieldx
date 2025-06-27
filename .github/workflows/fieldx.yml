@@ -41,6 +41,8 @@ jobs:
       __FIELDX_NO_UNCOMPILABLE__: ${{ matrix.toolchain == 'beta' && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+            fetch-depth: 0
       - name: Show environment variables
         run: env
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
@@ -54,6 +56,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - run: rustup default nightly
       - run: cargo install cargo-docs-rs
       - run: cargo docs-rs -p fieldx
