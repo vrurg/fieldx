@@ -239,7 +239,7 @@ dependencies = [
 
 [[package]]
 name = "fieldx"
-version = "0.2.0-beta.1"
+version = "0.2.0"
 dependencies = [
  "async-lock",
  "async-trait",
@@ -260,7 +260,7 @@ dependencies = [
 
 [[package]]
 name = "fieldx_aux"
-version = "0.2.0-beta.1"
+version = "0.2.0"
 dependencies = [
  "darling",
  "fieldx_derive_support",
@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "fieldx_core"
-version = "0.2.0-beta.1"
+version = "0.2.0"
 dependencies = [
  "darling",
  "delegate",
@@ -289,7 +289,7 @@ dependencies = [
 
 [[package]]
 name = "fieldx_derive"
-version = "0.2.0-beta.1"
+version = "0.2.0"
 dependencies = [
  "darling",
  "enum_dispatch",
@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "fieldx_derive_support"
-version = "0.2.0-beta.1"
+version = "0.2.0"
 dependencies = [
  "darling",
  "proc-macro2",
