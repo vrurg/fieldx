@@ -22,7 +22,7 @@ jobs:
           - beta
           - nightly
         feature:
-          - ""
+          - "\"\""
           - async-tokio
           - async-lock
           - sync
