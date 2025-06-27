@@ -10,7 +10,7 @@
     name                    = "fieldx_core"
     repository.workspace    = true
     rust-version.workspace  = true
-    version                 = "0.2.0-beta.1"
+    version                 = "0.2.0"
 
 [dependencies]
     darling               = { workspace = true, features = ["suggestions"] }
