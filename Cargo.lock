@@ -313,7 +313,7 @@ dependencies = [
 
 [[package]]
 name = "fieldx_derive_support"
-version = "0.2.1-beta.1"
+version = "0.2.1-beta.2"
 dependencies = [
  "darling",
  "proc-macro2",
