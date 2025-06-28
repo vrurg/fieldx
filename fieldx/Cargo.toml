@@ -4,7 +4,7 @@
     description             = "Procedural macro for constructing structs with lazily initialized fields, builder pattern, and serde support with a focus on declarative syntax."
     documentation.workspace = true
     edition.workspace       = true
-    exclude.workspace       = true
+    exclude                 = ["/docs", "/Makefile.toml", "/release.toml", "/examples"]
     homepage.workspace      = true
     keywords.workspace      = true
     license-file.workspace  = true
