@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/fieldx_core/0.2.0/")]
+#![doc(html_root_url = "https://docs.rs/fieldx_core/0.2.1/")]
 //! This crates implements basic elements of the core functionality of the FieldX. It can be used by 3rd-party crates
 //! to extend the FieldX functionality or implement their own proc-macros.
 //!
