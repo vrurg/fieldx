@@ -239,7 +239,7 @@ if eq ${reply} "y"
     if eq ${reply} "y"
         echo "Bumping the patch."
         exec --fail-on-error cargo release version patch --execute --no-confirm
-        exec --fail-on-error git add Cargo.toml */Cargo.toml
+        exec --fail-on-error git add Cargo.toml Cargo.lock */Cargo.toml
         exec --fail-on-error git commit -m "minor: version bump"
     end
 end
