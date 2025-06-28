@@ -5,6 +5,7 @@
     documentation.workspace = true
     edition.workspace       = true
     exclude.workspace       = true
+    homepage.workspace      = true
     keywords.workspace      = true
     license-file.workspace  = true
     name                    = "fieldx_derive"
@@ -39,10 +40,10 @@
     proc-macro = true
 
 [features]
-    async       = ["fieldx_core/async"]
-    async-lock  = []
-    diagnostics = ["darling/diagnostics"]
-    serde       = ["dep:serde", "fieldx_aux/serde", "fieldx_core/serde"]
-    sync        = ["fieldx_core/sync"]
-    tracing     = ["fieldx_core/tracing"]
+    async         = ["fieldx_core/async"]
+    async-lock    = []
     clonable-lock = ["fieldx_core/clonable-lock"]
+    diagnostics   = ["darling/diagnostics"]
+    serde         = ["dep:serde", "fieldx_aux/serde", "fieldx_core/serde"]
+    sync          = ["fieldx_core/sync"]
+    tracing       = ["fieldx_core/tracing"]

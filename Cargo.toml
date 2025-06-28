@@ -4,6 +4,7 @@
     documentation = "https://docs.rs/fieldx/latest"
     edition       = "2021"
     exclude       = ["Makefile.toml", "release.toml"]
+    homepage      = "https://vrurg.github.io/fieldx/"
     keywords      = ["lazy", "serde", "builder", "dependency-injection", "thread-safe"]
     license       = "BSD-3-Clause"
     license-file  = "LICENSE"

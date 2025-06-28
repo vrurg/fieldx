@@ -5,6 +5,7 @@
     documentation.workspace = true
     edition.workspace       = true
     exclude.workspace       = true
+    homepage.workspace      = true
     keywords.workspace      = true
     license-file.workspace  = true
     name                    = "fieldx_core"
@@ -25,9 +26,9 @@
     syn                   = { workspace = true, features = ["extra-traits", "parsing", "derive"] }
 
 [features]
-    async       = []
-    diagnostics = ["darling/diagnostics"]
-    serde       = []
-    sync        = []
-    tracing     = []
+    async         = []
     clonable-lock = []
+    diagnostics   = ["darling/diagnostics"]
+    serde         = []
+    sync          = []
+    tracing       = []
