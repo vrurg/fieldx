@@ -10,6 +10,7 @@
 
 - Add homepage to the cargo manifests 
 - Add dry run info to the publish question to user 
+- Try to only use specific publish feature set for fieldx package 
 
 ## v0.2.0 - 2025-06-27
 
