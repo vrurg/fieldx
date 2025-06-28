@@ -246,6 +246,7 @@ dependencies = [
  "cargo-toolchain",
  "crossbeam",
  "fieldx_aux",
+ "fieldx_core",
  "fieldx_derive",
  "num_cpus",
  "once_cell",

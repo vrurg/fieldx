@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/")]
+#![doc(html_root_url = "https://docs.rs/fieldx/latest/")]
 //! # FieldX
 //!
 //! `fieldx` is a declarative object orchestrator that streamlines object and dependency management. It supports:
@@ -108,8 +108,10 @@ pub mod plain;
 pub mod sync;
 pub mod traits;
 
+pub use fieldx_aux;
 #[doc(hidden)]
 pub use fieldx_aux::FXOrig;
+pub use fieldx_core;
 #[doc(inline)]
 pub use fieldx_derive::fxstruct;
 #[cfg(feature = "async")]
@@ -117,3 +119,8 @@ pub use fieldx_derive::fxstruct;
 pub use std::fmt;
 #[doc(hidden)]
 pub use std::sync::atomic::Ordering;
+
+#[cfg(feature = "async")]
+#[doc(hidden)]
+#[allow(unused_imports)]
+use r#async as doc_async;
