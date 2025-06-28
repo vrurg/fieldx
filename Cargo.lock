@@ -290,7 +290,7 @@ dependencies = [
 
 [[package]]
 name = "fieldx_derive"
-version = "0.2.0"
+version = "0.2.1-beta.1"
 dependencies = [
  "darling",
  "enum_dispatch",
