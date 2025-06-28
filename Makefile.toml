@@ -1,10 +1,14 @@
 
 [env]
     CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
-    __FIELDX_DEFAULT_TOOLCHAIN__         = { value = "nightly", condition = { env_not_set = ["__FIELDX_DEFAULT_TOOLCHAIN__"] } }
-    __FIELDX_PREV_RELEASE_TESTING__      = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.release-tested"
-    __FIELDX_TASK__                      = { value = "test", condition = { env_not_set = ["__FIELDX_TASK__"] } }
-    __FIELDX_TOOLCHAINS__                = "nightly stable 1.78"
+    __FIELDX_DEFAULT_TOOLCHAIN__ = { value = "nightly", condition = { env_not_set = ["__FIELDX_DEFAULT_TOOLCHAIN__"] } }
+    __FIELDX_PREV_RELEASE_TESTING__ = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/.release-tested"
+    __FIELDX_README_CRATE_ROOT__ = { value = "fieldx", condition = { env_not_set = ["__FIELDX_README_CRATE_ROOT__"] } }
+    __FIELDX_RELEASE_NOTES__ = { value = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/release_notes", condition = { env_not_set = [
+        "__FIELDX_RELEASE_NOTES__",
+    ] } }
+    __FIELDX_TASK__ = { value = "test", condition = { env_not_set = ["__FIELDX_TASK__"] } }
+    __FIELDX_TOOLCHAINS__ = { value = "nightly stable 1.78", condition = { env_not_set = ["__FIELDX_TOOLCHAINS__"] } }
 
 [config]
     default_to_workspace = false
@@ -123,7 +127,23 @@ writefile ./README.md ${readme_content.stdout}
     description = "Produce CHANGELOG.md"
     script = """
 cd ${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}
-exec --fail-on-error git cliff -o CHANGELOG.md --tag ${CARGO_RELEASE_VERSION}
+
+version_out = exec --fail-on-error cargo get package.version --entry ${__FIELDX_README_CRATE_ROOT__} --pretty
+version = trim ${version_out.stdout}
+if is_empty ${version}
+    stderr = set ""
+    if not is_empty ${version_out.stderr}
+        stderr = set "\\n${version_out.stderr}"
+    end
+    assert_error "Can't find out ${__FIELDX_README_CRATE_ROOT__} version.${stderr}"
+end
+
+if is_path_exists ${__FIELDX_RELEASE_NOTES__}
+    release_notes = readfile ${__FIELDX_RELEASE_NOTES__}
+    exec --fail-on-error git cliff -o CHANGELOG.md --tag ${version} --with-tag-message "${release_notes}"
+else
+    exec --fail-on-error git cliff -o CHANGELOG.md --tag ${version}
+end
 """
     script_runner = "@duckscript"
 
@@ -229,6 +249,11 @@ if eq ${reply} "y"
         exec --fail-on-error cargo release --no-confirm
     else
         exec --fail-on-error cargo release -x --no-confirm
+    end
+
+    # Only now when we finished publishing we can remove the release notes file
+    if is_path_exists ${__FIELDX_RELEASE_NOTES__}
+        rm ${__FIELDX_RELEASE_NOTES__}
     end
 else
     echo "Won't publish."

@@ -3,3 +3,4 @@ target/
 fieldx.code-workspace
 .cspell/
 .release-tested
+release_notes
