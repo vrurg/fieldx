@@ -1,6 +1,16 @@
 # Changelog
 
-## 0.2.1-beta.2 - 2025-06-28
+## v0.2.1-beta.2 - 2025-06-28
+
+### Documentation
+
+- Fix errors in the documentation 
+
+### Maintenance
+
+- Add homepage to the cargo manifests 
+
+## v0.2.0 - 2025-06-27
 
 ### Features
 
@@ -34,7 +44,6 @@
 - `prefix` was disrespected for field builder method name 
 - Build Docker image for nightly Rust 
 - Sync mode is not set for a field when `lock` is used 
-- Resolve a conflict when docs are generated for docs.rs 
 
 ### Refactor
 
@@ -47,7 +56,6 @@
 ### Documentation
 
 - Release the 'FieldX Object Manager' book 
-- Fix errors in the documentation 
 
 ### Testing
 
