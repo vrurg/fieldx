@@ -11,7 +11,7 @@
     name                    = "fieldx_derive_support"
     repository.workspace    = true
     rust-version.workspace  = true
-    version                 = "0.2.1-beta.2"
+    version                 = "0.2.1"
 
 [dependencies]
     darling     = { workspace = true, features = ["suggestions"] }
