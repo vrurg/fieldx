@@ -1,8 +1,7 @@
 allow-branch = ["main", "v0.2", "!HEAD"]
 consolidate-commits = false
 dependent-version = "upgrade"
-enable-all-features = false
-enable-features = ["sync", "async-tokio", "serde", "clonable-lock"]
+enable-all-features = true
 metadata = "optional"
 owners = []
 pre-release-commit-message = "Release {{crate_name}} version {{version}}"
