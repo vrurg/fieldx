@@ -8,6 +8,10 @@ use super::RwLock;
 ///
 /// This is a wrapper around the [`RwLock`] synchronization primitive. It provides a safe way to clone a lock
 /// and the data it protects, as well as compare two locked values. No additional functionality is provided.
+///
+/// **Note:** By default this documentation is built with the `async-tokio` feature enabled and thus links to the Tokio
+/// `RwLock` type. If you use the `async-lock` feature instead the final inner type of `FXRwLock` will be
+/// `async_lock::RwLock`.
 pub struct FXRwLock<T>(RwLock<T>);
 
 impl<T> FXRwLock<T> {

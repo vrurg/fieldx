@@ -1,7 +1,7 @@
 [workspace.package]
     authors       = ["Vadim Belman"]
     categories    = ["concurrency", "development-tools::procedural-macro-helpers", "rust-patterns"]
-    documentation = "https://docs.rs/fieldx"
+    documentation = "https://docs.rs/fieldx/latest"
     edition       = "2021"
     exclude       = ["Makefile.toml", "release.toml"]
     keywords      = ["lazy", "serde", "builder", "dependency-injection", "thread-safe"]

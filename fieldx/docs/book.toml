@@ -18,7 +18,7 @@
 [preprocessor.rustdoc-link]
     # run after the built-in 'links' preprocessor
     after          = ["links"]
-    cargo-features = ["sync", "async", "serde"]
+    cargo-features = ["sync", "async", "tokio-backend", "serde"]
     manifest-dir   = ".."
 
 [preprocessor.indexing]
@@ -37,13 +37,16 @@
     "`async-lock`"       = "feature flag"
     "`async-tokio`"      = "feature flag"
     "`clonable-lock`"    = "locks"
+    "`lazy`"             = "lazy field initialization"
     "`lock`"             = "locks"
     "`mode`"             = "modes of operation"
+    "`optional`"         = "optional values"
     "`reader`"           = "locks"
     "`serde` argument"   = "serialization"
     "`writer`"           = "locks"
     "async"              = "modes of operation"
     "builder type"       = "builder pattern"
+    "clearer"            = "optional values"
     "fallible builder"   = "lazy field initialization"
     "field-level"        = "argument"
     "immutable accessor" = "accessor"
@@ -51,6 +54,7 @@
     "mutable accessor"   = "accessor"
     "opt-in builder"     = "builder pattern"
     "plain"              = "modes of operation"
+    "predicate"          = "optional values"
     "setter method"      = "builder pattern"
     "shadow struct"      = "serialization"
     "struct-level"       = "argument"
