@@ -9,6 +9,7 @@
 ### Maintenance
 
 - Add homepage to the cargo manifests 
+- Add dry run info to the publish question to user 
 
 ## v0.2.0 - 2025-06-27
 

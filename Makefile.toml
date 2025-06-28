@@ -242,10 +242,10 @@ end
     script = '''
 !include_files makefile.ds
 
-dry_run_msg = ""
+dry_run_msg = set ""
 
 if ${DRY_RUN}
-    dry_run_msg = "(dry run)"
+    dry_run_msg = set "(dry run)"
 end
 
 reply = ask_user "Do you want to publish the crates? ${dry_run_msg}"
