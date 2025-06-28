@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/fieldx/latest/")]
+#![doc(html_root_url = "https://docs.rs/fieldx/0.2.0/")]
 //! # FieldX
 //!
 //! `fieldx` is a declarative object orchestrator that streamlines object and dependency management. It supports:
