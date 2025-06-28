@@ -1,5 +1,4 @@
 pre-release-hook = ['/bin/sh', '-c', '''
-set
 if [ "$CARGO_MAKE_TASK" != "publish" -a "$CARGO_MAKE_TASK" != "beta" ]; then
     echo "***ERROR*** Must be released with help of 'cargo make publish' in project workspace dir." 1>&2
     exit 1
