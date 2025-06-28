@@ -1,3 +1,4 @@
+<!-- markdownlint-disable-next-line MD041 -->
 [![License](https://img.shields.io/github/license/vrurg/fieldx)](https://github.com/vrurg/fieldx/blob/main/LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/fieldx_aux)](https://crates.io/crates/fieldx_aux)
 

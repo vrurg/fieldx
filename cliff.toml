@@ -31,6 +31,7 @@
 {% endfor %}\n
 """ # template for the changelog body    # changelog header
     header = """
+<!-- markdownlint-disable MD007 MD009 MD012 MD024 MD033 -->
 # Changelog\n
 """
     # https://keats.github.io/tera/docs/#introduction

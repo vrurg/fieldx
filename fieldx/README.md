@@ -1,3 +1,4 @@
+<!-- markdownlint-disable-next-line MD041 -->
 [![License](https://img.shields.io/github/license/vrurg/fieldx)](https://github.com/vrurg/fieldx/blob/main/LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/fieldx)](https://crates.io/crates/fieldx)
 
@@ -20,7 +21,7 @@ FieldX is a declarative object orchestrator that streamlines object and dependen
 - Generic structs
 - Visibility control for generated methods and helper structs
 
-### Quick Start
+## Quick Start
 
 Let's start with an example:
 
@@ -76,14 +77,14 @@ each `build_` method was invoked only once.
 It must be noticeable that a minimal amount of handcraft is needed here as most of the boilerplate is handled by the `fxstruct` attribute,
 which even provides a basic `new()` constructor for the struct.
 
-### Further Reading
+## Further Reading
 
 - The [FieldX Object Manager](https://vrurg.github.io/fieldx/) book.
 - Helper crates for 3rd-party extensions that are used by FieldX itself:
-  * [`fieldx_aux`](https://docs.rs/fieldx_aux) implements a set of types.
-  * [`fieldx_core`](https://docs.rs/fieldx_core) implements the core functionality of FieldX.
+  - [`fieldx_aux`](https://docs.rs/fieldx_aux) implements a set of types.
+  - [`fieldx_core`](https://docs.rs/fieldx_core) implements the core functionality of FieldX.
 
-### Feature Flags
+## Feature Flags
 
 The following feature flags are supported by this crate:
 
