@@ -54,7 +54,7 @@ jobs:
         uses: baptiste0928/cargo-install@v3
         with:
             crate: mdbook-cmdrun
-      - name: Build Book
+      - name: Build The Book
         run: |
           cd fieldx/docs
           mdbook build
