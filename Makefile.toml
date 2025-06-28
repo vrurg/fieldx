@@ -236,6 +236,11 @@ end
 '''
     script_runner = "@duckscript"
 
+[tasks.beta]
+    args        = ["release", "beta", "-x"]
+    command     = "cargo"
+    description = "Bump beta version"
+
 [tasks.dockerize]
     description = "Run the task ${__FIELDX_TASK__} in a docker container with toolchain ${__FIELDX_DEFAULT_TOOLCHAIN__}"
     script = '''
