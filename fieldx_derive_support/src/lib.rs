@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/fieldx_derive_support/")]
+#![doc(html_root_url = "https://docs.rs/fieldx_derive_support/0.2.0/")]
 //! # fieldx_derive_support
 //!
 //! This crate provides automations to simplify development of the `fieldx_aux` and `fieldx_derive` crates.

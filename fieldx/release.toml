@@ -15,5 +15,5 @@ fi
 ''']
 
 pre-release-replacements = [
-    { file = "src/lib.rs", search = "\\(doc\\s*html_root_url\\s*=\\.+fieldx\\/\\)\\d\\.+\\/\\\"", replace = "\\1{{version}}/\\\"" },
+    { file = "src/lib.rs", search = "(doc\\s*\\(html_root_url\\s*=\\s*\"https://docs.rs/.+?)/\\d+\\.\\d+\\.\\d.*/\"", replace = "$1/{{version}}/\"", prerelease = true },
 ]

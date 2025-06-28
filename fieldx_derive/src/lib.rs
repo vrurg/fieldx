@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/fieldx_derive/")]
+#![doc(html_root_url = "https://docs.rs/fieldx_derive/0.2.0/")]
 //! # fieldx_derive
 //!
 //! The core functionality of `fieldx`. This crate provides a procedural macro that implements code‐generation

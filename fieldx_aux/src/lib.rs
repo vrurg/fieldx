@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/fieldx_aux/")]
+#![doc(html_root_url = "https://docs.rs/fieldx_aux/0.2.0/")]
 //! # fieldx_aux
 //!
 //! Helper crate for [`fieldx`] and any third-party crates that extend its functionality.
