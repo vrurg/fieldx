@@ -36,13 +36,13 @@ pub use tokio::sync::RwLockWriteGuard;
 #[cfg(all(feature = "async-lock", not(docsrs)))]
 #[cfg_attr(feature = "async-lock", doc(hidden))]
 pub use async_lock::OnceCell;
-#[cfg(all(feature = "async-lock", not(docsrs)))]
+#[cfg(feature = "async-lock")]
 #[cfg_attr(feature = "async-lock", doc(hidden))]
 pub use async_lock::RwLock;
-#[cfg(all(feature = "async-lock", not(docsrs)))]
+#[cfg(feature = "async-lock")]
 #[cfg_attr(feature = "async-lock", doc(hidden))]
 pub use async_lock::RwLockReadGuard;
-#[cfg(all(feature = "async-lock", not(docsrs)))]
+#[cfg(feature = "async-lock")]
 #[cfg_attr(feature = "async-lock", doc(hidden))]
 pub use async_lock::RwLockWriteGuard;
 
