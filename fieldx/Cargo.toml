@@ -20,7 +20,6 @@
     async-lock    = { workspace = true, optional = true }
     async-trait   = { workspace = true, optional = true }
     fieldx_aux    = { workspace = true }
-    fieldx_core   = { workspace = true }
     fieldx_derive = { workspace = true, features = ["tracing"] }
     once_cell     = { workspace = true }
     parking_lot   = { workspace = true, optional = true }

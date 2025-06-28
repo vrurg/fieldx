@@ -108,10 +108,8 @@ pub mod plain;
 pub mod sync;
 pub mod traits;
 
-pub use fieldx_aux;
 #[doc(hidden)]
 pub use fieldx_aux::FXOrig;
-pub use fieldx_core;
 #[doc(inline)]
 pub use fieldx_derive::fxstruct;
 #[cfg(feature = "async")]
