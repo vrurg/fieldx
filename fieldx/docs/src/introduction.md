@@ -1,7 +1,7 @@
 <!-- markdownlint-disable MD033 MD041 -->
 <span style="float:right">
 <a href="https://github.com/vrurg/fieldx">
-    <img src="/img/github.svg" alt="GitHub">
+    <img src="./img/github.svg" alt="GitHub">
 </a>
 <a href="https://crates.io/crates/fieldx">
     <img src="https://img.shields.io/crates/v/fieldx.svg" alt="Crates.io">
