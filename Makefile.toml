@@ -115,10 +115,39 @@ exec cargo install cargo-readme
     description = "Generate documentation"
 
 [tasks.readme]
-    description = "Build documentation"
+    args = [
+        "readme",
+        "-r",
+        "${__FIELDX_WORKSPACE_PACKAGE__}",
+        "--template",
+        "${__FIELDX_README_TEMPLATE__}",
+        "--output",
+        "${__FIELDX_OUTPUT_README__}",
+    ]
+    command = "cargo"
+    description = "Build the ${__FIELDX_OUTPUT_README__}"
+    env = { __FIELDX_WORKSPACE_PACKAGE__ = { value = "fieldx", condition = { env_not_set = [
+        "__FIELDX_WORKSPACE_PACKAGE__",
+    ] } }, __FIELDX_README_TEMPLATE__ = { value = "../README.tpl", condition = { env_not_set = [
+        "__FIELDX_README_TEMPLATE__",
+    ] } }, __FIELDX_OUTPUT_README__ = { value = "../README.md", condition = { env_not_set = [
+        "__FIELDX_OUTPUT_README__",
+    ] } } }
+
+[tasks.readmes]
+    description = "Generate README files"
     script = '''
-readme_content = exec --fail-on-error cargo readme -r fieldx --template ../README.tpl
-writefile ./README.md ${readme_content.stdout}
+cm_run_task "readme"
+
+ws_members = exec --fail-on-error cargo get --delimiter " " workspace.members
+members = array %{ws_members.stdout}
+for member in ${members}
+    member = trim ${member}
+    set_env __FIELDX_WORKSPACE_PACKAGE__ ${member}
+    set_env __FIELDX_README_TEMPLATE__ "../README-package.tpl"
+    set_env __FIELDX_OUTPUT_README__ "./README.md"
+    cm_run_task "readme"
+end
 '''
     script_runner = "@duckscript"
 
@@ -220,7 +249,7 @@ end
 [tasks.post-doc]
     description = "Post-doc commit"
     script = '''
-exec --fail-on-error git add README.md CHANGELOG.md
+exec --fail-on-error git add README.md */README.md CHANGELOG.md
 diffed = exec git diff-index --exit-code --cached HEAD
 if not eq ${diffed.code} 0
     echo "Docs need committing."
@@ -232,7 +261,7 @@ end
 
 [tasks.pre-release]
     clear        = true
-    dependencies = ["is-clean", "release-testing", "version-patch-bump", "readme", "changelog", "post-doc"]
+    dependencies = ["is-clean", "release-testing", "version-patch-bump", "readmes", "changelog", "post-doc"]
     description  = "Pre-release tasks"
 
 [tasks.publish]

@@ -20,4 +20,5 @@
     syn         = { workspace = true, features = ["extra-traits", "parsing"] }
 
 [lib]
+    path       = "src/lib.rs"
     proc-macro = true
