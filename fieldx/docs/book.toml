@@ -18,6 +18,7 @@
 [preprocessor.rustdoc-link]
     # run after the built-in 'links' preprocessor
     after          = ["links"]
+    cache-dir      = "cache"
     cargo-features = ["sync", "async", "tokio-backend", "serde"]
     manifest-dir   = ".."
 
