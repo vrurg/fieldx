@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/fieldx_aux/0.2.0/")]
+#![doc(html_root_url = "https://docs.rs/fieldx_aux/0.2.1/")]
 //! Helper crate for [`fieldx`] and any third-party crates that extend its functionality.
 //!
 //! `fieldx` is heavily based on the [`darling`] crate, which greatly simplifies proc-macro development,
