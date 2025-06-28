@@ -77,7 +77,12 @@
 //! It must be noticeable that a minimal amount of handcraft is needed here as most of the boilerplate is handled by the `fxstruct` attribute,
 //! which even provides a basic `new()` constructor for the struct.
 //!
-//! Further information is provided in the [FieldX Object Manager](https://vrurg.github.io/fieldx/) book.
+//! ## Further Reading
+//!
+//! - The [FieldX Object Manager](https://vrurg.github.io/fieldx/) book.
+//! - Helper crates for 3rd-party extensions that are used by FieldX itself:
+//!   * [`fieldx_aux`](https://docs.rs/fieldx_aux) implements a set of types.
+//!   * [`fieldx_core`](https://docs.rs/fieldx_core) implements the core functionality of FieldX.
 //!
 //! ## Feature Flags
 //!
