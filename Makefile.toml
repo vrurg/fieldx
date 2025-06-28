@@ -237,7 +237,7 @@ end
     script_runner = "@duckscript"
 
 [tasks.beta]
-    args        = ["release", "beta", "-x"]
+    args        = ["release", "beta", "-x", "--no-publish"]
     command     = "cargo"
     description = "Bump beta version"
 
