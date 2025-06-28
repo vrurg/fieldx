@@ -241,7 +241,14 @@ end
     description = "Publish on crates.io"
     script = '''
 !include_files makefile.ds
-reply = ask_user "Do you want to publish the crates?"
+
+dry_run_msg = ""
+
+if ${DRY_RUN}
+    dry_run_msg = "(dry run)"
+end
+
+reply = ask_user "Do you want to publish the crates? ${dry_run_msg}"
 reply = lowercase ${reply}
 
 if eq ${reply} "y"
