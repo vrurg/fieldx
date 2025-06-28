@@ -13,6 +13,8 @@ RUN apt-get update && \
 
 RUN mkdir -p /usr/local/rustup/tmp
 
+WORKDIR /usr/local/rustup/tmp
+
 RUN (wget -O - https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain ${RUST_VERSION}) \
     && rustup default ${RUST_VERSION} \
     && cargo +stable install cargo-make
