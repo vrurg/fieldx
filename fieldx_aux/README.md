@@ -2,7 +2,7 @@
 [![License](https://img.shields.io/github/license/vrurg/fieldx)](https://github.com/vrurg/fieldx/blob/main/LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/fieldx_aux)](https://crates.io/crates/fieldx_aux)
 
-# fieldx_aux v0.2.1-beta.2
+# fieldx_aux v0.2.1
 
 Helper crate for [`fieldx`] and any third-party crates that extend its functionality.
 

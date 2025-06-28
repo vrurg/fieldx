@@ -1,10 +1,13 @@
+<!-- markdownlint-disable MD007 MD009 MD012 MD024 MD033 -->
 # Changelog
 
-## v0.2.1-beta.2 - 2025-06-28
+## v0.2.1 - 2025-06-28
 
 ### Documentation
 
 - Fix errors in the documentation 
+- Add the Further Reading section to the main page/README 
+- Give each workspace member its own README 
 
 ### Maintenance
 
