@@ -1,18 +1,21 @@
 <!-- markdownlint-disable MD033 MD041 -->
-<span style="float:right">
-<a href="https://github.com/vrurg/fieldx">
-    <img src="./img/github.svg" alt="GitHub">
-</a>
-<a href="https://crates.io/crates/fieldx">
-    <img src="https://img.shields.io/crates/v/fieldx.svg" alt="Crates.io">
-</a>
-<a href="https://docs.rs/fieldx/latest/fieldx/">
-    <img src="https://docs.rs/fieldx/badge.svg" alt="Docs.rs">
-</a>
-<a href="https://github.com/vrurg/fieldx/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/vrurg/fieldx" alt="License">
-</a>
-</span>
+<div style="width: 100%; text-align: right;">
+    <a href="https://github.com/vrurg/fieldx">
+        <img src="./img/github.svg" alt="GitHub">
+    </a>
+    <a href="https://crates.io/crates/fieldx">
+        <img src="https://img.shields.io/crates/v/fieldx.svg" alt="Crates.io">
+    </a>
+    <a href="https://docs.rs/fieldx/latest/fieldx/">
+        <img src="https://docs.rs/fieldx/badge.svg" alt="Docs.rs">
+    </a>
+    <a href="https://github.com/vrurg/fieldx/blob/main/LICENSE">
+        <img src="https://img.shields.io/github/license/vrurg/fieldx" alt="License">
+    </a>
+</div>
+<div style="float:right;">
+    <img src="./img/logo-transparent.png" style="width: 150px; height: auto;">
+</div>
 <!-- markdownlint-disable MD033 MD041 -->
 
 # Introduction
