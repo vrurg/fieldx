@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/fieldx_derive/0.2.1/")]
+#![doc(html_root_url = "https://docs.rs/fieldx_derive/0.3.0-beta.1/")]
 //! The core functionality of [FieldX](https://docs.rs/fieldx/latest/fieldx/). This crate provides the `fxstruct`
 //! procedural macro that implements the code‐generation logic.
 
