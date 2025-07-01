@@ -1,5 +1,6 @@
 #![doc(html_root_url = "https://docs.rs/fieldx_aux/0.2.1/")]
-//! Helper crate for [`fieldx`] and any third-party crates that extend its functionality.
+//! Helper crate for [`fieldx`] and any third-party crates that extend its functionality. Can be used either to extend
+//! FieldX functionality or to implement your own proc-macros.
 //!
 //! `fieldx` is heavily based on the [`darling`] crate, which greatly simplifies proc-macro development,
 //! but also imposes some constraints on attribute argument syntax. This crate overcomes these limitations
@@ -53,6 +54,8 @@
 //! ```
 //!
 //! That's all; this crate will take care of implementing the arguments for you!
+//!
+//! Read the [FieldX Object Manager](https://vrurg.github.io/fieldx/) book for more details on how to use this crate.
 //!
 //! [`fieldx`]: https://docs.rs/fieldx
 //! [`darling`]: https://docs.rs/darling
