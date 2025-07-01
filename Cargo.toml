@@ -27,7 +27,7 @@
     fieldx_aux            = { version = "0.2.1", path = "fieldx_aux" }
     fieldx_core           = { version = "0.2.1", path = "fieldx_core" }
     fieldx_derive         = { version = "0.2.1", path = "fieldx_derive" }
-    fieldx_derive_support = { version = "0.2.1", path = "fieldx_derive_support" }
+    fieldx_derive_support = { version = "0.3.0-beta.1", path = "fieldx_derive_support" }
     getset                = "0.1"
     num_cpus              = "1.16"
     once_cell             = "1.21"

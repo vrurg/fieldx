@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/fieldx_derive_support/0.2.1/")]
+#![doc(html_root_url = "https://docs.rs/fieldx_derive_support/0.3.0-beta.1/")]
 //! This crate provides automations to simplify development of the `fieldx_aux` and `fieldx_derive` crates.
 
 use std::collections::HashMap;
