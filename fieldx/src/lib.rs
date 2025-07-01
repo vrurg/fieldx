@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/fieldx/0.2.1/")]
+#![doc(html_root_url = "https://docs.rs/fieldx/0.3.0-beta.1/")]
 //! FieldX is a declarative object orchestrator that streamlines object and dependency management. It supports:
 //!
 //! - Lazy initialization of fields with builder methods that simplifies implicit dependency management
