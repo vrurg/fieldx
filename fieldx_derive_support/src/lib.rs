@@ -54,23 +54,28 @@ struct FXHelperStruct {
 /// This macro is used to generate helper structs. It adds the following fields to support related helper
 /// functionality:
 ///
-/// - **`off`** - a [`Flag`] that indicates if the helper is disabled.
+/// - **`off`** - a [`Flag`](https://docs.rs/darling/latest/darling/util/struct.Flag.html) that indicates if the helper is disabled.
 /// - **`name`** - an optional name for the helper. Particular use depends on the helper semantics.
 /// - **`attributes_fn`** - list of attributes to apply to the routines, generated in support of the helper-specified functionality.
-/// - **`visibility`** - the visibility of the helper-generated syntax elements. It is user-facing as `vis` helper argument.
-/// - **`private`** - a shortcut for `vis()` with `syn::Visibility::Inherited` what usually means "private".
+/// - **`visibility`** - the visibility of the helper-generated syntax elements. It is user-facing as the `vis` helper argument.
+/// - **`private`** - a shortcut for `vis()` with [`syn::Visibility::Inherited`], which usually means "private".
 /// - **`doc`** - provides a `doc` argument to add documentation to the helper.
 ///
 /// The macro takes the following arguments:
 ///
 /// - **`validate(<path>)`** - a function name to be called to validate the helper. It is expected to return `darling::Result<()>`.
-/// - **`to_tokens`** - if set then the helper will get auto-generated implementation of the `ToTokens` trait.
+/// - **`to_tokens`** - if set, the helper will get an auto-generated implementation of the `ToTokens` trait.
 ///
 /// A field-level attribute of the same name `fxhelper` is provided with the following arguments:
 ///
-/// - **`exclusive("exclusive group")`** - if two or more fields of the helper struct are mutually exclusive then then must
+/// - **`exclusive("exclusive group")`** - if two or more fields of the helper struct are mutually exclusive, they must
 ///   be marked with the same group name. This will cause a compile-time error if more than one of them is set.
 /// - **`rename("alias")`** - an alias for the field. This is used to generate the user-facing argument name.
+///
+/// **Note** that implementation of the `exclusives` involves two additional method implementations on for the struct:
+/// `validate_exclusives` and `__validate_helper`. The latter is then submitted to the `and_then` argument of the
+/// `darling` attribute. The functions are generated unconditionally because there is always at least one group of
+/// exclusive fields exists: "visibility" which contains `vis` and `private` fields.
 ///
 /// For example:
 ///
@@ -88,6 +93,11 @@ struct FXHelperStruct {
 ///     bar: Option<FXString>,
 /// }
 /// ```
+///
+/// The following traits are generated for the helper struct:
+///
+/// - **[`fieldx_aux::FXSetState`](https://docs.rs/fieldx_aux/latest/fieldx_aux/traits/trait.FXSetState.html)**
+/// - **[`fieldx_aux::FXHelperTrait`](https://docs.rs/fieldx_aux/latest/fieldx_aux/traits/trait.FXHelperTrait.html)**
 #[proc_macro_attribute]
 pub fn fxhelper(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let attr_args = match ast::NestedMeta::parse_meta_list(args.into()) {
