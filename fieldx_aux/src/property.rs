@@ -6,6 +6,22 @@ use proc_macro2::Span;
 use crate::FXSetState;
 use crate::FXSpaned;
 
+/// The purpose of properties in FieldX is to provide a value with its source represented by a span.
+///
+/// The intended use is to allow tracking the origin of a computed value no matter how many steps it has gone through.
+/// For example, a boolean that indicates whether or not we need to implement the `Default` trait for a struct can be
+/// sourced from:
+///
+/// 1. The explicit `default` argument at the struct level.
+/// 2. An explicit `default` argument of a field.
+/// 3. An explicit `default` sub-argument of a field `serde` argument.
+/// 4. A lazy attribute of a sync-mode field.
+/// 5. Disabled deserialization of a field while struct deserialization is enabled.
+///
+/// As you can see, knowing what span we need to attach to the implementation of the `Default` trait could be quite
+/// a non-trivial task! With `FXProp`, we can, say, just return a copy of a field `default` argument if it is set – and that's it,
+/// the span is preserved automatically. In slightly more complex cases, we may need to create a new `FXProp` but still
+/// only take the span from the original value we used for the new property.
 #[derive(Debug)]
 pub struct FXProp<T> {
     value: T,
@@ -13,23 +29,27 @@ pub struct FXProp<T> {
 }
 
 impl<T> FXProp<T> {
+    /// The constructor for `FXProp`.
     pub const fn new(value: T, span: Option<Span>) -> Self {
         Self { value, span }
     }
 
+    /// Accessor for the value of the property.
     pub fn value(&self) -> &T {
         &self.value
     }
 
+    /// Accessor for the orignal span of the property.
     pub fn orig_span(&self) -> Option<Span> {
         self.span
     }
 
+    /// Return the original span of the property if it is set. Otherwise, return the default `Span::call_site()`.
     pub fn final_span(&self) -> Span {
         self.span.unwrap_or_else(Span::call_site)
     }
 
-    // Set span if it is not already set. Doesn't overwrite existing span.
+    /// Set span if it is not already set and do nothing otherwise.
     pub fn respan(mut self, span: Option<Span>) -> Self {
         if span.is_some() && self.span.is_none() {
             self.span = span;
@@ -39,6 +59,7 @@ impl<T> FXProp<T> {
 }
 
 impl FXProp<bool> {
+    /// Wraps the property into `Some` if it is `true`, otherwise returns `None`.
     pub fn true_or_none(&self) -> Option<&Self> {
         if self.value {
             Some(self)
@@ -53,6 +74,7 @@ impl<T> FXProp<T>
 where
     T: FXSetState,
 {
+    /// Return the property itself if its value [`is_set`][FXSetState::is_set], otherwise returns the `other` property.
     pub fn or<'a>(&'a self, other: &'a FXProp<T>) -> &'a Self {
         if *self.is_set() {
             self
@@ -270,11 +292,17 @@ where
     }
 }
 
+/// Implement logical chaining of values. Though not hard limited to use with [`FXProp`] but the associated types are
+/// generally expected to be an `FXProp` throught FieldX codebase.
 pub trait FXPropBool {
+    /// The return type of the `or` method.
     type Or;
+    /// The return type of the `not` method.
     type Not;
 
+    /// Must return `self` if it is true-ish, otherwise return `other`.
     fn or(self, other: Self) -> Self::Or;
+    /// Must return a negated version of `self`.
     fn not(self) -> Self::Not;
 }
 
