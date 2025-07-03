@@ -474,8 +474,11 @@ where
                     let is_syncish = *self.syncish();
 
                     #[cfg(feature = "serde")]
-                    if self.serde_default_value().is_some() {
-                        return FXProp::new(true, self.serde_default_value().orig_span());
+                    {
+                        let has_default_value = self.serde_default_value().is_set();
+                        if *has_default_value {
+                            return has_default_value;
+                        }
                     }
 
                     #[cfg(feature = "serde")]
