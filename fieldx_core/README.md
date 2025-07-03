@@ -10,7 +10,6 @@ to extend the FieldX functionality or implement their own proc-macros.
 
 **Note:** Unfortunately, the lack of time doesn’t allow to properly document this crate. But the time will come for it!
 
-
 # License
 
 Licensed under [the BSD 3-Clause License](/LICENSE).

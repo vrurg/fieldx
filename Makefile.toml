@@ -127,6 +127,7 @@ exec cargo install cargo-readme
     ] } } }
     script = '''
 readme_l1 = exec --fail-on-error cargo doc2readme -o - -p ${__FIELDX_WORKSPACE_PACKAGE__} -t ${__FIELDX_README_L1_TEMPLATE__}
+readme_l1 = trim ${readme_l1.stdout}
 
 git_out = exec --fail-on-error git rev-parse --abbrev-ref HEAD
 branch = trim ${git_out.stdout}
@@ -135,7 +136,7 @@ git = map
 map_put ${git} branch ${branch}
 tpl = map
 map_put ${tpl} git ${git}
-map_put ${tpl} readme ${readme_l1.stdout}
+map_put ${tpl} readme ${readme_l1}
 context = json_encode --collection ${tpl}
 ctx_file = temp_file json
 writefile ${ctx_file} ${context}

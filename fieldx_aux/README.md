@@ -70,8 +70,6 @@ Read the [FieldX Object Manager][__link3] book for more details on how to use th
  [__link2]: https://docs.rs/darling/0.20.11/darling/?search=FromField
  [__link3]: https://vrurg.github.io/fieldx/
 
-
-
 # License
 
 Licensed under [the BSD 3-Clause License](/LICENSE).

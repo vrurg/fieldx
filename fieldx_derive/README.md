@@ -11,8 +11,6 @@ procedural macro that implements the code‐generation logic.
 
  [__link0]: https://docs.rs/fieldx/latest/fieldx/
 
-
-
 # License
 
 Licensed under [the BSD 3-Clause License](/LICENSE).

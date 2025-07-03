@@ -7,7 +7,6 @@
 
 This crate provides automations to simplify development of the `fieldx_aux` and `fieldx_derive` crates.
 
-
 # License
 
 Licensed under [the BSD 3-Clause License](/LICENSE).

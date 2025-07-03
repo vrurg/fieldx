@@ -112,8 +112,6 @@ at a time or FieldX will produce a compile-time error.
  [__link3]: more_on_locks.md
  [__link4]: https://crates.io/crates/parking_lot
 
-
-
 # License
 
 Licensed under [the BSD 3-Clause License](/LICENSE).
