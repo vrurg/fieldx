@@ -1,10 +1,12 @@
 <!-- markdownlint-disable-next-line MD041 -->
+[![Rust](https://github.com/vrurg/fieldx/actions/workflows/fieldx.yml/badge.svg?branch=v0.2)](https://github.com/vrurg/fieldx/actions/workflows/fieldx.yml)
 [![License](https://img.shields.io/github/license/vrurg/fieldx)](https://github.com/vrurg/fieldx/blob/main/LICENSE)
-[![Crates.io Version](https://img.shields.io/crates/v/fieldx_derive_support)](https://crates.io/crates/fieldx_derive_support)
+[![Crates.io Version](https://img.shields.io/crates/v/fieldx)](https://crates.io/crates/fieldx)
 
-# fieldx_derive_support v0.2.1
+# FieldX v0.2.1
 
 This crate provides automations to simplify development of the `fieldx_aux` and `fieldx_derive` crates.
+
 
 # License
 

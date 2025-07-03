@@ -115,37 +115,49 @@ exec cargo install cargo-readme
     description = "Generate documentation"
 
 [tasks.readme]
-    args = [
-        "readme",
-        "-r",
-        "${__FIELDX_WORKSPACE_PACKAGE__}",
-        "--template",
-        "${__FIELDX_README_TEMPLATE__}",
-        "--output",
-        "${__FIELDX_OUTPUT_README__}",
-    ]
-    command = "cargo"
     description = "Build the ${__FIELDX_OUTPUT_README__}"
     env = { __FIELDX_WORKSPACE_PACKAGE__ = { value = "fieldx", condition = { env_not_set = [
         "__FIELDX_WORKSPACE_PACKAGE__",
-    ] } }, __FIELDX_README_TEMPLATE__ = { value = "../README.tpl", condition = { env_not_set = [
-        "__FIELDX_README_TEMPLATE__",
-    ] } }, __FIELDX_OUTPUT_README__ = { value = "../README.md", condition = { env_not_set = [
+    ] } }, __FIELDX_README_L1_TEMPLATE__ = { value = "./README-L1.tpl", condition = { env_not_set = [
+        "__FIELDX_README_L1_TEMPLATE__",
+    ] } }, __FIELDX_README_L2_TEMPLATE__ = { value = "./README-L2.tpl", condition = { env_not_set = [
+        "__FIELDX_README_L2_TEMPLATE__",
+    ] } }, __FIELDX_OUTPUT_README__ = { value = "./README.md", condition = { env_not_set = [
         "__FIELDX_OUTPUT_README__",
     ] } } }
+    script = '''
+readme_l1 = exec --fail-on-error cargo doc2readme -o - -p ${__FIELDX_WORKSPACE_PACKAGE__} -t ${__FIELDX_README_L1_TEMPLATE__}
+
+git_out = exec --fail-on-error git rev-parse --abbrev-ref HEAD
+branch = trim ${git_out.stdout}
+
+git = map
+map_put ${git} branch ${branch}
+tpl = map
+map_put ${tpl} git ${git}
+map_put ${tpl} readme ${readme_l1.stdout}
+context = json_encode --collection ${tpl}
+ctx_file = temp_file json
+writefile ${ctx_file} ${context}
+exec --fail-on-error minijinja-cli -f json -o ${__FIELDX_OUTPUT_README__} ${__FIELDX_README_L2_TEMPLATE__} ${ctx_file}
+'''
+    script_runner = "@duckscript"
 
 [tasks.readmes]
     description = "Generate README files"
     script = '''
 cm_run_task "readme"
 
-ws_members = exec --fail-on-error cargo get --delimiter " " workspace.members
-members = array %{ws_members.stdout}
-for member in ${members}
-    member = trim ${member}
+ws_out = exec cargo workspaces list --json
+workspaces = json_parse ${ws_out.stdout}
+ws_range = range 0 ${workspaces.length}
+for idx in  ${ws_range}
+    member = get_by_name workspaces[${idx}].name
+    member_path = get_by_name workspaces[${idx}].location
     set_env __FIELDX_WORKSPACE_PACKAGE__ ${member}
-    set_env __FIELDX_README_TEMPLATE__ "../README-package.tpl"
-    set_env __FIELDX_OUTPUT_README__ "./README.md"
+    set_env __FIELDX_README_L1_TEMPLATE__ "./README-L1.tpl"
+    set_env __FIELDX_README_L2_TEMPLATE__ "./README-L2.tpl"
+    set_env __FIELDX_OUTPUT_README__ "${member_path}/README.md"
     cm_run_task "readme"
 end
 '''
