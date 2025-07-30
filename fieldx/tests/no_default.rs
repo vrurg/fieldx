@@ -11,6 +11,25 @@ impl From<&str> for Bar {
     }
 }
 
+// This is a compilation test to ensure that the struct doesn't need to implement the `Default` trait.
+#[cfg(feature = "sync")]
+#[allow(dead_code)]
+#[fxstruct(sync, new(off))]
+struct Foo {
+    bar: Bar,
+
+    #[fieldx(lazy, get(off))]
+    val: i32,
+}
+
+#[allow(dead_code)]
+#[cfg(feature = "sync")]
+impl Foo {
+    fn build_val(&self) -> i32 {
+        -42
+    }
+}
+
 #[fxstruct(get(vis(pub)), builder, new(off))]
 struct Plain {
     #[fieldx(set)]
