@@ -60,7 +60,6 @@ pub(crate) trait FXCodeGenContextual {
     fn field_predicate(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
     fn field_lazy_builder_wrapper(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<Option<FXFnConstructor>>;
     fn field_value_wrap(&self, fctx: &FXDeriveFieldCtx, value: FXValueRepr<FXToksMeta>) -> darling::Result<FXToksMeta>;
-    fn field_default_wrap(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta>;
     fn field_lazy_initializer(
         &self,
         fctx: &FXDeriveFieldCtx,
@@ -255,7 +254,7 @@ pub(crate) trait FXCodeGenContextual {
     }
 
     fn field_default_value(&self, fctx: &FXDeriveFieldCtx) -> FXValueRepr<FXToksMeta> {
-        if let Some(default_value) = fctx.default_value() {
+        (if let Some(default_value) = fctx.default_value() {
             FXValueRepr::Versatile(FXToksMeta::new(
                 default_value.to_token_stream(),
                 super::FXValueFlag::UserDefault,
@@ -267,7 +266,15 @@ pub(crate) trait FXCodeGenContextual {
         else {
             let span = fctx.ident().span();
             FXValueRepr::Exact(std_default_expr_toks(span))
-        }
+        })
+        .map(|dv| {
+            let dv_toks = dv.to_token_stream();
+            dv.replace(self.fixup_self_type(dv_toks))
+        })
+    }
+
+    fn field_default_wrap(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
+        self.field_value_wrap(fctx, self.field_default_value(fctx))
     }
 
     fn accessor_elements(&self, fctx: &FXDeriveFieldCtx) -> FXAccessorElements {
