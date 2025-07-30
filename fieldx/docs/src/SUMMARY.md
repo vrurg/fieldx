@@ -31,9 +31,16 @@
   - [Generated Entity Attributes](./basics/generated_entity_attributes.md)
   - [Documentation](./basics/documentation.md)
   - [Serialization](./basics/serialization.md)
+
 - [More On Locks](./more_on_locks.md)
 - [Lock'n'Lazy](./lock_n_lazy.md)
 - [Inner Workings](./inner_workings.md)
+- [FieldX Auxiliary Crate](./fieldx_aux.md)
+  - [Properties](./fieldx_aux/properties.md)
+  - [Traits](./fieldx_aux/traits.md)
+  - [Nesting](./fieldx_aux/nesting.md)
+  - [Helpers](./fieldx_aux/helpers.md)
+- [FieldX Core](./fieldx_core.md)
 - [Feature Flags](./feature_flags.md)
 
 - [Index](./indexing.md)

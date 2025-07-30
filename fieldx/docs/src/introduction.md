@@ -14,7 +14,7 @@
     </a>
 </div>
 <div style="float:right;">
-    <img src="./img/logo-transparent.png" style="width: 150px; height: auto;">
+    <img src="./img/logo-transparent.png" alt="FieldX logo" style="width: 150px; height: auto;">
 </div>
 <!-- markdownlint-disable MD033 MD041 -->
 

@@ -1,8 +1,8 @@
 # Terminology
 
-## Attribute Arguments{{hi:argument}} and Sub-Arguments{{hi:sub-argument}}
+## Attribute Arguments{{hi:argument}} and Sub-Arguments{{hi:sub-argument}} {#arguments}
 
-FieldX adopts a function-like syntax for specifying struct parameters through attributes. These parameters are referred to as _arguments_. Some arguments may require further customization, in which case they also take a function-like form and are referred to as _sub-arguments_.
+FieldX adopts a {{i:function-like}} syntax for specifying struct parameters through attributes. These parameters are referred to as _arguments_. Some arguments may require further customization, in which case they also take a function-like form and are referred to as _sub-arguments_.
 
 This design choice supports deep nesting of parameters. For example:
 

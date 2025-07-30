@@ -55,7 +55,7 @@
 //!
 //! That's all; this crate will take care of implementing the arguments for you!
 //!
-//! Read the [FieldX Object Manager](https://vrurg.github.io/fieldx/) book for more details on how to use this crate.
+//! Read the [FieldX Object Manager](https://vrurg.github.io/fieldx/) book for the introduction on how to use this crate.
 //!
 //! [`fieldx`]: https://docs.rs/fieldx
 //! [`darling`]: https://docs.rs/darling

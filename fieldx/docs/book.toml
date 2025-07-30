@@ -9,7 +9,7 @@
 
 [preprocessor.keeper]
     command      = "mdbook-keeper"
-    externs      = ["fieldx"]
+    externs      = ["fieldx", "proc-macro2", "quote", "syn"]
     manifest_dir = ".."
 
 [preprocessor.toc]
@@ -50,6 +50,7 @@
     "clearer"            = "optional values"
     "fallible builder"   = "lazy field initialization"
     "field-level"        = "argument"
+    "function-like"      = "argument"
     "immutable accessor" = "accessor"
     "laziness protocol"  = "lazy field initialization"
     "mutable accessor"   = "accessor"
@@ -62,7 +63,6 @@
     "sync"               = "modes of operation"
     "unsync"             = "modes of operation"
     "visibility level"   = "visibility"
-
 [preprocessor.admonish]
     assets_version = "3.1.0"           # do not edit: managed by `mdbook-admonish install`
     command        = "mdbook-admonish"
