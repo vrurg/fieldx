@@ -1,6 +1,12 @@
 <!-- markdownlint-disable MD007 MD009 MD012 MD024 MD033 -->
 # Changelog
 
+## v0.2.3 - 2025-07-30
+
+### Bug Fixes
+
+- `Default` forced by sync lazy fields 
+
 ## v0.2.2 - 2025-07-30
 
 ### Bug Fixes
