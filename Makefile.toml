@@ -343,7 +343,7 @@ if not eq ${exit_code} 0
     exit ${exit_code}
 end
 
-exit_code = exec --get-exit-code docker compose -f ./docker/compose.yml down
+exit_code = exec --get-exit-code docker compose -f ./docker/compose.yml down --rmi all
 
 if not eq ${exit_code} 0
     print -s bold -c bright_red "FAIL"
