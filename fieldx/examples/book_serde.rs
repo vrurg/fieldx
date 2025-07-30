@@ -61,12 +61,13 @@ assert_eq!(*deserialized.location(), "Shelf 42");
 }
 
 #[cfg(feature = "serde")]
-    #[rustfmt::skip]
+#[rustfmt::skip]
 mod defaults {
     use fieldx::fxstruct;
     use serde::Deserialize;
     use serde::Serialize;
 
+#[allow(dead_code)]
 // ANCHOR: defaults_decl
 #[derive(Clone)]
 #[fxstruct(get, serde)]
