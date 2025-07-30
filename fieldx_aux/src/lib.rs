@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/fieldx_aux/0.2.1/")]
+#![doc(html_root_url = "https://docs.rs/fieldx_aux/0.2.2/")]
 //! Helper crate for [`fieldx`] and any third-party crates that extend its functionality. Can be used either to extend
 //! FieldX functionality or to implement your own proc-macros.
 //!
