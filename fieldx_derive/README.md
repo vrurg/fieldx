@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/github/license/vrurg/fieldx)](https://github.com/vrurg/fieldx/blob/main/LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/fieldx)](https://crates.io/crates/fieldx)
 
-# FieldX v0.2.1
+# FieldX v0.2.2
 
 The core functionality of [FieldX][__link0]. This crate provides the `fxstruct`
 procedural macro that implements the code‐generation logic.

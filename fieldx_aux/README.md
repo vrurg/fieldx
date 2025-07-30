@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/github/license/vrurg/fieldx)](https://github.com/vrurg/fieldx/blob/main/LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/fieldx)](https://crates.io/crates/fieldx)
 
-# FieldX v0.2.1
+# FieldX v0.2.2
 
 Helper crate for [`fieldx`][__link0] and any third-party crates that extend its functionality. Can be used either to extend
 FieldX functionality or to implement your own proc-macros.
@@ -61,10 +61,10 @@ struct FooField {
 
 That’s all; this crate will take care of implementing the arguments for you!
 
-Read the [FieldX Object Manager][__link3] book for more details on how to use this crate.
+Read the [FieldX Object Manager][__link3] book for the introduction on how to use this crate.
 
 
- [__cargo_doc2readme_dependencies_info]: ggGkYW0CYXSEGwRoBq6PUYV7GzX-0tnRIVJvG-1wwfgZ7UMfG7mqB6miVhFIYXKEG5vrXMml2IPGG3uhsRWqCstKG73GlMjap6bYG1-imR4k2pzZYWSBgmdkYXJsaW5nZzAuMjAuMTE
+ [__cargo_doc2readme_dependencies_info]: ggGkYW0CYXSEGwRoBq6PUYV7GzX-0tnRIVJvG-1wwfgZ7UMfG7mqB6miVhFIYXKEG3JmiHDdW3wRG7yzs4IyekmMG2xUHDvHaqRyG2ONnT6pIwiZYWSBgmdkYXJsaW5nZzAuMjAuMTE
  [__link0]: https://docs.rs/fieldx
  [__link1]: https://docs.rs/darling
  [__link2]: https://docs.rs/darling/0.20.11/darling/?search=FromField

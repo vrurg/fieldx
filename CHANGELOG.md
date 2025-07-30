@@ -1,6 +1,32 @@
 <!-- markdownlint-disable MD007 MD009 MD012 MD024 MD033 -->
 # Changelog
 
+## v0.2.2 - 2025-07-30
+
+### Bug Fixes
+
+- Incorrect check for field serde's default value 
+- Span of 'no Default trait implemented' error 
+- Use of `Self` in default values
+
+    default values referencing `Self` in non-lazy fields
+    for structs with builders was causing a compile error.
+ 
+
+### Documentation
+
+- Add logo to the book 
+- Provide more details for the `fxhelper` attribute macro 
+- Document the `FXProp` type 
+- Started documenting fieldx_aux and fieldx_core in the book
+
+    Work in progress. Unlikely to be finished soon.
+ 
+
+### Testing
+
+- Update uncompilable outputs 
+
 ## v0.2.1 - 2025-06-28
 
 ### Documentation

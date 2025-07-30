@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/github/license/vrurg/fieldx)](https://github.com/vrurg/fieldx/blob/main/LICENSE)
 [![Crates.io Version](https://img.shields.io/crates/v/fieldx)](https://crates.io/crates/fieldx)
 
-# FieldX v0.2.1
+# FieldX v0.2.2
 
 This crates implements basic elements of the core functionality of the FieldX. It can be used by 3rd-party crates
 to extend the FieldX functionality or implement their own proc-macros.
