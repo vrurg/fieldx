@@ -3,27 +3,3 @@ error: feature 'sync' is required
   |
   |     #[fxstruct(sync)]
   |                ^^^^
-
-error[E0433]: failed to resolve: could not find `Inner` in `inner`
- --> tests/uncompilable/private.rs
-  |
-  |     let inner = inner::Inner::new();
-  |                        ^^^^^ could not find `Inner` in `inner`
-  |
-help: there is an enum variant `syn::AttrStyle::Inner`; try using the variant's enum
-  |
-18 -     let inner = inner::Inner::new();
-18 +     let inner = syn::AttrStyle::new();
-   |
-
-error[E0412]: cannot find type `Inner` in this scope
- --> tests/uncompilable/private.rs
-  |
-  |     impl Inner {
-  |          ^^^^^ not found in this scope
-  |
-help: there is an enum variant `syn::AttrStyle::Inner`; try using the variant's enum
-  |
-10 -     impl Inner {
-10 +     impl syn::AttrStyle {
-   |
