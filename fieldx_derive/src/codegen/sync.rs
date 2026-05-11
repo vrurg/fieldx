@@ -425,15 +425,12 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         let default_value = self.field_default_value(fctx);
         let lazy_builder = fctx.impl_details().lazy_builder(fctx);
         let or_default = if fctx.has_default_value() {
-            let default = self.fixup_self_type(
-                default_value
-                    .clone()
-                    .expect(&format!(
-                        "Internal problem: expected default value for field {field_ident}"
-                    ))
-                    .into_inner(),
-            );
-
+            let default = default_value.clone().ok_or_else(|| {
+                darling::Error::custom(format!(
+                    "Internal problem: expected default value for field {field_ident}"
+                ))
+                .with_span(&span)
+            })?;
             let opt_or_lazy = optional.or(lazy);
             if *opt_or_lazy {
                 quote_spanned! [opt_or_lazy.final_span()=> .or_else(|| ::std::option::Option::Some(#default))]
@@ -449,11 +446,11 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
         Ok(if !*builder {
             // Though this branch may look weird, it makes sense if the builder struct is requested implicitly by
             // using a `builder` argument with a field attribute.
-            let default = self.field_value_wrap(fctx, default_value)?;
-            let attributes = default.attributes.clone();
+            let field_default = self.field_value_wrap(fctx, default_value)?;
+            let attributes = field_default.attributes.clone();
             quote_spanned![span=>
                 #( #attributes )*
-                #field_ident: #default
+                #field_ident: #field_default
             ]
         }
         else if *lazy {
@@ -797,9 +794,5 @@ impl<'a> FXCodeGenContextual for FXCodeGenSync<'a> {
                 value_wrapper
             }
         })
-    }
-
-    fn field_default_wrap(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
-        self.field_value_wrap(fctx, self.field_default_value(fctx))
     }
 }

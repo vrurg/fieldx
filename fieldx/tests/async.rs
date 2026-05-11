@@ -30,6 +30,9 @@ pub struct Foo {
 
     #[fieldx(writer, get(copy), get_mut, default(54321))]
     can_copy: i32,
+
+    #[fieldx(inner_mut, get_mut, get(copy))]
+    mutable: i32,
 }
 
 impl Foo {
@@ -115,6 +118,9 @@ async fn non_threaded() {
     assert_eq!(foo_async.can_copy().await, 54321, "can_copy is 54321");
     *foo_async.write_can_copy().await = 12345;
     assert_eq!(foo_async.can_copy().await, 12345, "can_copy is 12345");
+
+    *foo_async.mutable_mut().await = 42;
+    assert_eq!(foo_async.mutable().await, 42, "mutable is 42");
 }
 
 #[tokio::test]

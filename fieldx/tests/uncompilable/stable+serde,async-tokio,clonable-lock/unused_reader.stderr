@@ -3,9 +3,3 @@ error: feature 'sync' is required
   |
   | #[fxstruct(sync)]
   |            ^^^^
-
-error[E0412]: cannot find type `TT` in this scope
- --> tests/uncompilable/unused_reader.rs
-  |
-  | impl TT {
-  |      ^^ not found in this scope

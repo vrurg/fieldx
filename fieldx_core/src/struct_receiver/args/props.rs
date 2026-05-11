@@ -471,11 +471,12 @@ where
         *self.needs_default.get_or_init(|| {
             self.source.default().as_ref().map_or_else(
                 || {
-                    let is_syncish = *self.syncish();
-
                     #[cfg(feature = "serde")]
-                    if self.serde_default_value().is_some() {
-                        return FXProp::new(true, self.serde_default_value().orig_span());
+                    {
+                        let has_default_value = self.serde_default_value().is_set();
+                        if *has_default_value {
+                            return has_default_value;
+                        }
                     }
 
                     #[cfg(feature = "serde")]
@@ -485,10 +486,6 @@ where
                         let has_default = fctx.props().field_props().has_default();
                         if *has_default {
                             return Some(has_default);
-                        }
-                        let lazy = fctx.lazy();
-                        if is_syncish && *lazy {
-                            return Some(lazy);
                         }
                         #[cfg(feature = "serde")]
                         {

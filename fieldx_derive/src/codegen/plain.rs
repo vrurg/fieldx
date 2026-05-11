@@ -326,7 +326,11 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
         let implementor = fctx.impl_details();
 
         Ok(if !*builder {
-            quote_spanned![span=> #field_ident: #field_default]
+            let attributes = field_default.attributes.clone();
+            quote_spanned![span=>
+                #( #attributes )*
+                #field_ident: #field_default
+            ]
         }
         else {
             let lazy = fctx.lazy();
@@ -559,16 +563,6 @@ impl<'a> FXCodeGenContextual for FXCodeGenPlain<'a> {
                 }
             }
         })
-    }
-
-    fn field_default_wrap(&self, fctx: &FXDeriveFieldCtx) -> darling::Result<FXToksMeta> {
-        self.field_value_wrap(
-            fctx,
-            self.field_default_value(fctx).map(|dv| {
-                let dv_toks = dv.to_token_stream();
-                dv.replace(self.fixup_self_type(dv_toks))
-            }),
-        )
     }
 
     // Reader/writer make no sense for non-sync. Hence do nothing.

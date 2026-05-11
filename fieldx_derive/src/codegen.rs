@@ -50,13 +50,20 @@ impl<T> FXValueRepr<T> {
         matches!(self, FXValueRepr::None)
     }
 
-    pub(crate) fn expect(self, msg: &str) -> T {
+    pub(crate) fn ok_or_else(self, default_fn: impl FnOnce() -> darling::Error) -> darling::Result<T> {
         match self {
-            FXValueRepr::None => panic!("{}", msg),
-            FXValueRepr::Exact(v) => v,
-            FXValueRepr::Versatile(v) => v,
+            FXValueRepr::None => Err(default_fn()),
+            FXValueRepr::Exact(v) | FXValueRepr::Versatile(v) => Ok(v),
         }
     }
+
+    // pub(crate) fn expect(self, msg: &str) -> T {
+    //     match self {
+    //         FXValueRepr::None => panic!("{}", msg),
+    //         FXValueRepr::Exact(v) => v,
+    //         FXValueRepr::Versatile(v) => v,
+    //     }
+    // }
 
     // #[cfg(feature = "serde")]
     // pub(crate) fn unwrap_or(self, default: T) -> T {

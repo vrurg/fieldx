@@ -32,4 +32,4 @@ error[E0277]: the `?` operator can only be applied to values that implement `Try
   | | struct Bar {
   | |__________^ the `?` operator cannot be applied to type `()`
   |
-  = help: the trait `Try` is not implemented for `()`
+  = help: the nightly-only, unstable trait `Try` is not implemented for `()`

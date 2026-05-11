@@ -167,7 +167,7 @@ where
 
         lock, FXProp<bool>, default {
             self.reader().or(self.writer()).or(
-                if *self.mode_sync() {
+                if *self.mode_sync() || *self.mode_async() {
                     self.inner_mut()
                 }
                 else {
